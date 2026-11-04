@@ -1,6 +1,7 @@
 #pragma once
 #include "pch.h"
 #include "MainPage.h"
+#include "SystemIntegrationIdentity.h"
 
 namespace winrt::RadeonTuner::implementation
 {
@@ -21,6 +22,12 @@ namespace winrt::RadeonTuner::implementation
 			if (CloseTray.has_value())
 			{
 				toggleswitch_Close_Tray().IsOn(CloseTray.value());
+			}
+
+			std::optional<bool> HideTrayIcon = AppVariables::Settings.Load<bool>("HideTrayIcon");
+			if (HideTrayIcon.has_value())
+			{
+				toggleswitch_Hide_Tray_Icon().IsOn(HideTrayIcon.value());
 			}
 
 			std::optional<bool> StartWindowVisible = AppVariables::Settings.Load<bool>("StartWindowVisible");
@@ -60,16 +67,16 @@ namespace winrt::RadeonTuner::implementation
 				toggleswitch_ThemeIconMono().IsOn(ThemeIconMono.value());
 			}
 
-			//Check startup shortcut
-			bool startupShortcut = StartupShortcutCheck(L"RadeonTuner", StartupShortcutType::Startup);
+			//Check startup shortcut, using this build's independent identity
+			bool startupShortcut = StartupShortcutCheck(RadeonTunerSystemIntegration::ApplicationName, StartupShortcutType::Startup);
 			toggleswitch_Shortcut_Startup().IsOn(startupShortcut);
 
-			//Check start menu shortcut
-			bool startMenuShortcut = StartupShortcutCheck(L"RadeonTuner", StartupShortcutType::StartMenu);
+			//Check start menu shortcut, using this build's independent identity
+			bool startMenuShortcut = StartupShortcutCheck(RadeonTunerSystemIntegration::ApplicationName, StartupShortcutType::StartMenu);
 			toggleswitch_Shortcut_StartMenu().IsOn(startMenuShortcut);
 
-			//Check context menu shortcut
-			bool contextShortcut = RegistryCheck(HKEY_ENUM::CLASSES_ROOT, L"Directory\\background\\shell\\RadeonTuner");
+			//Check context menu shortcut, never the original RadeonTuner key
+			bool contextShortcut = RegistryCheck(HKEY_ENUM::CLASSES_ROOT, std::wstring(L"Directory\\background\\shell\\") + RadeonTunerSystemIntegration::ContextMenuKey);
 			toggleswitch_Shortcut_ContextMenu().IsOn(contextShortcut);
 
 			//Fix validate shortcut paths if directory moved

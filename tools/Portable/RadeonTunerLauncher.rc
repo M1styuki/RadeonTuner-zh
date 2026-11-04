@@ -1,0 +1,42 @@
+#include <windows.h>
+#include <winres.h>
+
+#define IDR_PAYLOAD 101
+#define IDI_LAUNCHER 102
+
+IDI_LAUNCHER ICON "launcher.ico"
+IDR_PAYLOAD RCDATA "payload.cab"
+1 RT_MANIFEST "launcher.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 0,60,0,0
+PRODUCTVERSION 0,60,0,0
+FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+FILEFLAGS VS_FF_DEBUG
+#else
+FILEFLAGS 0x0L
+#endif
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE 0x0L
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "000004B0"
+		BEGIN
+			VALUE "CompanyName", "Arnold Vink"
+			VALUE "FileDescription", "RadeonTuner single-file launcher"
+			VALUE "FileVersion", "0.60.0.0"
+			VALUE "InternalName", "RadeonTunerLauncher"
+			VALUE "LegalCopyright", "Copyright (C) Arnold Vink"
+			VALUE "OriginalFilename", "RadeonTuner-zh-CN.exe"
+			VALUE "ProductName", "RadeonTuner"
+			VALUE "ProductVersion", "0.60.0.0"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x0, 1200
+	END
+END

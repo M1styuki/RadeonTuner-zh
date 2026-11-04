@@ -2,34 +2,14 @@
 #include "pch.h"
 #include "AppVariables.h"
 #include "SettingCheck.h"
-
-void ShowProcessMainWindow(std::vector<AVProcess> processList)
-{
-	try
-	{
-		//Get current process identifier
-		DWORD currentProcessId = GetCurrentProcessId();
-
-		for (AVProcess process : processList)
-		{
-			try
-			{
-				//Fix does not work when process is running as administrator, add pipe or socket workaround?
-
-				//Check process identifier
-				if (currentProcessId == process.Identifier())
-				{
-					continue;
-				}
-
-				//Show process window
-				Show_ProcessByWindowHandle(process.WindowHandleMain(false));
-			}
-			catch (...) {}
-		}
-	}
-	catch (...) {}
-}
+#include "SingleInstanceRecall.h"
+#ifdef RADEONTUNER_UI_VALIDATION
+#if __has_include("..\tools\UiValidation\UiValidationEntry.h")
+#include "..\tools\UiValidation\UiValidationEntry.h"
+#else
+#include "..\..\RadeonTuner\tools\UiValidation\UiValidationEntry.h"
+#endif
+#endif
 
 void CheckFileAttributes()
 {
@@ -55,6 +35,9 @@ void CheckFileAttributes()
 
 int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
 {
+#ifdef RADEONTUNER_UI_VALIDATION
+	return RadeonTunerUiValidation::UiValidationMain(hInstance, pCmdLine);
+#else
 	try
 	{
 		//Convert command line to string
@@ -91,7 +74,7 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		CheckFileAttributes();
 
 		//Enable debug logging
-		if (wstring_contains(commandLineString, L"-debug"))
+		if (commandLineString.find(L"-debug") != std::wstring::npos)
 		{
 			std::wstring debugLogPath = PathMerge(AppVariables::SaveDataPath, L"Debug.log");
 			FileDelete(debugLogPath);
@@ -101,13 +84,20 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 		AVDebugWriteLine("Welcome to RadeonTuner.");
 
-		//Check if process is already running
-		std::vector<AVProcess> processList = Get_ProcessByName(L"RadeonTuner.exe", true);
-		if (processList.size() > 1)
+		//Check if this executable is already running
+		//Note: only match the full executable path, another RadeonTuner.exe from a different folder is not this application
+		std::wstring currentExecutablePath = PathGetAppExecutable();
+		if (!currentExecutablePath.empty())
 		{
-			AVDebugWriteLine("Application is already running, exiting and showing window.");
-			ShowProcessMainWindow(processList);
-			return 0;
+			if (RadeonTunerSingleInstance::RecallExistingInstance(currentExecutablePath))
+			{
+				AVDebugWriteLine("Application is already running, exiting and showing window.");
+				return 0;
+			}
+		}
+		else
+		{
+			AVDebugWriteLine("Could not determine own executable path, skipping single instance match.");
 		}
 
 		//Set instance handle
@@ -161,4 +151,5 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		AVDebugWriteLine("Failed creating application window (Exception)");
 		return -1;
 	}
+#endif
 }

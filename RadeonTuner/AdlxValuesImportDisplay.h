@@ -10,12 +10,12 @@ namespace winrt::RadeonTuner::implementation
 		try
 		{
 			//Show file dialog
-			std::wstring importPath = filepicker_open(NULL, L"Import display settings...", { { L"Setting files", L"*.radd" } });
+			std::wstring importPath = filepicker_open(NULL, L"导入显示设置……", { { L"设置文件", L"*.radd" } });
 
 			//Check file path
 			if (importPath.empty())
 			{
-				ShowNotification(L"Display not imported, no path set");
+				ShowNotification(L"未导入显示设置，未指定路径");
 				AVDebugWriteLine(L"Display not imported, no path set");
 				co_return;
 			}
@@ -33,13 +33,13 @@ namespace winrt::RadeonTuner::implementation
 				if (device_id_import_w != device_id_current_w)
 				{
 					//Show messagebox
-					int messageResult = co_await ShowMessageBox(L"Display does not match", L"Display settings do not match your selected display, continue import?", { L"Yes", L"No" });
+					int messageResult = co_await ShowMessageBox(L"显示器不匹配", L"显示设置与所选显示器不匹配，是否继续导入？", { L"是", L"否" });
 
 					//Check messagebox result
 					if (messageResult == 1)
 					{
 						//Set result
-						ShowNotification(L"Display does not match");
+						ShowNotification(L"显示器不匹配");
 						AVDebugWriteLine(L"Display does not match");
 						co_return;
 					}
@@ -50,13 +50,13 @@ namespace winrt::RadeonTuner::implementation
 			DisplaySettings_Convert_ToUI_Profile(displaySettings, AdlSettingGet::Current);
 
 			//Set result
-			ShowNotification(L"Display settings imported");
+			ShowNotification(L"显示设置已导入");
 			AVDebugWriteLine(L"Display settings imported");
 		}
 		catch (...)
 		{
 			//Set result
-			ShowNotification(L"Display not imported, exception");
+			ShowNotification(L"未导入显示设置（异常）");
 			AVDebugWriteLine(L"Display not imported, exception");
 		}
 	}

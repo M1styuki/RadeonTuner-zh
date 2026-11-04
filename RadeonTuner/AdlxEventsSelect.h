@@ -21,7 +21,7 @@ namespace winrt::RadeonTuner::implementation
 			}
 
 			//Show selection prompt
-			int messageResult = co_await ShowMessageBox(L"Select graphics card", L"Select the graphics card you want to adjust.", messageAnswers);
+			int messageResult = co_await ShowMessageBox(L"选择显卡", L"选择要调整的显卡。", messageAnswers);
 
 			//Get selected GPU
 			AdapterInfo adapterInfo = listGpus[messageResult];
@@ -50,7 +50,7 @@ namespace winrt::RadeonTuner::implementation
 			}
 
 			//Show selection prompt
-			int messageResult = co_await ShowMessageBox(L"Select display", L"Select the display you want to adjust.", messageAnswers);
+			int messageResult = co_await ShowMessageBox(L"选择显示器", L"选择要调整的显示器。", messageAnswers);
 
 			//Get selected display
 			ADLDisplayInfo displayInfo = displayList[messageResult];
@@ -72,13 +72,13 @@ namespace winrt::RadeonTuner::implementation
 			std::vector<std::wstring> messageAnswers = GraphicsSettings_Profile_GetAllApps(adl_Gpu_DeviceIdentifier);
 
 			//Add global application
-			messageAnswers.insert(messageAnswers.begin(), L"Global");
+			messageAnswers.insert(messageAnswers.begin(), L"全局");
 
 			//Show selection prompt
-			int messageResult = co_await ShowMessageBox(L"Select application", L"Select the application you want to adjust.", messageAnswers);
+			int messageResult = co_await ShowMessageBox(L"选择应用程序", L"选择要调整的应用程序。", messageAnswers);
 
 			//Get selected application
-			std::wstring selectedApplication = messageAnswers[messageResult];
+			std::wstring selectedApplication = messageResult == 0 ? L"Global" : messageAnswers[messageResult];
 
 			//Load graphics settings
 			co_await AdlxValuesLoadSelectGraphicsApp(adl_Gpu_AdapterIndex, selectedApplication);
@@ -97,13 +97,13 @@ namespace winrt::RadeonTuner::implementation
 			std::vector<std::wstring> messageAnswers = TuningFanSettings_Profile_GetAllApps(adl_Gpu_DeviceIdentifier);
 
 			//Add global application
-			messageAnswers.insert(messageAnswers.begin(), L"Global");
+			messageAnswers.insert(messageAnswers.begin(), L"全局");
 
 			//Show selection prompt
-			int messageResult = co_await ShowMessageBox(L"Select application", L"Select the application you want to adjust.", messageAnswers);
+			int messageResult = co_await ShowMessageBox(L"选择应用程序", L"选择要调整的应用程序。", messageAnswers);
 
 			//Get selected application
-			std::wstring selectedApplication = messageAnswers[messageResult];
+			std::wstring selectedApplication = messageResult == 0 ? L"Global" : messageAnswers[messageResult];
 
 			//Load tuning and fans settings
 			co_await AdlxValuesLoadSelectTuningApp(adl_Gpu_AdapterIndex, selectedApplication);
@@ -122,13 +122,13 @@ namespace winrt::RadeonTuner::implementation
 			std::vector<std::wstring> messageAnswers = DisplaySettings_Profile_GetAllApps(adl_Display_DeviceIdentifier);
 
 			//Add global application
-			messageAnswers.insert(messageAnswers.begin(), L"Global");
+			messageAnswers.insert(messageAnswers.begin(), L"全局");
 
 			//Show selection prompt
-			int messageResult = co_await ShowMessageBox(L"Select application", L"Select the application you want to adjust.", messageAnswers);
+			int messageResult = co_await ShowMessageBox(L"选择应用程序", L"选择要调整的应用程序。", messageAnswers);
 
 			//Get selected application
-			std::wstring selectedApplication = messageAnswers[messageResult];
+			std::wstring selectedApplication = messageResult == 0 ? L"Global" : messageAnswers[messageResult];
 
 			//Load display settings
 			co_await AdlxValuesLoadSelectDisplayApp(adl_Display_AdapterIndex, adl_Display_DisplayIndex, selectedApplication);

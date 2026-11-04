@@ -23,7 +23,7 @@ namespace winrt::RadeonTuner::implementation
 			//Check messagebox answers
 			if (Answers.size() == 0)
 			{
-				Answers = { L"Close" };
+				Answers = { L"关闭" };
 			}
 
 			//Set messagebox answers

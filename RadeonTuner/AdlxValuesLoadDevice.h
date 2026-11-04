@@ -10,7 +10,7 @@ namespace winrt::RadeonTuner::implementation
 		try
 		{
 			//Update button text
-			textblock_DisplaySelect().Text(L"Select display");
+			textblock_DisplaySelect().Text(L"选择显示器");
 
 			//Update access status
 			stackpanel_Display_AccessOverlay().Visibility(Visibility::Visible);
@@ -30,7 +30,7 @@ namespace winrt::RadeonTuner::implementation
 		try
 		{
 			//Update button text
-			textblock_GpuSelect().Text(L"Select graphics card");
+			textblock_GpuSelect().Text(L"选择显卡");
 
 			//Update access status
 			stackpanel_Tuning_AccessOverlay().Visibility(Visibility::Visible);

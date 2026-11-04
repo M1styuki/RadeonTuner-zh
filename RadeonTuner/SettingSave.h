@@ -1,6 +1,7 @@
 #pragma once
 #include "pch.h"
 #include "MainPage.h"
+#include "SystemIntegrationIdentity.h"
 
 namespace winrt::RadeonTuner::implementation
 {
@@ -11,8 +12,8 @@ namespace winrt::RadeonTuner::implementation
 			//Check if saving is disabled
 			if (disable_saving_settings) { return; }
 
-			//Create or delete startup shortcut
-			StartupShortcutManage(L"RadeonTuner", L"", StartupShortcutType::Startup);
+			//Create or delete startup shortcut with this build's independent identity
+			StartupShortcutManage(RadeonTunerSystemIntegration::ApplicationName, L"", StartupShortcutType::Startup);
 		}
 		catch (...) {}
 	}
@@ -24,8 +25,8 @@ namespace winrt::RadeonTuner::implementation
 			//Check if saving is disabled
 			if (disable_saving_settings) { return; }
 
-			//Create or delete start menu shortcut
-			StartupShortcutManage(L"RadeonTuner", L"", StartupShortcutType::StartMenu);
+			//Create or delete start menu shortcut with this build's independent identity
+			StartupShortcutManage(RadeonTunerSystemIntegration::ApplicationName, L"", StartupShortcutType::StartMenu);
 		}
 		catch (...) {}
 	}
@@ -39,22 +40,23 @@ namespace winrt::RadeonTuner::implementation
 			//Check if saving is disabled
 			if (disable_saving_settings) { return; }
 
-			//Create or delete context menu shortcut
-			bool contextShortcut = RegistryCheck(HKEY_ENUM::CLASSES_ROOT, L"Directory\\background\\shell\\RadeonTuner");
+			//Create or delete only this build's independent context menu key
+			std::wstring contextMenuKey = std::wstring(L"Directory\\background\\shell\\") + RadeonTunerSystemIntegration::ContextMenuKey;
+			bool contextShortcut = RegistryCheck(HKEY_ENUM::CLASSES_ROOT, contextMenuKey);
 			if (contextShortcut)
 			{
 				//Delete shortcut from registry
-				RegistryDelete(HKEY_ENUM::CLASSES_ROOT, L"Directory\\background\\shell\\RadeonTuner");
+				RegistryDelete(HKEY_ENUM::CLASSES_ROOT, contextMenuKey);
 			}
 			else
 			{
 				//Set shortcut details
 				std::wstring targetFilePath = PathGetAppExecutable();
 
-				//Create shortcut in registry
-				RegistrySet(HKEY_ENUM::CLASSES_ROOT, L"Directory\\background\\shell\\RadeonTuner", L"", L"Open RadeonTuner");
-				RegistrySet(HKEY_ENUM::CLASSES_ROOT, L"Directory\\background\\shell\\RadeonTuner", L"Icon", targetFilePath);
-				RegistrySet(HKEY_ENUM::CLASSES_ROOT, L"Directory\\background\\shell\\RadeonTuner\\command", L"", targetFilePath);
+				//Create shortcut in registry, quoting the executable path for the command
+				RegistrySet(HKEY_ENUM::CLASSES_ROOT, contextMenuKey, L"", L"打开 RadeonTuner");
+				RegistrySet(HKEY_ENUM::CLASSES_ROOT, contextMenuKey, L"Icon", targetFilePath);
+				RegistrySet(HKEY_ENUM::CLASSES_ROOT, contextMenuKey + L"\\command", L"", RadeonTunerSystemIntegration::ContextMenuCommand(targetFilePath));
 			}
 		}
 		catch (...) {}
@@ -119,6 +121,27 @@ namespace winrt::RadeonTuner::implementation
 			else
 			{
 				AppVariables::Settings.Set("CloseTray", false);
+			}
+		}
+		catch (...) {}
+	}
+
+	void MainPage::toggleswitch_Hide_Tray_Icon_Toggled(IInspectable const& sender, RoutedEventArgs const& e)
+	{
+		try
+		{
+			//Check if saving is disabled
+			if (disable_saving_settings) { return; }
+
+			ToggleSwitch senderElement = sender.as<ToggleSwitch>();
+			bool hideTrayIcon = senderElement.IsOn();
+			AppVariables::Settings.Set("HideTrayIcon", hideTrayIcon);
+
+			//Apply the tray visibility immediately
+			HRESULT refreshResult = AppVariables::App.RefreshTrayIcon();
+			if (FAILED(refreshResult))
+			{
+				AVDebugWriteLine(L"Failed refreshing tray icon after setting change: " << refreshResult);
 			}
 		}
 		catch (...) {}
@@ -226,6 +249,9 @@ namespace winrt::RadeonTuner::implementation
 			{
 				AppVariables::Settings.Set("ThemeIconMono", false);
 			}
+
+			//Refresh the tray icon with the selected theme icon, while still respecting the hide setting
+			AppVariables::App.RefreshTrayIcon();
 		}
 		catch (...) {}
 	}

@@ -6,7 +6,7 @@
 
 namespace winrt::RadeonTuner::implementation
 {
-	void MainPage::AdlxCheckDisplayEyefinityAutomatic(std::vector<std::wstring> processExeRunning)
+	void MainPage::AdlxCheckDisplayEyefinityAutomatic(const std::vector<std::wstring>& processExeRunning)
 	{
 		try
 		{
@@ -46,7 +46,7 @@ namespace winrt::RadeonTuner::implementation
 									std::wstring appNameLower = wstring_to_lower(displaySettings.Application.value());
 
 									//Check and set application profile
-									if (array_contains(processExeRunning, appNameLower))
+									if (std::find(processExeRunning.begin(), processExeRunning.end(), appNameLower) != processExeRunning.end())
 									{
 										displaySettingsRunningOpt = displaySettings;
 										break;

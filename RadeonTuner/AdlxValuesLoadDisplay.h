@@ -33,7 +33,7 @@ namespace winrt::RadeonTuner::implementation
 			DisplaySettings_Convert_ToUI_Profile(displaySettingsProfile, AdlSettingGet::Current);
 
 			//Update button text
-			textblock_AppSelect_Display().Text(application);
+			textblock_AppSelect_Display().Text(application == L"Global" ? std::wstring(L"全局") : application);
 
 			//Disable or enable settings
 			if (displaySettingsProfile.Global())

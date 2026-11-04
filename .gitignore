@@ -5,6 +5,8 @@ int
 debug
 release
 packages
+.build-work/
+*.obj
 *.log
 *.suo
 *.user

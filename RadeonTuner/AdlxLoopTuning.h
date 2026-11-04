@@ -6,7 +6,7 @@
 
 namespace winrt::RadeonTuner::implementation
 {
-	void MainPage::AdlxCheckTuningApplicationProfile(std::vector<std::wstring> processExeRunning)
+	void MainPage::AdlxCheckTuningApplicationProfile(const std::vector<std::wstring>& processExeRunning)
 	{
 		try
 		{
@@ -45,7 +45,7 @@ namespace winrt::RadeonTuner::implementation
 								}
 
 								//Check and set application profile
-								if (array_contains(processExeRunning, appNameLower))
+								if (std::find(processExeRunning.begin(), processExeRunning.end(), appNameLower) != processExeRunning.end())
 								{
 									//AVDebugWriteLine("Application profile application running: " << appNameLower);
 									tuningFanSettingsRunningOpt = tuningFanSettings;
@@ -101,7 +101,9 @@ namespace winrt::RadeonTuner::implementation
 								if (applyResult)
 								{
 									//Show notification
-									ShowNotification(L"Tuning and fans settings applied: " + tuningFanSettingsRunning.Application.value());
+									std::wstring applicationDisplay = tuningFanSettingsRunning.Application.value();
+									if (applicationDisplay == L"Global") { applicationDisplay = L"全局"; }
+									ShowNotification(L"调校与风扇设置已应用：" + applicationDisplay);
 									AVDebugWriteLine(L"Tuning and fans settings applied: " << tuningFanSettingsRunning.Application.value());
 
 									//Load tuning and fans settings

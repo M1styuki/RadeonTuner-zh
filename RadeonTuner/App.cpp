@@ -2,10 +2,18 @@
 #include "pch.h"
 #include "resource.h"
 #include "App.h"
+#include "NativeTheme.h"
 #if __has_include("App.g.cpp")
 #include "App.g.cpp"
 #endif
 #include "AppVariables.h"
+#ifdef RADEONTUNER_UI_VALIDATION
+#if __has_include("..\tools\UiValidation\UiValidationCommon.h")
+#include "..\tools\UiValidation\UiValidationCommon.h"
+#else
+#include "..\..\RadeonTuner\tools\UiValidation\UiValidationCommon.h"
+#endif
+#endif
 
 namespace winrt::RadeonTuner::implementation
 {
@@ -39,20 +47,8 @@ namespace winrt::RadeonTuner::implementation
 				POINT pointCursor;
 				GetCursorPos(&pointCursor);
 
-				//Show tray menu
-				HMENU hMenu = CreatePopupMenu();
-				InsertMenuW(hMenu, 0, MF_BYPOSITION | MF_STRING, TM_SETTINGS, L"Settings");
-				InsertMenuW(hMenu, 1, MF_BYPOSITION | MF_SEPARATOR, NULL, NULL);
-				InsertMenuW(hMenu, 2, MF_BYPOSITION | MF_STRING, TM_WEBSITE, L"Website");
-				InsertMenuW(hMenu, 3, MF_BYPOSITION | MF_SEPARATOR, NULL, NULL);
-				InsertMenuW(hMenu, 4, MF_BYPOSITION | MF_STRING, TM_EXIT, L"Exit");
-
-				//Track tray menu
-				SetForegroundWindow(_hWnd_MainWindow);
-				TrackPopupMenuEx(hMenu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_BOTTOMALIGN, pointCursor.x, pointCursor.y, _hWnd_MainWindow, NULL);
-
-				//Destroy tray menu
-				DestroyMenu(hMenu);
+				//Show native tray menu at the cursor
+				AppVariables::App.ShowTrayMenu(pointCursor, 0);
 				return;
 			}
 			}
@@ -91,49 +87,174 @@ namespace winrt::RadeonTuner::implementation
 	}
 
 	//Application tray icon create
-	void AppTrayIconCreate(HINSTANCE hInstance)
+	void App::TrayIconCreate(HINSTANCE hInstance)
 	{
+		//Remove the previous notification icon and destroy the icon handle owned by this class
+		TrayIconDelete();
+		_trayIconLastHresult = S_OK;
 		try
 		{
+			//Respect the hide tray icon setting, missing setting means the icon stays visible
+			std::optional<bool> hideTrayIcon = AppVariables::Settings.Load<bool>("HideTrayIcon");
+			if (hideTrayIcon.value_or(false))
+			{
+				AVDebugWriteLine("Tray icon hidden by setting.");
+				return;
+			}
+
 			//Load application icon
 			std::wstring iconPath = L"Assets\\AppIconColor.ico";
 			std::optional<bool> setThemeIconMono = AppVariables::Settings.Load<bool>("ThemeIconMono");
-			if (setThemeIconMono.has_value() && setThemeIconMono.value())
+			if (setThemeIconMono.value_or(false))
 			{
 				iconPath = L"Assets\\AppIconMono.ico";
 			}
 			HICON iconHandle = (HICON)LoadImageW(nullptr, iconPath.c_str(), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
+			if (iconHandle == NULL)
+			{
+				_trayIconLastHresult = HRESULT_FROM_WIN32(GetLastError());
+				AVDebugWriteLine("Failed loading tray icon.");
+				return;
+			}
+
+			//Keep ownership of the loaded icon so it can be destroyed on the next change
+			_trayIconHandle = iconHandle;
 
 			//Create tray data
-			NOTIFYICONDATA notifyIcon = { };
+			NOTIFYICONDATAW notifyIcon = { };
 			notifyIcon.cbSize = sizeof(notifyIcon);
 			notifyIcon.hWnd = _hWnd_MainWindow;
 			notifyIcon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
 			notifyIcon.uCallbackMessage = WM_TRAYICON_CALL;
-			notifyIcon.hIcon = iconHandle;
-
-			//Set tray strings
-			std::wstring szTrayTip = L"RadeonTuner";
-			std::move(szTrayTip.begin(), szTrayTip.end(), notifyIcon.szTip);
+			notifyIcon.hIcon = _trayIconHandle;
+			wcscpy_s(notifyIcon.szTip, _countof(notifyIcon.szTip), L"RadeonTuner");
 
 			//Show tray icon
-			Shell_NotifyIconW(NIM_ADD, &notifyIcon);
+			if (!Shell_NotifyIconW(NIM_ADD, &notifyIcon))
+			{
+				_trayIconLastHresult = HRESULT_FROM_WIN32(GetLastError());
+				AVDebugWriteLine("Failed adding tray icon.");
+				TrayIconDelete();
+				return;
+			}
+			_trayIconAdded = true;
 		}
-		catch (...) {}
+		catch (...)
+		{
+			_trayIconLastHresult = E_FAIL;
+			TrayIconDelete();
+		}
 	}
 
 	//Application tray icon delete
-	void AppTrayIconDelete()
+	void App::TrayIconDelete()
 	{
 		try
 		{
-			//Create tray data
-			NOTIFYICONDATA notifyIcon = { };
-			notifyIcon.cbSize = sizeof(notifyIcon);
-			notifyIcon.hWnd = _hWnd_MainWindow;
+			if (_hWnd_MainWindow != NULL)
+			{
+				//Create tray data
+				NOTIFYICONDATAW notifyIcon = { };
+				notifyIcon.cbSize = sizeof(notifyIcon);
+				notifyIcon.hWnd = _hWnd_MainWindow;
 
-			//Hide tray icon
-			Shell_NotifyIconW(NIM_DELETE, &notifyIcon);
+				//Hide tray icon
+				Shell_NotifyIconW(NIM_DELETE, &notifyIcon);
+			}
+		}
+		catch (...) {}
+
+		_trayIconAdded = false;
+
+		//Destroy only the HICON loaded for the tray, never the window class icon
+		if (_trayIconHandle != NULL)
+		{
+			DestroyIcon(_trayIconHandle);
+			_trayIconHandle = NULL;
+		}
+	}
+
+	HRESULT App::RefreshTrayIcon()
+	{
+		TrayIconCreate(AppVariables::hInstance);
+		return _trayIconLastHresult;
+	}
+
+	void App::RefreshNativeTheme()
+	{
+		//DWM/theme calls can notify the same window again; drop nested refreshes instead of recursing
+		if (_nativeThemeRefreshing)
+		{
+			return;
+		}
+		_nativeThemeRefreshing = true;
+		try
+		{
+			//Theme style 0 and 1 are dark, style 2 is light
+			int themeStyle = 0;
+			std::optional<int> setThemeStyle = AppVariables::Settings.Load<int>("ThemeStyle");
+			if (setThemeStyle.has_value())
+			{
+				themeStyle = setThemeStyle.value();
+			}
+			bool dark = themeStyle != 2;
+			bool highContrast = NativeTheme::IsHighContrastEnabled();
+			bool effectiveDark = dark && !highContrast;
+
+			//Skip identical requests; frequent WM_SETTINGCHANGE broadcasts must not reload native theme state
+			bool needsApply = !_nativeThemeApplied || _nativeThemeWindow != _hWnd_MainWindow || _nativeThemeDark != effectiveDark || _nativeThemeHighContrast != highContrast;
+			if (needsApply)
+			{
+				//Never call SetWindowTheme here: the helper only updates DWM/uxtheme state and high contrast wins
+				NativeTheme::ApplyWindowTitleBarTheme(_hWnd_MainWindow, dark);
+				NativeTheme::SetProcessMenuTheme(dark);
+
+				_nativeThemeWindow = _hWnd_MainWindow;
+				_nativeThemeDark = effectiveDark;
+				_nativeThemeHighContrast = highContrast;
+				_nativeThemeApplied = true;
+			}
+		}
+		catch (...) {}
+		_nativeThemeRefreshing = false;
+	}
+
+	void App::ShowTrayMenu(POINT point, int autoCloseMilliseconds)
+	{
+		try
+		{
+			//Use the native Win32 menu only, no owner-draw and no XAML/HTML imitation
+			RefreshNativeTheme();
+
+			HMENU hMenu = CreatePopupMenu();
+			if (hMenu == NULL)
+			{
+				return;
+			}
+			InsertMenuW(hMenu, 0, MF_BYPOSITION | MF_STRING, TM_SETTINGS, L"设置");
+			InsertMenuW(hMenu, 1, MF_BYPOSITION | MF_SEPARATOR, NULL, NULL);
+			InsertMenuW(hMenu, 2, MF_BYPOSITION | MF_STRING, TM_WEBSITE, L"项目网站");
+			InsertMenuW(hMenu, 3, MF_BYPOSITION | MF_SEPARATOR, NULL, NULL);
+			InsertMenuW(hMenu, 4, MF_BYPOSITION | MF_STRING, TM_EXIT, L"退出");
+
+			//Optional auto close for the isolated validation build, the menu remains fully native
+			if (autoCloseMilliseconds > 0)
+			{
+				HWND windowHandle = _hWnd_MainWindow;
+				std::thread([windowHandle, autoCloseMilliseconds]()
+					{
+						Sleep(autoCloseMilliseconds);
+						PostMessageW(windowHandle, WM_CANCELMODE, 0, 0);
+					}).detach();
+			}
+
+			//Track native tray menu
+			SetForegroundWindow(_hWnd_MainWindow);
+			TrackPopupMenuEx(hMenu, TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_BOTTOMALIGN, point.x, point.y, _hWnd_MainWindow, NULL);
+			PostMessageW(_hWnd_MainWindow, WM_NULL, 0, 0);
+
+			//Destroy tray menu
+			DestroyMenu(hMenu);
 		}
 		catch (...) {}
 	}
@@ -145,8 +266,8 @@ namespace winrt::RadeonTuner::implementation
 		{
 			if (messageCode == WM_TASKBARCREATED)
 			{
-				//Handle taskbar created message
-				AppTrayIconCreate(AppVariables::hInstance);
+				//Handle taskbar created message, the hide tray icon setting still applies
+				AppVariables::App.RefreshTrayIcon();
 				return 0;
 			}
 
@@ -177,6 +298,18 @@ namespace winrt::RadeonTuner::implementation
 				GetClientRect(hWnd, &rectClient);
 				MoveWindow(_hWnd_XamlWindow, 0, 0, rectClient.right, rectClient.bottom, true);
 				return 0;
+			}
+			case WM_SETTINGCHANGE:
+			{
+				//System settings changed, including high contrast; change detection suppresses unrelated repeats
+				AppVariables::App.RefreshNativeTheme();
+				return DefWindowProcW(hWnd, messageCode, wParam, lParam);
+			}
+			case WM_THEMECHANGED:
+			{
+				//System theme changed; refresh with change detection and the reentry guard above
+				AppVariables::App.RefreshNativeTheme();
+				return DefWindowProcW(hWnd, messageCode, wParam, lParam);
 			}
 			default:
 			{
@@ -212,7 +345,7 @@ namespace winrt::RadeonTuner::implementation
 				//Fix stop and wait for loops
 
 				//Delete tray icon
-				AppTrayIconDelete();
+				TrayIconDelete();
 
 				//Update variables
 				AppVariables::ApplicationExiting = true;
@@ -223,6 +356,51 @@ namespace winrt::RadeonTuner::implementation
 		}
 		catch (...) {}
 	}
+
+#ifdef RADEONTUNER_UI_VALIDATION
+	void App::UiValidationExit(int exitCode)
+	{
+		try
+		{
+			//Remove the transient tray icon before the test build exits
+			TrayIconDelete();
+			AppVariables::ApplicationExiting = true;
+		}
+		catch (...) {}
+		exit(exitCode);
+	}
+
+	bool App::TrayIconIsAddedForValidation()
+	{
+		return _trayIconAdded;
+	}
+
+	HICON App::TrayIconHandleForValidation()
+	{
+		return _trayIconHandle;
+	}
+
+	HRESULT App::TrayIconLastHresultForValidation()
+	{
+		return _trayIconLastHresult;
+	}
+
+	void App::ShowTrayMenuForValidation(int autoCloseMilliseconds)
+	{
+		try
+		{
+			//Anchor the native menu inside this application's own window, no external desktop input
+			RECT windowRect = { };
+			if (!GetWindowRect(_hWnd_MainWindow, &windowRect))
+			{
+				return;
+			}
+			POINT pointMenu = { (windowRect.left + windowRect.right) / 2, windowRect.top + 240 };
+			ShowTrayMenu(pointMenu, autoCloseMilliseconds);
+		}
+		catch (...) {}
+	}
+#endif
 
 	void App::DispatcherInvoke(std::function<void()> const& action)
 	{
@@ -351,8 +529,13 @@ namespace winrt::RadeonTuner::implementation
 			windowClass.hIcon = iconHandle;
 			if (RegisterClassExW(&windowClass) == NULL)
 			{
-				MessageBoxW(NULL, L"RegisterClassExW failed", L"Error", NULL);
+#ifdef RADEONTUNER_UI_VALIDATION
+				RadeonTunerUiValidation::RecordInitFailure(HRESULT_FROM_WIN32(GetLastError()), L"RegisterClassExW", L"RegisterClassExW failed");
 				return;
+#else
+				MessageBoxW(NULL, L"注册窗口类失败", L"错误", NULL);
+				return;
+#endif
 			}
 
 			//Create main window
@@ -363,9 +546,17 @@ namespace winrt::RadeonTuner::implementation
 			_hWnd_MainWindow = CreateWindowW(szWindowClass, szWindowTitle, dwStyle, CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight, NULL, NULL, hInstance, NULL);
 			if (_hWnd_MainWindow == NULL)
 			{
-				MessageBoxW(NULL, L"CreateWindowW failed", L"Error", NULL);
+#ifdef RADEONTUNER_UI_VALIDATION
+				RadeonTunerUiValidation::RecordInitFailure(HRESULT_FROM_WIN32(GetLastError()), L"CreateWindowW", L"CreateWindowW failed");
 				return;
+#else
+				MessageBoxW(NULL, L"创建窗口失败", L"错误", NULL);
+				return;
+#endif
 			}
+
+			//Apply the native title bar and popup menu theme for the saved theme style
+			RefreshNativeTheme();
 
 			//Create desktop window xaml source
 			_desktopWindowXamlSource = DesktopWindowXamlSource();
@@ -377,16 +568,26 @@ namespace winrt::RadeonTuner::implementation
 			HRESULT hResult = desktopWindowXamlSourceNative->AttachToWindow(_hWnd_MainWindow);
 			if (FAILED(hResult))
 			{
-				MessageBoxW(NULL, L"AttachToWindow failed", L"Error", NULL);
+#ifdef RADEONTUNER_UI_VALIDATION
+				RadeonTunerUiValidation::RecordInitFailure(hResult, L"AttachToWindow", L"AttachToWindow failed");
 				return;
+#else
+				MessageBoxW(NULL, L"附加窗口失败", L"错误", NULL);
+				return;
+#endif
 			}
 
 			//Get DesktopWindowXamlSource window handle
 			hResult = desktopWindowXamlSourceNative->get_WindowHandle(&_hWnd_XamlWindow);
 			if (FAILED(hResult))
 			{
-				MessageBoxW(NULL, L"XamlGetWindowHandle failed", L"Error", NULL);
+#ifdef RADEONTUNER_UI_VALIDATION
+				RadeonTunerUiValidation::RecordInitFailure(hResult, L"get_WindowHandle", L"get_WindowHandle failed");
 				return;
+#else
+				MessageBoxW(NULL, L"获取 XAML 窗口句柄失败", L"错误", NULL);
+				return;
+#endif
 			}
 
 			//Set xaml window size and location
@@ -414,8 +615,8 @@ namespace winrt::RadeonTuner::implementation
 			//Set DesktopWindowXamlSource content
 			_desktopWindowXamlSource.Content(MainPage());
 
-			//Create application tray icon
-			AppTrayIconCreate(hInstance);
+			//Create application tray icon unless the setting hides it
+			TrayIconCreate(hInstance);
 
 			//Window message loop
 			MSG lpMsg;
@@ -429,6 +630,13 @@ namespace winrt::RadeonTuner::implementation
 				catch (...) {}
 			}
 		}
+#ifdef RADEONTUNER_UI_VALIDATION
+		catch (winrt::hresult_error const& exception)
+		{
+			RadeonTunerUiValidation::RecordInitFailure(exception.code(), L"CreateWindowXaml", exception.message().c_str());
+			AVDebugWriteLine(L"Failed creating application window (HRESULT): " << exception.message().c_str());
+		}
+#endif
 		catch (...)
 		{
 			AVDebugWriteLine("Failed creating application window (Exception)");

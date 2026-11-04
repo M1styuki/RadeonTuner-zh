@@ -33,7 +33,7 @@ namespace winrt::RadeonTuner::implementation
 			TuningFanSettings_Convert_ToUI_Profile(tuningFanSettingsProfile, AdlSettingGet::Current);
 
 			//Update button text
-			textblock_AppSelect_Tuning().Text(application);
+			textblock_AppSelect_Tuning().Text(application == L"Global" ? std::wstring(L"全局") : application);
 
 			//Disable or enable settings
 			if (tuningFanSettingsAdl.TuningSupport)

@@ -6,7 +6,7 @@
 
 namespace winrt::RadeonTuner::implementation
 {
-	void MainPage::AdlxCheckDisplayApplicationProfile(std::vector<std::wstring> processExeRunning)
+	void MainPage::AdlxCheckDisplayApplicationProfile(const std::vector<std::wstring>& processExeRunning)
 	{
 		try
 		{
@@ -42,7 +42,7 @@ namespace winrt::RadeonTuner::implementation
 								}
 
 								//Check and set application profile
-								if (array_contains(processExeRunning, appNameLower))
+								if (std::find(processExeRunning.begin(), processExeRunning.end(), appNameLower) != processExeRunning.end())
 								{
 									//AVDebugWriteLine("Application profile application running: " << appNameLower);
 									displaySettingsRunningOpt = displaySettings;
@@ -86,7 +86,9 @@ namespace winrt::RadeonTuner::implementation
 							if (applyResult)
 							{
 								//Show notification
-								ShowNotification(L"Display settings applied: " + displaySettingsRunning.Application.value());
+								std::wstring applicationDisplay = displaySettingsRunning.Application.value();
+								if (applicationDisplay == L"Global") { applicationDisplay = L"全局"; }
+								ShowNotification(L"显示设置已应用：" + applicationDisplay);
 								AVDebugWriteLine(L"Display settings applied: " << displaySettingsRunning.Application.value());
 
 								//Load display settings

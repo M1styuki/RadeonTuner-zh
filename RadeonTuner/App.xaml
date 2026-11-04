@@ -7,12 +7,24 @@
             <!-- Theme Color -->
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <Color x:Key="ThemeForegroundColor">#1D1D1D</Color>
-                    <SolidColorBrush x:Key="ThemeForegroundBrush">#1D1D1D</SolidColorBrush>
-                    <Color x:Key="ThemeBackgroundColor">#CECECE</Color>
-                    <SolidColorBrush x:Key="ThemeBackgroundBrush">#CECECE</SolidColorBrush>
-                    <Color x:Key="ThemeBackgroundDarkColor">#AEAEAE</Color>
-                    <SolidColorBrush x:Key="ThemeBackgroundDarkBrush">#AEAEAE</SolidColorBrush>
+                    <Color x:Key="ThemeForegroundColor">#1B2028</Color>
+                    <SolidColorBrush x:Key="ThemeForegroundBrush">#1B2028</SolidColorBrush>
+                    <Color x:Key="ThemeBackgroundColor">#FFFFFF</Color>
+                    <SolidColorBrush x:Key="ThemeBackgroundBrush">#FFFFFF</SolidColorBrush>
+                    <Color x:Key="ThemeBackgroundDarkColor">#EEF1F5</Color>
+                    <SolidColorBrush x:Key="ThemeBackgroundDarkBrush">#EEF1F5</SolidColorBrush>
+                    <Color x:Key="ThemeBorderColor">#D3D9E2</Color>
+                    <SolidColorBrush x:Key="ThemeBorderBrush">#D3D9E2</SolidColorBrush>
+                    <Color x:Key="ThemeHoverColor">#E9EDF3</Color>
+                    <SolidColorBrush x:Key="ThemeHoverBrush">#E9EDF3</SolidColorBrush>
+                    <Color x:Key="ThemeControlColor">#FFFFFF</Color>
+                    <SolidColorBrush x:Key="ThemeControlBrush">#FFFFFF</SolidColorBrush>
+                    <Color x:Key="ThemeNavSelectedColor">#E4E9F1</Color>
+                    <SolidColorBrush x:Key="ThemeNavSelectedBrush">#E4E9F1</SolidColorBrush>
+                    <Color x:Key="ThemeNavIndicatorColor">#C93A3A</Color>
+                    <SolidColorBrush x:Key="ThemeNavIndicatorBrush">#C93A3A</SolidColorBrush>
+                    <Color x:Key="ApplicationDimGrayColor">#5B6472</Color>
+                    <SolidColorBrush x:Key="ApplicationDimGrayBrush">#5B6472</SolidColorBrush>
                     <x:String x:Key="ThemeImageApps">/Assets/AppsDark.png</x:String>
                     <x:String x:Key="ThemeImageCheckmark">/Assets/CheckmarkDark.png</x:String>
                     <x:String x:Key="ThemeImageCross">/Assets/CrossDark.png</x:String>
@@ -37,12 +49,24 @@
                     <x:String x:Key="ThemeImageVideocard">/Assets/VideocardDark.png</x:String>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <Color x:Key="ThemeForegroundColor">#F1F1F1</Color>
-                    <SolidColorBrush x:Key="ThemeForegroundBrush">#F1F1F1</SolidColorBrush>
-                    <Color x:Key="ThemeBackgroundColor">#424242</Color>
-                    <SolidColorBrush x:Key="ThemeBackgroundBrush">#424242</SolidColorBrush>
-                    <Color x:Key="ThemeBackgroundDarkColor">#303030</Color>
-                    <SolidColorBrush x:Key="ThemeBackgroundDarkBrush">#303030</SolidColorBrush>
+                    <Color x:Key="ThemeForegroundColor">#F0F2F5</Color>
+                    <SolidColorBrush x:Key="ThemeForegroundBrush">#F0F2F5</SolidColorBrush>
+                    <Color x:Key="ThemeBackgroundColor">#222730</Color>
+                    <SolidColorBrush x:Key="ThemeBackgroundBrush">#222730</SolidColorBrush>
+                    <Color x:Key="ThemeBackgroundDarkColor">#1B2028</Color>
+                    <SolidColorBrush x:Key="ThemeBackgroundDarkBrush">#1B2028</SolidColorBrush>
+                    <Color x:Key="ThemeBorderColor">#343C48</Color>
+                    <SolidColorBrush x:Key="ThemeBorderBrush">#343C48</SolidColorBrush>
+                    <Color x:Key="ThemeHoverColor">#303946</Color>
+                    <SolidColorBrush x:Key="ThemeHoverBrush">#303946</SolidColorBrush>
+                    <Color x:Key="ThemeControlColor">#2A313C</Color>
+                    <SolidColorBrush x:Key="ThemeControlBrush">#2A313C</SolidColorBrush>
+                    <Color x:Key="ThemeNavSelectedColor">#2B3341</Color>
+                    <SolidColorBrush x:Key="ThemeNavSelectedBrush">#2B3341</SolidColorBrush>
+                    <Color x:Key="ThemeNavIndicatorColor">#E24646</Color>
+                    <SolidColorBrush x:Key="ThemeNavIndicatorBrush">#E24646</SolidColorBrush>
+                    <Color x:Key="ApplicationDimGrayColor">#AEB8C6</Color>
+                    <SolidColorBrush x:Key="ApplicationDimGrayBrush">#AEB8C6</SolidColorBrush>
                     <x:String x:Key="ThemeImageApps">/Assets/Apps.png</x:String>
                     <x:String x:Key="ThemeImageCheckmark">/Assets/Checkmark.png</x:String>
                     <x:String x:Key="ThemeImageCross">/Assets/Cross.png</x:String>
@@ -69,33 +93,31 @@
             </ResourceDictionary.ThemeDictionaries>
 
             <!-- System Color -->
-            <Color x:Key="SystemAccentColor">#DF2020</Color>
-            <Color x:Key="SystemAccentColorDark1">#b81717</Color>
-            <Color x:Key="SystemAccentColorDark2">#911111</Color>
-            <Color x:Key="SystemAccentColorDark3">#690c0c</Color>
-            <Color x:Key="SystemAccentColorLight1">#f52c2c</Color>
-            <Color x:Key="SystemAccentColorLight2">#fb3c3c</Color>
-            <Color x:Key="SystemAccentColorLight3">#fe5252</Color>
+            <Color x:Key="SystemAccentColor">#E24646</Color>
+            <Color x:Key="SystemAccentColorDark1">#C93A3A</Color>
+            <Color x:Key="SystemAccentColorDark2">#A82E2E</Color>
+            <Color x:Key="SystemAccentColorDark3">#7E2222</Color>
+            <Color x:Key="SystemAccentColorLight1">#EA5C5C</Color>
+            <Color x:Key="SystemAccentColorLight2">#F07272</Color>
+            <Color x:Key="SystemAccentColorLight3">#F58A8A</Color>
 
             <!-- Accent Color -->
-            <Color x:Key="ApplicationAccentLightColor">#DF2020</Color>
-            <SolidColorBrush x:Key="ApplicationAccentLightBrush">#DF2020</SolidColorBrush>
-            <Color x:Key="ApplicationAccentDimColor">#b81717</Color>
-            <SolidColorBrush x:Key="ApplicationAccentDimBrush">#b81717</SolidColorBrush>
-            <Color x:Key="ApplicationAccentDarkColor">#911111</Color>
-            <SolidColorBrush x:Key="ApplicationAccentDarkBrush">#911111</SolidColorBrush>
-            <Color x:Key="ApplicationAccentVoidColor">#690c0c</Color>
-            <SolidColorBrush x:Key="ApplicationAccentVoidBrush">#690c0c</SolidColorBrush>
+            <Color x:Key="ApplicationAccentLightColor">#E24646</Color>
+            <SolidColorBrush x:Key="ApplicationAccentLightBrush">#E24646</SolidColorBrush>
+            <Color x:Key="ApplicationAccentDimColor">#C93A3A</Color>
+            <SolidColorBrush x:Key="ApplicationAccentDimBrush">#C93A3A</SolidColorBrush>
+            <Color x:Key="ApplicationAccentDarkColor">#A82E2E</Color>
+            <SolidColorBrush x:Key="ApplicationAccentDarkBrush">#A82E2E</SolidColorBrush>
+            <Color x:Key="ApplicationAccentVoidColor">#7E2222</Color>
+            <SolidColorBrush x:Key="ApplicationAccentVoidBrush">#7E2222</SolidColorBrush>
 
             <!-- Basic Color -->
-            <Color x:Key="ApplicationWhiteColor">#F1F1F1</Color>
-            <SolidColorBrush x:Key="ApplicationWhiteBrush">#F1F1F1</SolidColorBrush>
-            <Color x:Key="ApplicationBlackColor">#1D1D1D</Color>
-            <SolidColorBrush x:Key="ApplicationBlackBrush">#1D1D1D</SolidColorBrush>
+            <Color x:Key="ApplicationWhiteColor">#F0F2F5</Color>
+            <SolidColorBrush x:Key="ApplicationWhiteBrush">#F0F2F5</SolidColorBrush>
+            <Color x:Key="ApplicationBlackColor">#14171D</Color>
+            <SolidColorBrush x:Key="ApplicationBlackBrush">#14171D</SolidColorBrush>
             <Color x:Key="ApplicationLightGrayColor">#CECECE</Color>
             <SolidColorBrush x:Key="ApplicationLightGrayBrush">#CECECE</SolidColorBrush>
-            <Color x:Key="ApplicationDimGrayColor">#787878</Color>
-            <SolidColorBrush x:Key="ApplicationDimGrayBrush">#787878</SolidColorBrush>
             <Color x:Key="ApplicationDarkGrayColor">#424242</Color>
             <SolidColorBrush x:Key="ApplicationDarkGrayBrush">#424242</SolidColorBrush>
             <Color x:Key="ApplicationVoidGrayColor">#2A2A2A</Color>
@@ -111,7 +133,7 @@
 
             <!-- Templates -->
             <ControlTemplate x:Name="ListViewItemTemplateRound" TargetType="ListViewItem">
-                <ContentPresenter x:Name="ContentPresenter" Background="{TemplateBinding Background}" BackgroundSizing="{TemplateBinding BackgroundSizing}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" ContentTemplate="{TemplateBinding ContentTemplate}" CornerRadius="{TemplateBinding CornerRadius}" Content="{TemplateBinding Content}" ContentTransitions="{TemplateBinding ContentTransitions}" HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" Padding="{TemplateBinding Padding}" VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}">
+                <ContentPresenter x:Name="ContentPresenter" Background="{TemplateBinding Background}" BackgroundSizing="{TemplateBinding BackgroundSizing}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" ContentTemplate="{TemplateBinding ContentTemplate}" CornerRadius="{TemplateBinding CornerRadius}" Content="{TemplateBinding Content}" ContentTransitions="{TemplateBinding ContentTransitions}" Foreground="{TemplateBinding Foreground}" HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" Padding="{TemplateBinding Padding}" VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}">
                     <VisualStateManager.VisualStateGroups>
                         <VisualStateGroup x:Name="CommonStates">
                             <VisualState x:Name="Normal"/>
@@ -172,22 +194,70 @@
                 </ContentPresenter>
             </ControlTemplate>
 
-            <ControlTemplate x:Key="ButtonTemplateHover" TargetType="Button">
-                <ContentPresenter x:Name="ContentPresenter" Background="{TemplateBinding Background}" BackgroundSizing="{TemplateBinding BackgroundSizing}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" ContentTemplate="{TemplateBinding ContentTemplate}" CornerRadius="{TemplateBinding CornerRadius}" Content="{TemplateBinding Content}" ContentTransitions="{TemplateBinding ContentTransitions}" HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" Padding="{TemplateBinding Padding}" VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}">
+            <ControlTemplate x:Key="ListViewItemTemplateNav" TargetType="ListViewItem">
+                <ContentPresenter x:Name="NavContentPresenter" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" ContentTemplate="{TemplateBinding ContentTemplate}" CornerRadius="{TemplateBinding CornerRadius}" Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" Padding="{TemplateBinding Padding}" VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}">
                     <VisualStateManager.VisualStateGroups>
                         <VisualStateGroup x:Name="CommonStates">
                             <VisualState x:Name="Normal"/>
                             <VisualState x:Name="PointerOver">
                                 <VisualState.Setters>
-                                    <Setter Target="ContentPresenter.BorderBrush" Value="{ThemeResource ButtonForegroundPointerOver}"/>
-                                    <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource ButtonForegroundPointerOver}"/>
+                                    <Setter Target="NavContentPresenter.Background" Value="{ThemeResource ThemeHoverBrush}"/>
+                                    <Setter Target="NavContentPresenter.BorderBrush" Value="Transparent"/>
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Selected">
+                                <VisualState.Setters>
+                                    <Setter Target="NavContentPresenter.Background" Value="{ThemeResource ThemeNavSelectedBrush}"/>
+                                    <Setter Target="NavContentPresenter.BorderBrush" Value="{ThemeResource ThemeNavIndicatorBrush}"/>
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="PointerOverSelected">
+                                <VisualState.Setters>
+                                    <Setter Target="NavContentPresenter.Background" Value="{ThemeResource ThemeHoverBrush}"/>
+                                    <Setter Target="NavContentPresenter.BorderBrush" Value="{ThemeResource ThemeNavIndicatorBrush}"/>
                                 </VisualState.Setters>
                             </VisualState>
                             <VisualState x:Name="Pressed">
                                 <VisualState.Setters>
-                                    <Setter Target="ContentPresenter.Opacity" Value="0.40"/>
-                                    <Setter Target="ContentPresenter.BorderBrush" Value="{ThemeResource ButtonBorderBrushPressed}"/>
-                                    <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource ButtonForegroundPressed}"/>
+                                    <Setter Target="NavContentPresenter.Opacity" Value="0.70"/>
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="PressedSelected">
+                                <VisualState.Setters>
+                                    <Setter Target="NavContentPresenter.Opacity" Value="0.70"/>
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                        <VisualStateGroup x:Name="DisabledStates">
+                            <VisualState x:Name="Enabled"/>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Target="NavContentPresenter.Opacity" Value="0.45"/>
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateManager.VisualStateGroups>
+                </ContentPresenter>
+            </ControlTemplate>
+
+            <ControlTemplate x:Key="ButtonTemplateHover" TargetType="Button">
+                <ContentPresenter x:Name="ContentPresenter" Background="{TemplateBinding Background}" BackgroundSizing="{TemplateBinding BackgroundSizing}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" ContentTemplate="{TemplateBinding ContentTemplate}" CornerRadius="{TemplateBinding CornerRadius}" Content="{TemplateBinding Content}" ContentTransitions="{TemplateBinding ContentTransitions}" Foreground="{TemplateBinding Foreground}" HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" Padding="{TemplateBinding Padding}" VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}">
+                    <VisualStateManager.VisualStateGroups>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal"/>
+                            <VisualState x:Name="PointerOver">
+                                <VisualState.Setters>
+                                    <Setter Target="ContentPresenter.Background" Value="{ThemeResource ThemeHoverBrush}"/>
+                                    <Setter Target="ContentPresenter.BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
+                                    <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Target="ContentPresenter.Opacity" Value="0.85"/>
+                                    <Setter Target="ContentPresenter.Background" Value="{ThemeResource ThemeHoverBrush}"/>
+                                    <Setter Target="ContentPresenter.BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
+                                    <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
                                 </VisualState.Setters>
                                 <Storyboard>
                                     <PointerDownThemeAnimation Storyboard.TargetName="ContentPresenter"/>
@@ -195,16 +265,42 @@
                             </VisualState>
                             <VisualState x:Name="Disabled">
                                 <VisualState.Setters>
-                                    <Setter Target="ContentPresenter.Opacity" Value="0.50"/>
-                                    <Setter Target="ContentPresenter.Background" Value="{ThemeResource ButtonBackgroundDisabled}"/>
-                                    <Setter Target="ContentPresenter.BorderBrush" Value="{ThemeResource ButtonBorderBrushDisabled}"/>
-                                    <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource ButtonForegroundDisabled}"/>
+                                    <Setter Target="ContentPresenter.Opacity" Value="0.45"/>
+                                    <Setter Target="ContentPresenter.Background" Value="{ThemeResource ThemeBackgroundDarkBrush}"/>
+                                    <Setter Target="ContentPresenter.BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
+                                    <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource ApplicationDimGrayBrush}"/>
                                 </VisualState.Setters>
                             </VisualState>
                         </VisualStateGroup>
                     </VisualStateManager.VisualStateGroups>
                 </ContentPresenter>
             </ControlTemplate>
+
+            <!-- Typography -->
+            <FontFamily x:Key="ApplicationFontFamily">Microsoft YaHei UI</FontFamily>
+
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
+                <Setter Property="FontSize" Value="13"/>
+            </Style>
+
+            <Style x:Key="ApplicationSectionHeader" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="FontWeight" Value="Normal"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+                <Setter Property="LineHeight" Value="26"/>
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+            </Style>
+
+            <Style x:Key="ApplicationOverlayTitle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontWeight" Value="Medium"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+                <Setter Property="LineHeight" Value="28"/>
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+            </Style>
 
             <!-- Elements -->
             <Style x:Name="ApplicationListView" TargetType="ListView">
@@ -225,6 +321,35 @@
                         <TransitionCollection/>
                     </Setter.Value>
                 </Setter>
+            </Style>
+
+            <Style x:Key="ApplicationNavListView" TargetType="ListView">
+                <Setter Property="ItemContainerStyle" Value="{ThemeResource ApplicationNavListViewItem}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Padding" Value="4,10,6,10"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+                <Setter Property="ItemContainerTransitions">
+                    <Setter.Value>
+                        <TransitionCollection/>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="ApplicationNavListViewItem" TargetType="ListViewItem">
+                <Setter Property="Margin" Value="4,2,8,2"/>
+                <Setter Property="Padding" Value="8,5"/>
+                <Setter Property="MinHeight" Value="44"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="BorderThickness" Value="2,0,0,0"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="VerticalAlignment" Value="Stretch"/>
+                <Setter Property="Template" Value="{ThemeResource ListViewItemTemplateNav}"/>
             </Style>
 
             <Style x:Name="ApplicationListViewItem" TargetType="ListViewItem">
@@ -258,36 +383,88 @@
                 <Setter Property="UseLayoutRounding" Value="False"/>
             </Style>
 
+            <Style x:Key="ApplicationMessageBoxListView" TargetType="ListView">
+                <Setter Property="ItemContainerStyle" Value="{ThemeResource ApplicationMessageBoxListViewItem}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="ItemContainerTransitions">
+                    <Setter.Value>
+                        <TransitionCollection/>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="ApplicationMessageBoxListViewItem" TargetType="ListViewItem">
+                <Setter Property="Margin" Value="0,4,0,0"/>
+                <Setter Property="Padding" Value="12,8"/>
+                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
+                <Setter Property="Background" Value="{ThemeResource ThemeControlBrush}"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="Template" Value="{ThemeResource ListViewItemTemplateRound}"/>
+            </Style>
+
             <Style x:Name="ApplicationComboBox" TargetType="ComboBox">
-                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="MinHeight" Value="32"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
+                <Setter Property="FontSize" Value="14"/>
             </Style>
 
             <Style x:Name="ApplicationButton" TargetType="Button">
-                <Setter Property="BorderThickness" Value="2"/>
-                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="MinHeight" Value="32"/>
+                <Setter Property="Padding" Value="12,4"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Background" Value="{ThemeResource ThemeControlBrush}"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
+                <Setter Property="Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
+                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="UseSystemFocusVisuals" Value="True"/>
                 <Setter Property="Template" Value="{ThemeResource ButtonTemplateHover}"/>
             </Style>
 
             <Style x:Name="ApplicationButtonImage" TargetType="Button">
+                <Setter Property="Width" Value="32"/>
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="MinWidth" Value="32"/>
+                <Setter Property="MinHeight" Value="32"/>
                 <Setter Property="Padding" Value="0"/>
-                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
+                <Setter Property="UseSystemFocusVisuals" Value="True"/>
                 <Setter Property="Template" Value="{ThemeResource ButtonTemplateHover}"/>
             </Style>
 
             <Style x:Name="ApplicationTextBox" TargetType="TextBox">
-                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="MinHeight" Value="32"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
+                <Setter Property="FontSize" Value="14"/>
             </Style>
 
             <Style x:Name="ApplicationTextBoxNoHit" TargetType="TextBox">
                 <Setter Property="IsTabStop" Value="False"/>
                 <Setter Property="IsHitTestVisible" Value="False"/>
-                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="MinHeight" Value="32"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
+                <Setter Property="FontSize" Value="14"/>
             </Style>
 
             <Style x:Name="ApplicationTextBoxReadOnly" TargetType="TextBox">
                 <Setter Property="IsTabStop" Value="False"/>
                 <Setter Property="IsReadOnly" Value="True"/>
-                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="MinHeight" Value="32"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
+                <Setter Property="FontSize" Value="14"/>
             </Style>
         </ResourceDictionary>
     </Application.Resources>

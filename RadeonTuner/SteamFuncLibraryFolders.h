@@ -10,7 +10,7 @@ namespace LauncherSteam
 
 namespace LauncherSteam::LibraryFolders
 {
-	inline std::vector<SteamLibraryFoldersBasic> GetLibraryFolders(std::string vdfPath)
+	inline std::vector<SteamLibraryFoldersBasic> GetLibraryFolders(std::filesystem::path vdfPath)
 	{
 		std::vector<SteamLibraryFoldersBasic> result{};
 		try
@@ -21,7 +21,7 @@ namespace LauncherSteam::LibraryFolders
 				//Get Steam install directory
 				std::wstring steamInstallPath = SteamInstallPath();
 				std::wstring appInfoPath = PathMerge(steamInstallPath, L"steamapps\\libraryfolders.vdf");
-				vdfPath = wstring_to_string(appInfoPath);
+				vdfPath = std::filesystem::path(appInfoPath);
 				AVDebugWriteLine("Steam libraryfolders.vdf path: " << appInfoPath.c_str());
 			}
 
@@ -29,7 +29,7 @@ namespace LauncherSteam::LibraryFolders
 			std::ifstream fileStream(vdfPath, std::ios::binary);
 			if (!fileStream.is_open())
 			{
-				AVDebugWriteLine("Failed opening libraryfolders.vdf: " << vdfPath.c_str());
+				AVDebugWriteLine("Failed opening libraryfolders.vdf: " << vdfPath.wstring().c_str());
 				return result;
 			}
 

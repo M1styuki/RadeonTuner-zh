@@ -136,7 +136,7 @@ namespace LauncherSteam::AppInfo
 		return vdfData;
 	}
 
-	inline std::vector<SteamAppInfoBasic> GetApps(std::string vdfPath)
+	inline std::vector<SteamAppInfoBasic> GetApps(std::filesystem::path vdfPath)
 	{
 		std::vector<SteamAppInfoBasic> appInfos{};
 		try
@@ -147,7 +147,7 @@ namespace LauncherSteam::AppInfo
 				//Get Steam install directory
 				std::wstring steamInstallPath = SteamInstallPath();
 				std::wstring appInfoPath = PathMerge(steamInstallPath, L"appcache\\appinfo.vdf");
-				vdfPath = wstring_to_string(appInfoPath);
+				vdfPath = std::filesystem::path(appInfoPath);
 				AVDebugWriteLine("Steam appinfo.vdf path: " << appInfoPath.c_str());
 			}
 
@@ -155,7 +155,7 @@ namespace LauncherSteam::AppInfo
 			std::ifstream fileStream(vdfPath, std::ios::binary);
 			if (!fileStream.is_open())
 			{
-				AVDebugWriteLine("Failed opening Steam appinfo.vdf: " << vdfPath.c_str());
+				AVDebugWriteLine("Failed opening Steam appinfo.vdf: " << vdfPath.wstring().c_str());
 				return appInfos;
 			}
 

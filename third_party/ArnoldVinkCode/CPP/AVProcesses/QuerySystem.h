@@ -1,0 +1,39 @@
+#pragma once
+#include <windows.h>
+#pragma comment(lib, "ntdll.lib")
+
+namespace ArnoldVinkCode::AVProcesses
+{
+	//Query system process information
+	inline PSYSTEM_PROCESS_INFORMATION Query_SystemProcessInformation()
+	{
+		ULONG systemOffset = 0;
+		try
+		{
+			while (true)
+			{
+				try
+				{
+					ULONG systemLength = 0;
+					PSYSTEM_PROCESS_INFORMATION systemInfo = (PSYSTEM_PROCESS_INFORMATION)malloc(systemOffset);
+					NTSTATUS queryResult = NtQuerySystemInformation(SystemProcessInformation, systemInfo, systemOffset, &systemLength);
+					if (queryResult == STATUS_INFO_LENGTH_MISMATCH)
+					{
+						systemOffset = std::max<ULONG>(systemOffset, systemLength);
+						if (systemInfo != nullptr)
+						{
+							free(systemInfo);
+						}
+					}
+					else if (queryResult == STATUS_SUCCESS)
+					{
+						return systemInfo;
+					}
+				}
+				catch (...) {}
+			}
+		}
+		catch (...) {}
+		return nullptr;
+	}
+}

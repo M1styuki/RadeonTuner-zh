@@ -51,7 +51,7 @@ namespace winrt::RadeonTuner::implementation
 			GraphicsSettings_Convert_ToUI_Profile(graphicsSettingsProfile, AdlSettingGet::Current);
 
 			//Update button text
-			textblock_AppSelect_Graphics().Text(application);
+			textblock_AppSelect_Graphics().Text(application == L"Global" ? std::wstring(L"全局") : application);
 
 			//Update button colors
 			bool matchingProfile = GraphicsSettings_Match(graphicsSettingsProfile, graphicsSettingsAdl);

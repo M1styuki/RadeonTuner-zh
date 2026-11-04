@@ -34,13 +34,14 @@ namespace winrt::RadeonTuner::implementation
 				//Get running processes
 				std::vector<std::wstring> processExeRunning{};
 				std::vector<AVProcess> processAll = Get_ProcessAll();
+				processExeRunning.reserve(processAll.size());
 				for (AVProcess& process : processAll)
 				{
 					//Lower case executable name
-					std::wstring exeNameLower = wstring_to_lower(process.ExeName());
+					std::wstring exeNameLower = wstring_to_lower(process.ExeNameW());
 
 					//Add to list of running processes
-					processExeRunning.push_back(exeNameLower);
+					processExeRunning.push_back(std::move(exeNameLower));
 				}
 
 				//Check display automatic eyefinity

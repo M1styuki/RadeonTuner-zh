@@ -52,6 +52,12 @@
     <GenerateLibraryLayout>true</GenerateLibraryLayout>
     <ProjectName>RadeonTuner</ProjectName>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(UiValidation)'=='true'">
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)-UiValidation\</OutDir>
+    <IntDir>$(SolutionDir)int\$(Platform)\$(Configuration)-UiValidation\</IntDir>
+    <GeneratedFilesDir>$(SolutionDir)gen\$(Platform)\$(Configuration)-UiValidation\</GeneratedFilesDir>
+    <UiValidationDefines>RADEONTUNER_UI_VALIDATION;</UiValidationDefines>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -66,8 +72,9 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <PreprocessorDefinitions>_VSDESIGNER_DONT_LOAD_AS_DLL;DISABLE_XAML_GENERATED_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>%(AdditionalOptions) /bigobj /Zm400</AdditionalOptions>
+      <PreprocessorDefinitions>_VSDESIGNER_DONT_LOAD_AS_DLL;DISABLE_XAML_GENERATED_MAIN;$(UiValidationDefines)%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories Condition="'$(UiValidation)'=='true'">$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj /Zm400 /utf-8</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -79,7 +86,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\ArnoldVinkCode\CPP\AVPch.h" />
+    <ClInclude Include="..\third_party\ArnoldVinkCode\CPP\AVPch.h" />
     <ClInclude Include="AdjustCursor.h" />
     <ClInclude Include="AdlAppsClass.h" />
     <ClInclude Include="AdlAppsFunc.h" />
@@ -179,6 +186,8 @@
     <ClInclude Include="App.h">
       <DependentUpon>App.xaml</DependentUpon>
     </ClInclude>
+    <ClInclude Include="NativeTheme.h" />
+    <ClInclude Include="SingleInstanceRecall.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SettingEnumStrings.h" />
     <ClInclude Include="SettingAdmin.h" />
@@ -186,6 +195,7 @@
     <ClInclude Include="SettingFunc.h" />
     <ClInclude Include="SettingSave.h" />
     <ClInclude Include="SettingLoad.h" />
+    <ClInclude Include="SystemIntegrationIdentity.h" />
     <ClInclude Include="DisplaySettingsClass.h" />
     <ClInclude Include="SteamFuncLibraryFolders.h" />
     <ClInclude Include="TuningFanSettingsClass.h" />
@@ -435,7 +445,7 @@
     <Error Condition="!Exists('..\packages\Microsoft.Windows.CppWinRT.3.0.260818.1\build\native\Microsoft.Windows.CppWinRT.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.CppWinRT.3.0.260818.1\build\native\Microsoft.Windows.CppWinRT.targets'))" />
     <Error Condition="!Exists('..\packages\Microsoft.Web.WebView2.1.0.4258.31\build\native\Microsoft.Web.WebView2.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Web.WebView2.1.0.4258.31\build\native\Microsoft.Web.WebView2.targets'))" />
   </Target>
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(SignOutput)' == 'true'">
     <Exec Command="if $(Configuration) == Release (&#xD;&#xA;$(SolutionDir)SignToolExe.exe)&#xD;&#xA;)" />
   </Target>
 </Project>

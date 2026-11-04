@@ -18,7 +18,7 @@ namespace winrt::RadeonTuner::implementation
 		void AdlSetDefaultSettings();
 		bool AdlCheckDriverOnlySoftware();
 
-		std::vector<AdapterInfo> AdlGetGpuAll(bool ignoreDuplicate);
+		std::vector<AdapterInfo> AdlGetGpuAll(bool ignoreDuplicate = false);
 		std::optional<AdapterInfo> AdlGetGpuByDeviceId(std::wstring deviceId);
 		std::optional<AdapterInfo> AdlGetGpuByAdapterIndex(int adapterIndex);
 		std::vector<ADLDisplayInfo> AdlGetDisplayAll();
@@ -204,9 +204,9 @@ namespace winrt::RadeonTuner::implementation
 		void AdlxLoopProfile();
 
 		void AdlxCheckSelectedDeviceAccess();
-		void AdlxCheckDisplayEyefinityAutomatic(std::vector<std::wstring> processExeRunning);
-		void AdlxCheckDisplayApplicationProfile(std::vector<std::wstring> processExeRunning);
-		void AdlxCheckTuningApplicationProfile(std::vector<std::wstring> processExeRunning);
+		void AdlxCheckDisplayEyefinityAutomatic(const std::vector<std::wstring>& processExeRunning);
+		void AdlxCheckDisplayApplicationProfile(const std::vector<std::wstring>& processExeRunning);
+		void AdlxCheckTuningApplicationProfile(const std::vector<std::wstring>& processExeRunning);
 
 		winrt::IAsyncAction button_Eyefinity_Overlay_Remove_Click(IInspectable const& sender, RoutedEventArgs const& e);
 		winrt::IAsyncAction button_Eyefinity_Overlay_Create_Click(IInspectable const& sender, RoutedEventArgs const& e);
@@ -275,6 +275,7 @@ namespace winrt::RadeonTuner::implementation
 		void slider_Core_Max_ValueChanged(IInspectable const& sender, RangeBaseValueChangedEventArgs const& e);
 		void toggleswitch_OpenGLTripleBuffering_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
 		void toggleswitch_Close_Tray_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
+		void toggleswitch_Hide_Tray_Icon_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
 		void combobox_TextureFilteringQuality_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 		void toggleswitch_SurfaceFormatOptimization_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
 		void toggleswitch_Shortcut_Startup_Toggled(IInspectable const& sender, RoutedEventArgs const& e);

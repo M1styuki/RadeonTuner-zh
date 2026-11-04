@@ -139,7 +139,7 @@ namespace winrt::RadeonTuner::implementation
 			{
 				//Set result
 				AVDebugWriteLine("ADL library not found");
-				return L"ADL library not found";
+				return L"未找到 ADL 库";
 			}
 
 			//Initialize definitions
@@ -1106,7 +1106,7 @@ namespace winrt::RadeonTuner::implementation
 			{
 				//Set result
 				AVDebugWriteLine("Failed to create ADL main control");
-				return L"Failed to create ADL main control";
+				return L"创建 ADL 主控制失败";
 			}
 
 			//Set result
@@ -1117,7 +1117,7 @@ namespace winrt::RadeonTuner::implementation
 		{
 			//Set result
 			AVDebugWriteLine("ADL failed initializing (Exception)");
-			return L"ADL failed initializing (Exception)";
+			return L"ADL 初始化失败（异常）";
 		}
 	}
 }

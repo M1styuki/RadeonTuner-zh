@@ -169,7 +169,7 @@ namespace winrt::RadeonTuner::implementation
 						{
 							image_FsrOverrideUpscaling_Status().Visibility(Visibility::Visible);
 
-							std::wstring tooltipStringNew = L"This setting is active on:";
+							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (GraphicsStatus graphicsStatus : filteredList)
 							{
 								tooltipStringNew += L"\n(" + number_to_wstring(graphicsStatus.ProcessId) + L") " + graphicsStatus.ProcessName;
@@ -192,7 +192,7 @@ namespace winrt::RadeonTuner::implementation
 						{
 							image_FsrOverrideFrameGeneration_Status().Visibility(Visibility::Visible);
 
-							std::wstring tooltipStringNew = L"This setting is active on:";
+							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (GraphicsStatus graphicsStatus : filteredList)
 							{
 								tooltipStringNew += L"\n(" + number_to_wstring(graphicsStatus.ProcessId) + L") " + graphicsStatus.ProcessName;
@@ -215,7 +215,7 @@ namespace winrt::RadeonTuner::implementation
 						{
 							image_FsrOverrideMultiFrameGeneration_Status().Visibility(Visibility::Visible);
 
-							std::wstring tooltipStringNew = L"This setting is active on:";
+							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (GraphicsStatus graphicsStatus : filteredList)
 							{
 								tooltipStringNew += L"\n(" + number_to_wstring(graphicsStatus.ProcessId) + L") " + graphicsStatus.ProcessName;
@@ -238,7 +238,7 @@ namespace winrt::RadeonTuner::implementation
 						{
 							image_FsrOverrideRayRegeneration_Status().Visibility(Visibility::Visible);
 
-							std::wstring tooltipStringNew = L"This setting is active on:";
+							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (GraphicsStatus graphicsStatus : filteredList)
 							{
 								tooltipStringNew += L"\n(" + number_to_wstring(graphicsStatus.ProcessId) + L") " + graphicsStatus.ProcessName;
@@ -261,7 +261,7 @@ namespace winrt::RadeonTuner::implementation
 						{
 							image_FsrOverrideNeuralRadianceCaching_Status().Visibility(Visibility::Visible);
 
-							std::wstring tooltipStringNew = L"This setting is active on:";
+							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (GraphicsStatus graphicsStatus : filteredList)
 							{
 								tooltipStringNew += L"\n(" + number_to_wstring(graphicsStatus.ProcessId) + L") " + graphicsStatus.ProcessName;

@@ -23,17 +23,17 @@ namespace winrt::RadeonTuner::implementation
 			//Check and set dll path text
 			if (wstring_contains(dllPathLower, system32pathLower))
 			{
-				textblock_FsrDllLoadPath().Text(L"Using default driver FSR library file.");
+				textblock_FsrDllLoadPath().Text(L"正在使用驱动程序默认的 FSR 库文件。");
 			}
 			else
 			{
-				textblock_FsrDllLoadPath().Text(L"Using custom set FSR library file.");
+				textblock_FsrDllLoadPath().Text(L"正在使用自定义设置的 FSR 库文件。");
 			}
 		}
 		catch (...)
 		{
 			//Set dll path text
-			textblock_FsrDllLoadPath().Text(L"Using unknown FSR library file.");
+			textblock_FsrDllLoadPath().Text(L"正在使用未知的 FSR 库文件。");
 		}
 	}
 
@@ -56,7 +56,7 @@ namespace winrt::RadeonTuner::implementation
 			std::wstring fsrVersionW = L"";
 			if (dllVersionW == L"1.0.0.38222" || dllVersionW == L"1.0.0.38733" || dllVersionW == L"1.0.0.39037")
 			{
-				fsrVersionW = L" FSR 4.0.0 Preview";
+				fsrVersionW = L" FSR 4.0.0 预览版";
 			}
 			else if (dllVersionW == L"1.0.0.39849")
 			{

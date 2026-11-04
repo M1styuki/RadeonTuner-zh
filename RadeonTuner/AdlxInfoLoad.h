@@ -24,12 +24,12 @@ namespace winrt::RadeonTuner::implementation
 				AdapterInfo adapterInfo = gpuInfo.value();
 
 				//Device name
-				gpu_info += L"Device name: " + char_to_wstring(adapterInfo.strAdapterName);
+				gpu_info += L"设备名称：" + char_to_wstring(adapterInfo.strAdapterName);
 
 				//Device identifier
 				std::wstring device_id = char_to_wstring(adapterInfo.strPNPString);
 				device_id = wstring_get_between(device_id, L"\\", L"\\");
-				gpu_info += L"\nDevice identifier: " + device_id;
+				gpu_info += L"\n设备标识符：" + device_id;
 			}
 
 			////Device codename
@@ -53,7 +53,7 @@ namespace winrt::RadeonTuner::implementation
 				adl_Res0 = _ADL2_Graphics_VersionsX3_Get(adl_Context, adl_Gpu_AdapterIndex, &driverInfo);
 				if (adl_Res0 == ADL_OK)
 				{
-					gpu_info += L"\nDriver version: " + char_to_wstring(driverInfo.strCrimsonVersion) + L" / " + char_to_wstring(driverInfo.strDriverVer);
+					gpu_info += L"\n驱动程序版本：" + char_to_wstring(driverInfo.strCrimsonVersion) + L" / " + char_to_wstring(driverInfo.strDriverVer);
 				}
 			}
 			catch (...) {}
@@ -65,7 +65,7 @@ namespace winrt::RadeonTuner::implementation
 				adl_Res0 = _ADL2_Adapter_VideoBiosInfo_Get(adl_Context, adl_Gpu_AdapterIndex, &biosInfo);
 				if (adl_Res0 == ADL_OK)
 				{
-					gpu_info += L"\nBios version: " + char_to_wstring(biosInfo.strPartNumber) + L" / " + char_to_wstring(biosInfo.strVersion) + L" / " + char_to_wstring(biosInfo.strDate);
+					gpu_info += L"\nBIOS 版本：" + char_to_wstring(biosInfo.strPartNumber) + L" / " + char_to_wstring(biosInfo.strVersion) + L" / " + char_to_wstring(biosInfo.strDate);
 				}
 			}
 			catch (...) {}
@@ -77,7 +77,7 @@ namespace winrt::RadeonTuner::implementation
 				adl_Res0 = _ADL2_Adapter_MemoryInfoX4_Get(adl_Context, adl_Gpu_AdapterIndex, &lpMemoryInfoX4);
 				if (adl_Res0 == ADL_OK)
 				{
-					gpu_info += L"\nMemory details: " + number_to_wstring(lpMemoryInfoX4.iMemorySize / 1024 / 1024) + L"MB ";
+					gpu_info += L"\n显存详情：" + number_to_wstring(lpMemoryInfoX4.iMemorySize / 1024 / 1024) + L"MB ";
 					gpu_info += char_to_wstring(lpMemoryInfoX4.strMemoryType);
 
 					if (lpMemoryInfoX4.iVramVendorRevId > 0)
@@ -86,7 +86,7 @@ namespace winrt::RadeonTuner::implementation
 					}
 					if (lpMemoryInfoX4.iMemoryBandwidth > 0)
 					{
-						gpu_info += L"\nMemory bandwidth: " + number_to_wstring(lpMemoryInfoX4.iMemoryBandwidth) + L"MB/s";
+						gpu_info += L"\n显存带宽：" + number_to_wstring(lpMemoryInfoX4.iMemoryBandwidth) + L"MB/s";
 					}
 				}
 			}
@@ -101,15 +101,15 @@ namespace winrt::RadeonTuner::implementation
 				{
 					if (gcnInfo.CuCount > 0)
 					{
-						gpu_info += L"\nCompute (WGP) units: " + number_to_wstring(gcnInfo.CuCount);
+						gpu_info += L"\n计算单元（WGP）：" + number_to_wstring(gcnInfo.CuCount);
 					}
 					if (gcnInfo.RopCount > 0)
 					{
-						gpu_info += L"\nRender output units: " + number_to_wstring(gcnInfo.RopCount);
+						gpu_info += L"\n渲染输出单元：" + number_to_wstring(gcnInfo.RopCount);
 					}
 					if (gcnInfo.TexCount > 0)
 					{
-						gpu_info += L"\nTexture mapping units: " + number_to_wstring(gcnInfo.TexCount);
+						gpu_info += L"\n纹理映射单元：" + number_to_wstring(gcnInfo.TexCount);
 					}
 				}
 			}
@@ -124,7 +124,7 @@ namespace winrt::RadeonTuner::implementation
 				{
 					if (adlChipSetInfo.iBusType > 0)
 					{
-						gpu_info += L"\nBus type: " + ADLX_PCI_BUS_TYPE_STRING[adlChipSetInfo.iBusType + 1];
+						gpu_info += L"\n总线类型：" + ADLX_PCI_BUS_TYPE_STRING[adlChipSetInfo.iBusType + 1];
 						if (adlChipSetInfo.iCurrentPCIELaneWidth > 0)
 						{
 							gpu_info += L" (x" + number_to_wstring(adlChipSetInfo.iCurrentPCIELaneWidth) + L" / x" + number_to_wstring(adlChipSetInfo.iMaxPCIELaneWidth) + L")";
@@ -139,7 +139,7 @@ namespace winrt::RadeonTuner::implementation
 			return gpu_info;
 		}
 		catch (...) {}
-		return L"Failed to load gpu information.";
+		return L"无法加载 GPU 信息。";
 	}
 
 	std::wstring MainPage::AdlxInfoDisplay()
@@ -156,7 +156,7 @@ namespace winrt::RadeonTuner::implementation
 			for (ADLDisplayInfo displayInfo : displayList)
 			{
 				//Display name
-				display_info += L"Display name: " + char_to_wstring(displayInfo.strDisplayName);
+				display_info += L"显示器名称：" + char_to_wstring(displayInfo.strDisplayName);
 
 				//Connector type
 				display_info += L" (" + ADLX_DISPLAY_CONNECTOR_TYPE_STRING[displayInfo.iDisplayConnector - 1] + L")\n";
@@ -165,7 +165,7 @@ namespace winrt::RadeonTuner::implementation
 			//Check connected displays
 			if (displayList.empty())
 			{
-				display_info = L"No connected displays on selected GPU.";
+				display_info = L"所选 GPU 上没有已连接的显示器。";
 			}
 
 			//Trim string ending
@@ -176,7 +176,7 @@ namespace winrt::RadeonTuner::implementation
 			return display_info;
 		}
 		catch (...) {}
-		return L"Failed to load display information.";
+		return L"无法加载显示信息。";
 	}
 
 	std::wstring MainPage::AdlxInfoApplication()
@@ -184,14 +184,14 @@ namespace winrt::RadeonTuner::implementation
 		try
 		{
 			//Get version
-			std::wstring app_version = L"V" + GetVersionFromResource(AppVariables::hInstance);
+			std::wstring app_version = L"V" + string_to_wstring(GetVersionFromResource(AppVariables::hInstance));
 
 			//Return version
 			AVDebugWriteLine("Loaded application information.");
-			return L"Made by Arnold Vink\n" + app_version;
+			return L"由 Arnold Vink 制作\n" + app_version;
 		}
 		catch (...) {}
-		return L"Failed to load application information.";
+		return L"无法加载应用程序信息。";
 	}
 
 	void MainPage::AdlxInfoLoad()

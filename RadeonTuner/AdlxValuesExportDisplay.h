@@ -10,12 +10,12 @@ namespace winrt::RadeonTuner::implementation
 		try
 		{
 			//Show file dialog
-			std::wstring exportPath = filepicker_save(NULL, L"Export display settings...", { { L"Setting files", L"*.radd" } });
+			std::wstring exportPath = filepicker_save(NULL, L"导出显示设置……", { { L"设置文件", L"*.radd" } });
 
 			//Check file path
 			if (exportPath.empty())
 			{
-				ShowNotification(L"Display not exported, no path set");
+				ShowNotification(L"未导出显示设置，未指定路径");
 				AVDebugWriteLine(L"Display not exported, no path set");
 				return;
 			}
@@ -26,19 +26,19 @@ namespace winrt::RadeonTuner::implementation
 			//Set result
 			if (saveResult)
 			{
-				ShowNotification(L"Display settings exported");
+				ShowNotification(L"显示设置已导出");
 				AVDebugWriteLine(L"Display settings exported");
 			}
 			else
 			{
-				ShowNotification(L"Display export failed");
+				ShowNotification(L"显示设置导出失败");
 				AVDebugWriteLine(L"Display export failed");
 			}
 		}
 		catch (...)
 		{
 			//Set result
-			ShowNotification(L"Display not exported, exception");
+			ShowNotification(L"未导出显示设置（异常）");
 			AVDebugWriteLine(L"Display not exported, exception");
 		}
 	}

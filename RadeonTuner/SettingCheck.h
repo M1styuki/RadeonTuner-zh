@@ -1,7 +1,7 @@
 #pragma once
 #include "pch.h"
 
-void SettingCheck()
+inline void SettingCheck()
 {
 	try
 	{
@@ -33,6 +33,11 @@ void SettingCheck()
 		if (!AppVariables::Settings.Check("CloseTray"))
 		{
 			AppVariables::Settings.Set("CloseTray", true);
+		}
+
+		if (!AppVariables::Settings.Check("HideTrayIcon"))
+		{
+			AppVariables::Settings.Set("HideTrayIcon", false);
 		}
 
 		if (!AppVariables::Settings.Check("ShowExperimental"))

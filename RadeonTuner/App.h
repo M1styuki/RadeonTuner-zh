@@ -18,10 +18,30 @@ namespace winrt::RadeonTuner::implementation
 		void CreateWindowXaml(HINSTANCE hInstance, bool winVisible, bool winOnTop);
 		void DispatcherInvoke(std::function<void()> const& action);
 		void Exit(bool forceExit);
+		void TrayIconCreate(HINSTANCE hInstance);
+		void TrayIconDelete();
+		HRESULT RefreshTrayIcon();
+		void RefreshNativeTheme();
+		void ShowTrayMenu(POINT point, int autoCloseMilliseconds);
+#ifdef RADEONTUNER_UI_VALIDATION
+		void UiValidationExit(int exitCode);
+		bool TrayIconIsAddedForValidation();
+		HICON TrayIconHandleForValidation();
+		HRESULT TrayIconLastHresultForValidation();
+		void ShowTrayMenuForValidation(int autoCloseMilliseconds);
+#endif
 
 	private:
 		CoreDispatcher _dispatcher = NULL;
 		WindowsXamlManager _windowsXamlManager = NULL;
 		DesktopWindowXamlSource _desktopWindowXamlSource = NULL;
+		HICON _trayIconHandle = NULL;
+		bool _trayIconAdded = false;
+		HRESULT _trayIconLastHresult = S_OK;
+		bool _nativeThemeRefreshing = false;
+		bool _nativeThemeApplied = false;
+		bool _nativeThemeDark = false;
+		bool _nativeThemeHighContrast = false;
+		HWND _nativeThemeWindow = NULL;
 	};
 }

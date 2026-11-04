@@ -46,7 +46,7 @@ namespace winrt::RadeonTuner::implementation
 			FolderDelete(folderLowAMDVkCache, true);
 
 			//Clear Steam shader cache
-			auto steamLibraryFolders = LauncherSteam::LibraryFolders::GetLibraryFolders("");
+			auto steamLibraryFolders = LauncherSteam::LibraryFolders::GetLibraryFolders(std::filesystem::path());
 			for (const auto& folder : steamLibraryFolders)
 			{
 				std::wstring folderSteam = string_to_wstring(folder.path);

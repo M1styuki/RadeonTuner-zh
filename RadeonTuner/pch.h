@@ -5,6 +5,7 @@
 //Includes
 #include <Windows.h>
 #undef GetCurrentTime
+#include <algorithm>
 #include <string>
 #include <thread>
 #include <functional>
@@ -51,8 +52,15 @@ namespace winrt
 	using namespace Windows::UI::Xaml::Input;
 }
 
+//UI helpers
+template<typename T>
+inline void wstring_to_tooltip(T const& element, std::wstring const& tooltipText)
+{
+	winrt::Windows::UI::Xaml::Controls::ToolTipService::SetToolTip(element, winrt::box_value(winrt::hstring(tooltipText)));
+}
+
 //Arnold Vink Code
-#include "..\..\ArnoldVinkCode\CPP\AVPch.h"
+#include "..\third_party\ArnoldVinkCode\CPP\AVPch.h"
 
 //ADL
 #include "ADL\adl_sdk.h"

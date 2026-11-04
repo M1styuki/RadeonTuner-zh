@@ -33,7 +33,7 @@ namespace winrt::RadeonTuner::implementation
 			MultimediaSettings_Convert_ToUI_Profile(multimediaSettingsProfile, AdlSettingGet::Current);
 
 			//Update button text
-			textblock_AppSelect_Multimedia().Text(application);
+			textblock_AppSelect_Multimedia().Text(application == L"Global" ? std::wstring(L"全局") : application);
 
 			//Update button colors
 			bool usingProfile = multimediaSettingsProfile.UsingProfile;

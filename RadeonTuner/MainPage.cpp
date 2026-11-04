@@ -107,10 +107,19 @@
 
 #include "AdjustCursor.h"
 #include "MessageBox.h"
+#include "NativeTheme.h"
 
 #include "MainPage.h"
 #if __has_include("MainPage.g.cpp")
 #include "MainPage.g.cpp"
+#endif
+
+#ifdef RADEONTUNER_UI_VALIDATION
+#if __has_include("..\tools\UiValidation\UiValidationScenario.h")
+#include "..\tools\UiValidation\UiValidationScenario.h"
+#else
+#include "..\..\RadeonTuner\tools\UiValidation\UiValidationScenario.h"
+#endif
 #endif
 
 namespace winrt::RadeonTuner::implementation
@@ -119,6 +128,41 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
+#ifdef RADEONTUNER_UI_VALIDATION
+			//UI validation build: only real XAML/theme/lists/defaults, never ADL, registry, autostart or hardware loops
+			disable_saving = true;
+			disable_saving_settings = true;
+			disable_saving_customresolution = true;
+			RadeonTunerUiValidation::InitializePageControls(this);
+
+			//Visual check mode: show the real native Win32 tray menu anchored inside this window only
+			if (RadeonTunerUiValidation::ShowTrayMenuOnly)
+			{
+				co_await AsyncTaskDelay(1200, AppVariables::App.GetDispatcher());
+
+				//Auto mode closes the menu by itself for an automated check, stay mode leaves it for visual inspection
+				AppVariables::App.ShowTrayMenuForValidation(RadeonTunerUiValidation::AutoMode ? 1500 : 0);
+
+				//Record that the real native menu path completed without desktop automation
+				nlohmann::json trayMenuReport = nlohmann::json::object();
+				trayMenuReport["shown_utc"] = RadeonTunerUiValidation::UtcNowString();
+				trayMenuReport["native_win32_menu"] = true;
+				trayMenuReport["auto_closed"] = RadeonTunerUiValidation::AutoMode;
+				trayMenuReport["owner_window"] = (uint64_t)(uintptr_t)AppVariables::App.GetWindowHandle();
+				trayMenuReport["theme_style"] = AppVariables::Settings.Load<int>("ThemeStyle").value_or(0);
+				trayMenuReport["note"] = "Real CreatePopupMenu/TrackPopupMenuEx menu anchored inside the test window; no owner-draw, external input or desktop automation.";
+				RadeonTunerUiValidation::WriteUtf8File(RadeonTunerUiValidation::TestDataPath + L"\\ui-validation-tray-menu.json", trayMenuReport.dump(2));
+
+				if (RadeonTunerUiValidation::AutoMode)
+				{
+					AppVariables::App.UiValidationExit(0);
+				}
+				co_return;
+			}
+
+			co_await RadeonTunerUiValidation::RunSynchronous(this);
+			co_return;
+#else
 			//Fix check if DCH / UWP or downgraded driver is installed and warn not supported
 			//Fix check if other overclock applications are running and warn user
 
@@ -129,8 +173,8 @@ namespace winrt::RadeonTuner::implementation
 			if (AdlCheckDriverOnlySoftware())
 			{
 				grid_Main().IsHitTestVisible(false);
-				std::vector<std::wstring> messageAnswers{ L"Continue anyways", L"Exit application" };
-				int messageResult = co_await ShowMessageBox(L"Incompatible driver software type", L"It is highly recommended that you install your drivers using the 'Driver Only' software type to prevent possible issues with RadeonTuner.\n\nPlease reinstall your drivers using the 'Driver Only' software type and 'Factory Reset' option, you can find those options by clicking on 'Additional Options' in the Radeon driver setup.", messageAnswers);
+				std::vector<std::wstring> messageAnswers{ L"仍然继续", L"退出应用程序" };
+				int messageResult = co_await ShowMessageBox(L"驱动程序软件类型不兼容", L"强烈建议使用“仅驱动程序”软件类型安装驱动，以避免 RadeonTuner 可能出现的问题。\n\n请使用“仅驱动程序”软件类型和“恢复出厂设置”选项重新安装驱动；可在 Radeon 驱动安装程序的“附加选项”中找到这些选项。", messageAnswers);
 				if (messageResult == 0)
 				{
 					//Enable interface
@@ -149,8 +193,8 @@ namespace winrt::RadeonTuner::implementation
 			if (!initResult_Adl.empty())
 			{
 				grid_Main().IsHitTestVisible(false);
-				std::vector<std::wstring> messageAnswers{ L"Run AMD Cleanup Utility", L"Exit application" };
-				int messageResult = co_await ShowMessageBox(L"Failed initializing ADL", L"Please (re)install or update your AMD drivers, if this message keeps appearing try using the AMD Cleanup Utility. (" + initResult_Adl + L")", messageAnswers);
+				std::vector<std::wstring> messageAnswers{ L"运行 AMD Cleanup Utility", L"退出应用程序" };
+				int messageResult = co_await ShowMessageBox(L"ADL 初始化失败", L"请重新安装或更新 AMD 驱动程序；如果此消息持续出现，请尝试使用 AMD Cleanup Utility。（" + initResult_Adl + L"）", messageAnswers);
 				if (messageResult == 0)
 				{
 					//Launch driver cleanup utility
@@ -182,8 +226,8 @@ namespace winrt::RadeonTuner::implementation
 			if (listGpus.size() == 0)
 			{
 				grid_Main().IsHitTestVisible(false);
-				std::vector<std::wstring> messageAnswers{ L"Run AMD Cleanup Utility", L"Exit application" };
-				int messageResult = co_await ShowMessageBox(L"Failed to find any GPU's", L"Please (re)install or update your AMD drivers, if this message keeps appearing try using the AMD Cleanup Utility.", messageAnswers);
+				std::vector<std::wstring> messageAnswers{ L"运行 AMD Cleanup Utility", L"退出应用程序" };
+				int messageResult = co_await ShowMessageBox(L"未找到任何 GPU", L"请重新安装或更新 AMD 驱动程序；如果此消息持续出现，请尝试使用 AMD Cleanup Utility。", messageAnswers);
 				if (messageResult == 0)
 				{
 					//Launch driver cleanup utility
@@ -253,12 +297,13 @@ namespace winrt::RadeonTuner::implementation
 
 					//Show notification
 					AVDebugWriteLine(L"New application update found");
-					ShowNotification(L"New application update found");
+					ShowNotification(L"发现新的应用程序更新");
 				}
 			}
 
 			//Update first launch setting
 			AppVariables::Settings.Set("FirstLaunch", false);
+#endif
 		}
 		catch (...) {}
 	}
@@ -316,7 +361,7 @@ namespace winrt::RadeonTuner::implementation
 					//Show notification
 					if (!silent)
 					{
-						ShowNotification(L"Showing experimental settings");
+						ShowNotification(L"正在显示实验性设置");
 						AVDebugWriteLine(L"Showing experimental settings");
 					}
 				}
@@ -337,7 +382,7 @@ namespace winrt::RadeonTuner::implementation
 					//Show notification
 					if (!silent)
 					{
-						ShowNotification(L"Hiding experimental settings");
+						ShowNotification(L"正在隐藏实验性设置");
 						AVDebugWriteLine(L"Hiding experimental settings");
 					}
 				}
@@ -389,8 +434,10 @@ namespace winrt::RadeonTuner::implementation
 			stackpanel_AppSelect_Display().Visibility(Visibility::Collapsed);
 			stackpanel_AppSelect_Multimedia().Visibility(Visibility::Collapsed);
 
-			//Hide GPU status bar
+			//Hide GPU status bar, header selection area and action bar
 			border_Gpu_Status().Visibility(Visibility::Collapsed);
+			border_Header().Visibility(Visibility::Collapsed);
+			border_ActionButtons().Visibility(Visibility::Collapsed);
 
 			//Make selected page visible
 			if (selectedIndex == 0)
@@ -449,6 +496,14 @@ namespace winrt::RadeonTuner::implementation
 
 				//Show GPU status bar
 				border_Gpu_Status().Visibility(Visibility::Visible);
+			}
+
+			//The settings page has no selection or action controls, so both empty rows are removed
+			//and its content starts at the top. Every other page keeps the original header/action bar.
+			if (selectedIndex != 5)
+			{
+				border_Header().Visibility(Visibility::Visible);
+				border_ActionButtons().Visibility(Visibility::Visible);
 			}
 		}
 		catch (...) {}
@@ -557,6 +612,9 @@ namespace winrt::RadeonTuner::implementation
 				RequestedTheme(ElementTheme::Light);
 				Background(colorWhite);
 			}
+
+			//Keep the native title bar and Win32 menu in the same light/dark mode
+			AppVariables::App.RefreshNativeTheme();
 		}
 		catch (...) {}
 	}

@@ -10,12 +10,12 @@ namespace winrt::RadeonTuner::implementation
 		try
 		{
 			//Show file dialog
-			std::wstring importPath = filepicker_open(NULL, L"Import graphics settings...", { { L"Setting files", L"*.radg" } });
+			std::wstring importPath = filepicker_open(NULL, L"导入显卡设置……", { { L"设置文件", L"*.radg" } });
 
 			//Check file path
 			if (importPath.empty())
 			{
-				ShowNotification(L"Graphics not imported, no path set");
+				ShowNotification(L"未导入显卡设置，未指定路径");
 				AVDebugWriteLine(L"Graphics not imported, no path set");
 				return;
 			}
@@ -29,13 +29,13 @@ namespace winrt::RadeonTuner::implementation
 			GraphicsSettings_Convert_ToUI_Profile(graphicsSettings, AdlSettingGet::Current);
 
 			//Set result
-			ShowNotification(L"Graphics settings imported");
+			ShowNotification(L"显卡设置已导入");
 			AVDebugWriteLine(L"Graphics settings imported");
 		}
 		catch (...)
 		{
 			//Set result
-			ShowNotification(L"Graphics not imported, exception");
+			ShowNotification(L"未导入显卡设置（异常）");
 			AVDebugWriteLine(L"Graphics not imported, exception");
 		}
 	}
