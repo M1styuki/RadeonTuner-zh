@@ -29,21 +29,11 @@ namespace winrt::RadeonTuner::implementation
 			tuningFanSettingsProfile = TuningFanSettings_Profile_Get(deviceId, application).value();
 
 			//Convert settings values to interface
-			TuningFanSettings_Convert_ToUI_Adl(tuningFanSettingsAdl);
+			TuningFanSettings_Convert_ToUI_Adl(tuningFanSettingsAdl, AdlSettingGet::Current);
 			TuningFanSettings_Convert_ToUI_Profile(tuningFanSettingsProfile, AdlSettingGet::Current);
 
 			//Update button text
 			textblock_AppSelect_Tuning().Text(application == L"Global" ? std::wstring(L"全局") : application);
-
-			//Disable or enable settings
-			if (tuningFanSettingsAdl.TuningSupport)
-			{
-				toggleswitch_KeepActive().IsEnabled(true);
-			}
-			else
-			{
-				toggleswitch_KeepActive().IsEnabled(false);
-			}
 
 			//Update button colors
 			bool usingProfile = tuningFanSettingsProfile.UsingProfile;

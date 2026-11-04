@@ -25,6 +25,16 @@ struct AdlSettingInt
 	{
 		return settingType == AdlSettingGet::Current ? Current : Default;
 	}
+
+	std::optional<int> Get(AdlSettingGet settingType, bool fallbackDefault)
+	{
+		std::optional<int> settingValue = settingType == AdlSettingGet::Current ? Current : Default;
+		if (!settingValue.has_value() && fallbackDefault)
+		{
+			settingValue = settingType == AdlSettingGet::Current ? Default : Current;
+		}
+		return settingValue;
+	}
 };
 
 struct AdlSettingFloat
@@ -40,6 +50,16 @@ struct AdlSettingFloat
 	{
 		return settingType == AdlSettingGet::Current ? Current : Default;
 	}
+
+	std::optional<float> Get(AdlSettingGet settingType, bool fallbackDefault)
+	{
+		std::optional<float> settingValue = settingType == AdlSettingGet::Current ? Current : Default;
+		if (!settingValue.has_value() && fallbackDefault)
+		{
+			settingValue = settingType == AdlSettingGet::Current ? Default : Current;
+		}
+		return settingValue;
+	}
 };
 
 struct AdlSettingString
@@ -51,5 +71,15 @@ struct AdlSettingString
 	std::optional<std::wstring> Get(AdlSettingGet settingType)
 	{
 		return settingType == AdlSettingGet::Current ? Current : Default;
+	}
+
+	std::optional<std::wstring> Get(AdlSettingGet settingType, bool fallbackDefault)
+	{
+		std::optional<std::wstring> settingValue = settingType == AdlSettingGet::Current ? Current : Default;
+		if (!settingValue.has_value() && fallbackDefault)
+		{
+			settingValue = settingType == AdlSettingGet::Current ? Default : Current;
+		}
+		return settingValue;
 	}
 };

@@ -24,7 +24,7 @@ namespace winrt::RadeonTuner::implementation
 			adl_Res0 = _ADL2_Overdrive_Caps(adl_Context, gpuAdapterIndex, &iSupported, &iEnabled, &iVersion);
 
 			//Check overdrive support
-			if (iSupported != ADL_TRUE && iVersion != 8)
+			if (iSupported != 1 && iVersion != 8)
 			{
 				AVDebugWriteLine("Overdrive not supported: " << iSupported << " / enabled: " << iEnabled << " / version: " << iVersion);
 				tuningFanSettings.FanSupport = false;
@@ -33,7 +33,7 @@ namespace winrt::RadeonTuner::implementation
 			}
 			else
 			{
-				AVDebugWriteLine("Overdrive supported: " << iSupported << " / enabled: " << iEnabled << " / version: " << iVersion);
+				//AVDebugWriteLine("Overdrive supported: " << iSupported << " / enabled: " << iEnabled << " / version: " << iVersion);
 			}
 
 			//Check tuning and fan support
@@ -239,27 +239,6 @@ namespace winrt::RadeonTuner::implementation
 			}
 			catch (...) {}
 
-			//Fan Control
-			try
-			{
-				tuningFanSettings.FanControl.Default = false;
-				tuningFanSettings.FanControl.Support = tuningFanSettings.FanSupport;
-
-				auto od8SettingsValue = AdlRegistrySettingGetInt(gpuAdapterIndex, "", "OD8Settings");
-				if (od8SettingsValue.has_value())
-				{
-					int od8SettingsFlag = od8SettingsValue.value();
-					bool fanControlEnabled = (od8SettingsFlag & (int)OD8SettingsRegistryFlags::FanTuningOn) == (int)OD8SettingsRegistryFlags::FanTuningOn;
-
-					tuningFanSettings.FanControl.Current = fanControlEnabled;
-				}
-				else
-				{
-					tuningFanSettings.FanControl.Current = false;
-				}
-			}
-			catch (...) {}
-
 			//Fan Zero RPM
 			try
 			{
@@ -296,7 +275,7 @@ namespace winrt::RadeonTuner::implementation
 			}
 			catch (...) {}
 
-			//Fan Speed 0
+			//Fan Speed 0 / Minimum
 			try
 			{
 				auto defaultValue = Adl_Overdrive8_Load_Default(gpuAdapterIndex, ADLOD8SettingId::OD8_FAN_CURVE_SPEED_1);
@@ -311,6 +290,13 @@ namespace winrt::RadeonTuner::implementation
 						tuningFanSettings.FanSpeed0.Maximum = defaultValue.value().maxValue;
 						tuningFanSettings.FanSpeed0.Step = 1;
 						tuningFanSettings.FanSpeed0.Support = true;
+
+						tuningFanSettings.FanSpeedMin.Current = settingValue.value();
+						tuningFanSettings.FanSpeedMin.Default = defaultValue.value().defaultValue;
+						tuningFanSettings.FanSpeedMin.Minimum = defaultValue.value().minValue;
+						tuningFanSettings.FanSpeedMin.Maximum = defaultValue.value().maxValue;
+						tuningFanSettings.FanSpeedMin.Step = 1;
+						tuningFanSettings.FanSpeedMin.Support = true;
 					}
 				}
 			}
@@ -456,7 +442,7 @@ namespace winrt::RadeonTuner::implementation
 			}
 			catch (...) {}
 
-			//Fan Speed 4
+			//Fan Speed 4 / Maximum
 			try
 			{
 				auto defaultValue = Adl_Overdrive8_Load_Default(gpuAdapterIndex, ADLOD8SettingId::OD8_FAN_CURVE_SPEED_5);
@@ -471,6 +457,13 @@ namespace winrt::RadeonTuner::implementation
 						tuningFanSettings.FanSpeed4.Maximum = defaultValue.value().maxValue;
 						tuningFanSettings.FanSpeed4.Step = 1;
 						tuningFanSettings.FanSpeed4.Support = true;
+
+						tuningFanSettings.FanSpeedMax.Current = settingValue.value();
+						tuningFanSettings.FanSpeedMax.Default = defaultValue.value().defaultValue;
+						tuningFanSettings.FanSpeedMax.Minimum = defaultValue.value().minValue;
+						tuningFanSettings.FanSpeedMax.Maximum = defaultValue.value().maxValue;
+						tuningFanSettings.FanSpeedMax.Step = 1;
+						tuningFanSettings.FanSpeedMax.Support = true;
 					}
 				}
 			}

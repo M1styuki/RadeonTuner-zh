@@ -6,6 +6,12 @@ typedef struct ADLOD8SingleInitSettingWrap : ADLOD8SingleInitSetting
 	}
 };
 
+typedef struct ADL_SAM_MODE
+{
+	int ModeFlag;
+	int Unknown1;
+};
+
 typedef struct ADL_RIS2_NOTIFICATION_REASON
 {
 	unsigned int GlobalEnableChanged; //Set when Global enable value is changed
@@ -68,9 +74,17 @@ typedef struct ADL_DELAG_NOTIFICATION_REASONX4
 	int IndicatorHotKeyChanged; //Set when IndicatorHotKey value is changed
 };
 
+typedef struct ADL_FRAMEGENERATION_SETTINGSX2
+{
+	int Enable; //Enable value
+	int Unknown1;
+	int Unknown2;
+	int Unknown3;
+};
+
 typedef struct AdlGammaRamp
 {
-	uint32_t rgb[1024];
+	DWORD rgb[1024];
 };
 
 enum class ADLCvdcType : int
@@ -96,6 +110,20 @@ enum class OD8SettingsRegistryFlags : int
 	FanTuningOn = 1 << 6,
 	PowerTuning = 1 << 8,
 	Default = 1 << 12
+};
+
+enum class AdvancedControlRegistryFlags : int
+{
+	FanBasic = 1 << 0,
+	FanAdvanced = 1 << 1
+};
+
+enum class FanControlModes : int
+{
+	NoFanControl = 0,
+	FanZeroRpmOnly = 1,
+	RangedFanSpeed = 2,
+	CustomFanCurve = 3
 };
 
 enum class OD8_OPTIMZED_POWER_MODES : int

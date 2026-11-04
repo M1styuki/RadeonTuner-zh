@@ -30,7 +30,12 @@ struct DisplaySettings
 	AdlSettingInt HDCPEnabled;
 
 	//Custom
-	AdlSettingInt EyefinityAutomatic;
+	AdlSettingInt GammaControl{ .Current = false, .Default = false };
+	AdlSettingFloat GammaBase{ .Current = 1.0F, .Default = 1.0F, .Minimum = 0.50F, .Maximum = 3.00F, .Step = 0.01F };
+	AdlSettingFloat GammaRed{ .Current = 1.0F, .Default = 1.0F, .Minimum = 0.50F, .Maximum = 3.00F, .Step = 0.01F };
+	AdlSettingFloat GammaGreen{ .Current = 1.0F, .Default = 1.0F, .Minimum = 0.50F, .Maximum = 3.00F, .Step = 0.01F };
+	AdlSettingFloat GammaBlue{ .Current = 1.0F, .Default = 1.0F, .Minimum = 0.50F, .Maximum = 3.00F, .Step = 0.01F };
+	AdlSettingInt EyefinityAutomatic{ .Current = false, .Default = false };
 
 	//Variables (No export)
 	bool UsingProfile = false;
@@ -43,6 +48,7 @@ struct DisplaySettings
 
 	void SetCurrentToDefault()
 	{
+		//Settings
 		HdrEnabled.Current = HdrEnabled.Default;
 		FreeSyncMode.Current = FreeSyncMode.Default;
 		VsrEnabled.Current = VsrEnabled.Default;
@@ -65,8 +71,14 @@ struct DisplaySettings
 		CVDCDeuteranopia.Current = CVDCDeuteranopia.Default;
 		CVDCTritanopia.Current = CVDCTritanopia.Default;
 		HDCPEnabled.Current = HDCPEnabled.Default;
+		//Custom
+		GammaControl.Current = GammaControl.Default;
+		GammaBase.Current = GammaBase.Default;
+		GammaRed.Current = GammaRed.Default;
+		GammaGreen.Current = GammaGreen.Default;
+		GammaBlue.Current = GammaBlue.Default;
 		EyefinityAutomatic.Current = EyefinityAutomatic.Default;
 	}
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(DisplaySettings, DeviceId, Application, HdrEnabled.Current, FreeSyncMode.Current, VsrEnabled.Current, GpuScalingEnabled.Current, IntegerScalingEnabled.Current, ScalingMode.Current, VariBrightEnabled.Current, VariBrightLevel.Current, ColorDepth.Current, PixelFormat.Current, ColorEnhancement.Current, Brightness.Current, Contrast.Current, Saturation.Current, Hue.Current, ColorTemperatureControl.Current, ColorTemperatureKelvin.Current, CVDCControl.Current, CVDCProtanopia.Current, CVDCDeuteranopia.Current, CVDCTritanopia.Current, HDCPEnabled.Current, EyefinityAutomatic.Current)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(DisplaySettings, DeviceId, Application, HdrEnabled.Current, FreeSyncMode.Current, VsrEnabled.Current, GpuScalingEnabled.Current, IntegerScalingEnabled.Current, ScalingMode.Current, VariBrightEnabled.Current, VariBrightLevel.Current, ColorDepth.Current, PixelFormat.Current, ColorEnhancement.Current, Brightness.Current, Contrast.Current, Saturation.Current, Hue.Current, ColorTemperatureControl.Current, ColorTemperatureKelvin.Current, CVDCControl.Current, CVDCProtanopia.Current, CVDCDeuteranopia.Current, CVDCTritanopia.Current, HDCPEnabled.Current, GammaControl.Current, GammaBase.Current, GammaRed.Current, GammaGreen.Current, GammaBlue.Current, EyefinityAutomatic.Current)
 };

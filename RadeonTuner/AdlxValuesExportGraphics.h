@@ -10,7 +10,7 @@ namespace winrt::RadeonTuner::implementation
 		try
 		{
 			//Show file dialog
-			std::wstring exportPath = filepicker_save(NULL, L"导出显卡设置……", { { L"设置文件", L"*.radg"} });
+			std::wstring exportPath = filepicker_save(NULL, L"导出显卡设置……", { { L"设置文件", L"*.radg" } });
 
 			//Check file path
 			if (exportPath.empty())

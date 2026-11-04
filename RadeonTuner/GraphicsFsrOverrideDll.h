@@ -20,8 +20,12 @@ namespace winrt::RadeonTuner::implementation
 			std::wstring dllPathLower = wstring_to_lower(dllPath);
 			std::wstring system32pathLower = wstring_to_lower(PathGetFolderKnown(FOLDERID_System));
 
+			//Set experimental dll path text
+			textblock_FsrDllLoadPathExperimental().Text(dllPath);
+			wstring_to_tooltip(textblock_FsrDllLoadPathExperimental(), dllPath);
+
 			//Check and set dll path text
-			if (wstring_contains(dllPathLower, system32pathLower))
+			if (wstring_empty_whitespace(dllPathLower) || wstring_contains(dllPathLower, system32pathLower))
 			{
 				textblock_FsrDllLoadPath().Text(L"正在使用驱动程序默认的 FSR 库文件。");
 			}
@@ -34,6 +38,7 @@ namespace winrt::RadeonTuner::implementation
 		{
 			//Set dll path text
 			textblock_FsrDllLoadPath().Text(L"正在使用未知的 FSR 库文件。");
+			textblock_FsrDllLoadPathExperimental().Text(L"正在使用未知的 FSR 库文件。");
 		}
 	}
 
@@ -81,6 +86,10 @@ namespace winrt::RadeonTuner::implementation
 			else if (dllVersionW == L"2.3.0.2740" || dllVersionW == L"2.3.0.2913" || dllVersionW == L"2.3.0.3193" || dllVersionW == L"2.3.0.0")
 			{
 				fsrVersionW = L" FSR 4.1.1";
+			}
+			else if (dllVersionW == L"2.4.0.4370" || dllVersionW == L"2.4.0.0")
+			{
+				fsrVersionW = L" FSR 4.1.2";
 			}
 
 			//Set version information
@@ -134,14 +143,14 @@ namespace winrt::RadeonTuner::implementation
 			if (adl_Res0 == ADL_OK)
 			{
 				//Convert to string
-				std::string driverPath = std::string(driverPathBuffer);
+				std::wstring driverPath = string_to_wstring(std::string(driverPathBuffer));
 
 				//Add dll file name to path
-				driverPath += "amdxcffx64.dll";
+				driverPath = PathMerge(driverPath, L"amdxcffx64.dll");
 
 				//Return result
-				AVDebugWriteLine(L"Default FSR Override Library: " << driverPath.c_str());
-				return string_to_wstring(driverPath);
+				//AVDebugWriteLine(L"Default FSR Override Library: " << driverPath);
+				return driverPath;
 			}
 			else
 			{

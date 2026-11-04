@@ -10,7 +10,7 @@ namespace winrt::RadeonTuner::implementation
 		try
 		{
 			//Show file dialog
-			std::wstring exportPath = filepicker_save(NULL, L"导出调校与风扇设置……", { { L"设置文件", L"*.radt"} });
+			std::wstring exportPath = filepicker_save(NULL, L"导出调校与风扇设置……", { { L"设置文件", L"*.radt" } });
 
 			//Check file path
 			if (exportPath.empty())

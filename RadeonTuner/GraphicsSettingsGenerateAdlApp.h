@@ -35,7 +35,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -66,7 +66,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -97,7 +97,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -128,7 +128,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -159,7 +159,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -190,7 +190,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -226,14 +226,34 @@ namespace winrt::RadeonTuner::implementation
 			catch (...) {}
 
 			//FSR Override Library
+			try
 			{
-				//Not supported
-			}
+				//Set support
+				graphicsSettings.FsrOvrDLLPath.Support = graphicsSettingsSupport.FsrOvrDLLPath.Support;
 
-			//FSR Over-The-Air Updates
-			{
-				//Not supported
+				//Set default
+				graphicsSettings.FsrOvrDLLPath.Default = L" ";
+
+				std::optional<AdlAppProperty> adlProperty = AdlAppPropertyGet(adlApplication, L"FfxDllPath");
+				if (adlProperty.has_value())
+				{
+					//Set current
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
+					{
+						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
+						{
+							graphicsSettings.FsrOvrDLLPath.Current = value.Value;
+							break;
+						}
+					}
+				}
+				else
+				{
+					//Set current
+					graphicsSettings.FsrOvrDLLPath.Current = graphicsSettings.FsrOvrDLLPath.Default;
+				}
 			}
+			catch (...) {}
 
 			//FSR Show Information
 			{
@@ -253,7 +273,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -271,10 +291,67 @@ namespace winrt::RadeonTuner::implementation
 			}
 			catch (...) {}
 
-			//Radeon Fluid Motion Frames
+			//Radeon Fluid Motion Frames - Enabled
+			try
 			{
-				//Not supported
+				//Set support
+				graphicsSettings.FrameGenEnabled.Support = graphicsSettingsSupport.FrameGenEnabled.Support;
+
+				//Set default
+				graphicsSettings.FrameGenEnabled.Default = 0;
+
+				std::optional<AdlAppProperty> adlProperty = AdlAppPropertyGet(adlApplication, L"UFG_PFEnabled");
+				if (adlProperty.has_value())
+				{
+					//Set current
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
+					{
+						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
+						{
+							bool convertedValue = (bool)wstring_to_int(value.Value);
+							graphicsSettings.FrameGenEnabled.Current = convertedValue;
+							break;
+						}
+					}
+				}
+				else
+				{
+					//Set current
+					graphicsSettings.FrameGenEnabled.Current = graphicsSettings.FrameGenEnabled.Default;
+				}
 			}
+			catch (...) {}
+
+			//Radeon Fluid Motion Frames - Algorithm
+			try
+			{
+				//Set support
+				graphicsSettings.FrameGenAlgorithm.Support = graphicsSettingsSupport.FrameGenAlgorithm.Support;
+
+				//Set default
+				graphicsSettings.FrameGenAlgorithm.Default = 0;
+
+				std::optional<AdlAppProperty> adlProperty = AdlAppPropertyGet(adlApplication, L"UFG_Algo");
+				if (adlProperty.has_value())
+				{
+					//Set current
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
+					{
+						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
+						{
+							bool convertedValue = (bool)wstring_to_int(value.Value);
+							graphicsSettings.FrameGenAlgorithm.Current = convertedValue;
+							break;
+						}
+					}
+				}
+				else
+				{
+					//Set current
+					graphicsSettings.FrameGenAlgorithm.Current = graphicsSettings.FrameGenAlgorithm.Default;
+				}
+			}
+			catch (...) {}
 
 			//Radeon Boost
 			try
@@ -291,7 +368,7 @@ namespace winrt::RadeonTuner::implementation
 				{
 					//Set current
 					int boostNormalValue = 0;
-					for (AdlAppPropertyValue value : boostNormalProperty.value().Values)
+					for (AdlAppPropertyValue& value : boostNormalProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -301,7 +378,7 @@ namespace winrt::RadeonTuner::implementation
 					}
 
 					int boostAdaptiveValue = 0;
-					for (AdlAppPropertyValue value : boostAdaptiveProperty.value().Values)
+					for (AdlAppPropertyValue& value : boostAdaptiveProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -358,7 +435,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -394,7 +471,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -430,7 +507,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -466,7 +543,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -500,7 +577,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -541,7 +618,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -573,7 +650,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -604,7 +681,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -635,7 +712,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -669,7 +746,7 @@ namespace winrt::RadeonTuner::implementation
 				{
 					//Set current
 					int asdValue = -1;
-					for (AdlAppPropertyValue value : adlPropertyASD.value().Values)
+					for (AdlAppPropertyValue& value : adlPropertyASD.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -679,7 +756,7 @@ namespace winrt::RadeonTuner::implementation
 					}
 
 					int aseValue = 0;
-					for (AdlAppPropertyValue value : adlPropertyASE.value().Values)
+					for (AdlAppPropertyValue& value : adlPropertyASE.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -689,7 +766,7 @@ namespace winrt::RadeonTuner::implementation
 					}
 
 					int asttValue = 0;
-					for (AdlAppPropertyValue value : adlPropertyASTT.value().Values)
+					for (AdlAppPropertyValue& value : adlPropertyASTT.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -736,7 +813,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -780,7 +857,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -811,7 +888,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -842,7 +919,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -894,7 +971,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -925,7 +1002,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -956,7 +1033,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -987,7 +1064,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{
@@ -1051,7 +1128,7 @@ namespace winrt::RadeonTuner::implementation
 				if (adlProperty.has_value())
 				{
 					//Set current
-					for (AdlAppPropertyValue value : adlProperty.value().Values)
+					for (AdlAppPropertyValue& value : adlProperty.value().Values)
 					{
 						if (value.GpuId == adl_Gpu_UniqueIdentifierHex)
 						{

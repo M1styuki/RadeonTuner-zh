@@ -48,13 +48,10 @@ namespace winrt::RadeonTuner::implementation
 			//FSR Override Library
 			if (graphicsSettings.FsrOvrDLLPath.Get(settingType).has_value())
 			{
-				textbox_FsrDllLoadPath().Text(graphicsSettings.FsrOvrDLLPath.Get(settingType).value());
-			}
-
-			//FSR Over-The-Air Updates
-			if (graphicsSettings.FsrOtaIndex.Get(settingType).has_value())
-			{
-				combobox_FsrOtaUpdates().SelectedIndex(graphicsSettings.FsrOtaIndex.Get(settingType).value());
+				//Set FSR library version information
+				std::wstring fsrOvrDllPath = graphicsSettings.FsrOvrDLLPath.Get(settingType).value();
+				FsrOverrideDllUpdateTextPathInfo(fsrOvrDllPath);
+				FsrOverrideDllUpdateTextVersion(fsrOvrDllPath);
 			}
 
 			//FSR Show Information
@@ -63,38 +60,23 @@ namespace winrt::RadeonTuner::implementation
 				toggleswitch_FsrShowInformation().IsOn(graphicsSettings.FsrShowInformation.Get(settingType).value());
 			}
 
+			//FSR Disable ML Swapchain
+			if (graphicsSettings.FsrDisableMLSwapchain.Get(settingType).has_value())
+			{
+				toggleswitch_FsrDisableMLSwapchain().IsOn(graphicsSettings.FsrDisableMLSwapchain.Get(settingType).value());
+			}
+
 			//FSR Latency Reduction
 			if (graphicsSettings.DeLagEnabled.Get(settingType).has_value())
 			{
 				toggleswitch_FsrLatencyReduction().IsOn(graphicsSettings.DeLagEnabled.Get(settingType).value());
 			}
 
-			//Radeon Fluid Motion Frames
+			//Radeon Fluid Motion Frames - Enabled
 			if (graphicsSettings.FrameGenEnabled.Get(settingType).has_value())
 			{
 				toggleswitch_FrameGenEnabled().IsOn(graphicsSettings.FrameGenEnabled.Get(settingType).value());
-				combobox_FrameGenSearchMode().IsEnabled(graphicsSettings.FrameGenEnabled.Get(settingType).value());
-				combobox_FrameGenPerfMode().IsEnabled(graphicsSettings.FrameGenEnabled.Get(settingType).value());
-				combobox_FrameGenResponseMode().IsEnabled(graphicsSettings.FrameGenEnabled.Get(settingType).value());
 				combobox_FrameGenAlgorithm().IsEnabled(graphicsSettings.FrameGenEnabled.Get(settingType).value());
-			}
-
-			//Radeon Fluid Motion Frames - Search Mode
-			if (graphicsSettings.FrameGenSearchMode.Get(settingType).has_value())
-			{
-				combobox_FrameGenSearchMode().SelectedIndex(graphicsSettings.FrameGenSearchMode.Get(settingType).value());
-			}
-
-			//Radeon Fluid Motion Frames - Performance Mode
-			if (graphicsSettings.FrameGenPerfMode.Get(settingType).has_value())
-			{
-				combobox_FrameGenPerfMode().SelectedIndex(graphicsSettings.FrameGenPerfMode.Get(settingType).value());
-			}
-
-			//Radeon Fluid Motion Frames - Response Mode
-			if (graphicsSettings.FrameGenResponseMode.Get(settingType).has_value())
-			{
-				combobox_FrameGenResponseMode().SelectedIndex(graphicsSettings.FrameGenResponseMode.Get(settingType).value());
 			}
 
 			//Radeon Fluid Motion Frames - Algorithm

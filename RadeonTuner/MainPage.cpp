@@ -59,7 +59,7 @@
 #include "MultimediaSettingsMatch.h"
 
 #include "GraphicsFsrOverrideDll.h"
-#include "GraphicsFsrShowInformation.h"
+#include "GraphicsSettingsEnvironment.h"
 #include "GraphicsSettingsGenerateAdlApp.h"
 #include "GraphicsSettingsGenerateAdlRegistry.h"
 #include "GraphicsSettingsConvertUIAdl.h"
@@ -94,13 +94,17 @@
 #include "SettingAdmin.h"
 #include "SettingSave.h"
 #include "SettingLoad.h"
+#include "RadeonServices.h"
 
 #include "AppPickerInterface.h"
 #include "AppPickerEvent.h"
 
 #include "AdlxLoopDisplay.h"
-#include "AdlxLoopEyefinity.h"
+#include "AdlxLoopDisplayEyefinity.h"
+#include "AdlxLoopDisplayGamma.h"
+#include "AdlxLoopDisplayProfile.h"
 #include "AdlxLoopTuning.h"
+#include "AdlxLoopTuningProfile.h"
 #include "AdlxLoopProfile.h"
 #include "AdlxLoopMetrics.h"
 #include "AdlxLoopAccess.h"
@@ -194,7 +198,7 @@ namespace winrt::RadeonTuner::implementation
 			{
 				grid_Main().IsHitTestVisible(false);
 				std::vector<std::wstring> messageAnswers{ L"运行 AMD Cleanup Utility", L"退出应用程序" };
-				int messageResult = co_await ShowMessageBox(L"ADL 初始化失败", L"请重新安装或更新 AMD 驱动程序；如果此消息持续出现，请尝试使用 AMD Cleanup Utility。（" + initResult_Adl + L"）", messageAnswers);
+				int messageResult = co_await ShowMessageBox(L"ADL 初始化失败", L"请重新安装或更新 AMD 驱动程序；如果此消息持续出现，请尝试使用 AMD Cleanup Utility 并重新安装驱动程序。（" + initResult_Adl + L"）", messageAnswers);
 				if (messageResult == 0)
 				{
 					//Launch driver cleanup utility
@@ -227,7 +231,7 @@ namespace winrt::RadeonTuner::implementation
 			{
 				grid_Main().IsHitTestVisible(false);
 				std::vector<std::wstring> messageAnswers{ L"运行 AMD Cleanup Utility", L"退出应用程序" };
-				int messageResult = co_await ShowMessageBox(L"未找到任何 GPU", L"请重新安装或更新 AMD 驱动程序；如果此消息持续出现，请尝试使用 AMD Cleanup Utility。", messageAnswers);
+				int messageResult = co_await ShowMessageBox(L"未找到任何 GPU", L"请重新安装或更新 AMD 驱动程序；如果此消息持续出现，请尝试使用 AMD Cleanup Utility 并重新安装驱动程序。", messageAnswers);
 				if (messageResult == 0)
 				{
 					//Launch driver cleanup utility
@@ -351,12 +355,12 @@ namespace winrt::RadeonTuner::implementation
 					stackpanel_FsrOverrideMultiFrameGeneration().Visibility(Visibility::Visible);
 					stackpanel_FsrOverrideRayRegeneration().Visibility(Visibility::Visible);
 					stackpanel_FsrOverrideNeuralRadianceCaching().Visibility(Visibility::Visible);
-					stackpanel_FsrOtaUpdates().Visibility(Visibility::Visible);
 					stackpanel_FluidMotion_Options().Visibility(Visibility::Visible);
 					stackpanel_FsrShowInformation().Visibility(Visibility::Visible);
+					stackpanel_FsrDisableMLSwapchain().Visibility(Visibility::Visible);
 
 					textblock_FsrDllLoadPath().Visibility(Visibility::Collapsed);
-					textbox_FsrDllLoadPath().Width(NAN);
+					textblock_FsrDllLoadPathExperimental().Visibility(Visibility::Visible);
 
 					//Show notification
 					if (!silent)
@@ -372,12 +376,12 @@ namespace winrt::RadeonTuner::implementation
 					stackpanel_FsrOverrideMultiFrameGeneration().Visibility(Visibility::Collapsed);
 					stackpanel_FsrOverrideRayRegeneration().Visibility(Visibility::Collapsed);
 					stackpanel_FsrOverrideNeuralRadianceCaching().Visibility(Visibility::Collapsed);
-					stackpanel_FsrOtaUpdates().Visibility(Visibility::Collapsed);
 					stackpanel_FluidMotion_Options().Visibility(Visibility::Collapsed);
 					stackpanel_FsrShowInformation().Visibility(Visibility::Collapsed);
+					stackpanel_FsrDisableMLSwapchain().Visibility(Visibility::Collapsed);
 
 					textblock_FsrDllLoadPath().Visibility(Visibility::Visible);
-					textbox_FsrDllLoadPath().Width(0);
+					textblock_FsrDllLoadPathExperimental().Visibility(Visibility::Collapsed);
 
 					//Show notification
 					if (!silent)

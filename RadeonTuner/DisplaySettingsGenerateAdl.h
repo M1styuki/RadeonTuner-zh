@@ -533,6 +533,23 @@ namespace winrt::RadeonTuner::implementation
 			}
 			catch (...) {}
 
+			//Color Gamma Adjustment
+			try
+			{
+				AdlGammaRamp gammaRamp{};
+				adl_Res0 = _ADL2_Adapter_Gamma_Get(adl_Context, adl_Display_AdapterIndex, &gammaRamp);
+				if (adl_Res0 == ADL_OK)
+				{
+					//Set support
+					displaySettings.GammaControl.Support = true;
+					displaySettings.GammaBase.Support = true;
+					displaySettings.GammaRed.Support = true;
+					displaySettings.GammaGreen.Support = true;
+					displaySettings.GammaBlue.Support = true;
+				}
+			}
+			catch (...) {}
+
 			//Color Deficiency Correction Control
 			try
 			{

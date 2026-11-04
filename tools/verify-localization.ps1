@@ -51,16 +51,51 @@ function Get-NamedElements([xml]$document) {
 
 $baselineNames = Get-NamedElements $baselineXml
 $currentNames = Get-NamedElements $currentXml
-$missingNames = @($baselineNames.Keys | Where-Object { -not $currentNames.ContainsKey($_) } | Sort-Object)
+$intentionallyRemovedNames = @(
+    'toggleswitch_Fan_Control',
+    'textblock_Fan_Control_Value',
+    'stackpanel_FsrOtaUpdates',
+    'textblock_FsrOtaUpdates_Value',
+    'combobox_FsrOtaUpdates',
+    'textblock_FrameGenSearchMode_Value',
+    'combobox_FrameGenSearchMode',
+    'textblock_FrameGenPerfMode_Value',
+    'combobox_FrameGenPerfMode',
+    'textblock_FrameGenResponseMode_Value',
+    'combobox_FrameGenResponseMode',
+    'textbox_FsrDllLoadPath'
+)
+$missingNames = @($baselineNames.Keys | Where-Object { -not $currentNames.ContainsKey($_) -and $intentionallyRemovedNames -notcontains $_ } | Sort-Object)
 $checks++
 if ($missingNames.Count -eq 0) {
-    Write-Output "PASS x:Name identifiers: all $($baselineNames.Count) baseline identifiers retained"
+    Write-Output "PASS x:Name identifiers: all retained baseline identifiers and the new 0.70 controls are present"
 }
 else {
     Add-Failure "Missing x:Name identifiers: $($missingNames -join ', ')"
 }
 
-$eventAttributes = 'Click', 'Toggled', 'TextChanged', 'SelectionChanged', 'Loaded', 'PointerMoved', 'ItemClick'
+$requiredNewNames = @(
+    'toggleswitch_Hide_Tray_Icon',
+    'stackpanel_FsrDisableMLSwapchain',
+    'toggleswitch_FsrDisableMLSwapchain',
+    'combobox_FanControl_Mode',
+    'slider_Fan_Speed_Min',
+    'slider_Fan_Speed_Max',
+    'toggleswitch_Display_GammaControl',
+    'slider_Display_GammaBase',
+    'slider_Display_GammaRed',
+    'slider_Display_GammaGreen',
+    'slider_Display_GammaBlue',
+    'toggleswitch_UpdateExcludeDrivers',
+    'button_DisableRadeonServices',
+    'button_EnableRadeonServices'
+)
+$missingNewNames = @($requiredNewNames | Where-Object { -not $currentNames.ContainsKey($_) })
+if ($missingNewNames.Count -gt 0) {
+    Add-Failure "Missing new 0.70/HideTrayIcon controls: $($missingNewNames -join ', ')"
+}
+
+$eventAttributes = 'Click', 'Toggled', 'TextChanged', 'ValueChanged', 'SelectionChanged', 'Loaded', 'PointerMoved', 'ItemClick'
 $baselineEvents = [System.Collections.Generic.HashSet[string]]::new()
 $currentEvents = [System.Collections.Generic.HashSet[string]]::new()
 foreach ($name in $baselineNames.Keys) {
@@ -76,13 +111,47 @@ foreach ($name in $currentNames.Keys) {
     }
 }
 $checks++
-$removedEvents = @($baselineEvents | Where-Object { -not $currentEvents.Contains($_) } | Sort-Object)
+$intentionallyRenamedEvents = @(
+    'slider_Fan_Speed_0|ValueChanged|slider_Fan_ValueChanged',
+    'slider_Fan_Speed_1|ValueChanged|slider_Fan_ValueChanged',
+    'slider_Fan_Speed_2|ValueChanged|slider_Fan_ValueChanged',
+    'slider_Fan_Speed_3|ValueChanged|slider_Fan_ValueChanged',
+    'slider_Fan_Speed_4|ValueChanged|slider_Fan_ValueChanged',
+    'slider_Fan_Temp_0|ValueChanged|slider_Fan_ValueChanged',
+    'slider_Fan_Temp_1|ValueChanged|slider_Fan_ValueChanged',
+    'slider_Fan_Temp_2|ValueChanged|slider_Fan_ValueChanged',
+    'slider_Fan_Temp_3|ValueChanged|slider_Fan_ValueChanged',
+    'slider_Fan_Temp_4|ValueChanged|slider_Fan_ValueChanged'
+)
+$removedEvents = @($baselineEvents | Where-Object {
+    $owner = ($_ -split '\|', 2)[0]
+    $intentionallyRemovedNames -notcontains $owner -and $intentionallyRenamedEvents -notcontains $_ -and -not $currentEvents.Contains($_)
+} | Sort-Object)
 $addedEvents = @($currentEvents | Where-Object { -not $baselineEvents.Contains($_) } | Sort-Object)
 if ($removedEvents.Count -eq 0) {
-    Write-Output "PASS event hookups: all $($baselineEvents.Count) baseline handlers retained; $($addedEvents.Count) new hookup(s) added"
+    Write-Output "PASS event hookups: all retained baseline handlers and the new 0.70 controls are hooked up; $($addedEvents.Count) new hookup(s) added"
 }
 else {
     Add-Failure "Missing baseline event hookups: $($removedEvents -join ', ')"
+}
+$requiredNewEvents = @(
+    'toggleswitch_Hide_Tray_Icon|Toggled|toggleswitch_Hide_Tray_Icon_Toggled',
+    'toggleswitch_FsrDisableMLSwapchain|Toggled|toggleswitch_FsrDisableMLSwapchain_Toggled',
+    'combobox_FanControl_Mode|SelectionChanged|combobox_FanControl_Mode_SelectionChanged',
+    'slider_Fan_Speed_Min|ValueChanged|slider_FanRanged_ValueChanged',
+    'slider_Fan_Speed_Max|ValueChanged|slider_FanRanged_ValueChanged',
+    'toggleswitch_Display_GammaControl|Toggled|toggleswitch_Display_GammaControl_Toggled',
+    'slider_Display_GammaBase|ValueChanged|slider_Display_GammaRGB_ValueChanged',
+    'slider_Display_GammaRed|ValueChanged|slider_Display_GammaRGB_ValueChanged',
+    'slider_Display_GammaGreen|ValueChanged|slider_Display_GammaRGB_ValueChanged',
+    'slider_Display_GammaBlue|ValueChanged|slider_Display_GammaRGB_ValueChanged',
+    'toggleswitch_UpdateExcludeDrivers|Toggled|toggleswitch_UpdateExcludeDrivers_Toggled',
+    'button_DisableRadeonServices|Click|button_DisableRadeonServices_Click',
+    'button_EnableRadeonServices|Click|button_EnableRadeonServices_Click'
+)
+$missingNewEvents = @($requiredNewEvents | Where-Object { -not $currentEvents.Contains($_) })
+if ($missingNewEvents.Count -gt 0) {
+    Add-Failure "Missing new 0.70 event hookups: $($missingNewEvents -join ', ')"
 }
 
 $settingAttributes = 'Minimum', 'Maximum', 'Value', 'TickFrequency', 'StepFrequency', 'SmallChange', 'LargeChange'

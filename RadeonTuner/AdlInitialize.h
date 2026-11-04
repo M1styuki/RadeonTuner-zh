@@ -337,6 +337,20 @@ namespace winrt::RadeonTuner::implementation
 				AVDebugWriteLine("Failed to init _ADL2_Adapter_Feature_Caps");
 			}
 
+			_ADL2_SmartAccessMemory_Mode_Get = (ADL2_SmartAccessMemory_Mode_Get)GetProcAddress(hInstance, "ADL2_SmartAccessMemory_Mode_Get");
+			if (_ADL2_SmartAccessMemory_Mode_Get == NULL)
+			{
+				//Set result
+				AVDebugWriteLine("Failed to init _ADL2_SmartAccessMemory_Mode_Get");
+			}
+
+			_ADL2_SmartAccessMemory_Mode_Set = (ADL2_SmartAccessMemory_Mode_Set)GetProcAddress(hInstance, "ADL2_SmartAccessMemory_Mode_Set");
+			if (_ADL2_SmartAccessMemory_Mode_Set == NULL)
+			{
+				//Set result
+				AVDebugWriteLine("Failed to init _ADL2_SmartAccessMemory_Mode_Set");
+			}
+
 			//Graphics
 			_ADL2_Graphics_VersionsX3_Get = (ADL2_Graphics_VersionsX3_Get)GetProcAddress(hInstance, "ADL2_Graphics_VersionsX3_Get");
 			if (_ADL2_Graphics_VersionsX3_Get == NULL)
@@ -499,6 +513,20 @@ namespace winrt::RadeonTuner::implementation
 			{
 				//Set result
 				AVDebugWriteLine("Failed to init _ADL2_DriverFrameGeneration_Settings_Set");
+			}
+
+			_ADL2_DriverFrameGeneration_SettingsX2_Get = (ADL2_DriverFrameGeneration_SettingsX2_Get)GetProcAddress(hInstance, "ADL2_DriverFrameGeneration_SettingsX2_Get");
+			if (_ADL2_DriverFrameGeneration_SettingsX2_Get == NULL)
+			{
+				//Set result
+				AVDebugWriteLine("Failed to init _ADL2_DriverFrameGeneration_SettingsX2_Get");
+			}
+
+			_ADL2_DriverFrameGeneration_SettingsX2_Set = (ADL2_DriverFrameGeneration_SettingsX2_Set)GetProcAddress(hInstance, "ADL2_DriverFrameGeneration_SettingsX2_Set");
+			if (_ADL2_DriverFrameGeneration_SettingsX2_Set == NULL)
+			{
+				//Set result
+				AVDebugWriteLine("Failed to init _ADL2_DriverFrameGeneration_SettingsX2_Set");
 			}
 
 			//Graphics - FSR Upscaling Override

@@ -142,7 +142,7 @@ namespace RadeonTunerUiValidation
 			return recallResult ? 0 : 3;
 		}
 
-		AutoMode = !CommandLineHasArgument(L"-ui-stay");
+		AutoMode = CommandLineHasArgument(L"-ui-auto") || !CommandLineHasArgument(L"-ui-stay");
 		PreflightOnly = CommandLineHasArgument(L"-ui-preflight");
 		ShowTrayMenuOnly = CommandLineHasArgument(L"-ui-show-tray-menu-only") || CommandLineHasArgument(L"-ui-menu");
 		bool delayWindow = CommandLineHasArgument(L"-ui-window-delay");

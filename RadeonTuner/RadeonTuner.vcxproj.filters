@@ -282,6 +282,9 @@
     <ClInclude Include="SettingLoad.h">
       <Filter>Page Files\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="RadeonServices.h">
+      <Filter>Page Files\Settings</Filter>
+    </ClInclude>
     <ClInclude Include="SystemIntegrationIdentity.h">
       <Filter>Page Files\Settings</Filter>
     </ClInclude>
@@ -324,13 +327,13 @@
     <ClInclude Include="AdlxLoopDisplay.h">
       <Filter>Page Files\Loop</Filter>
     </ClInclude>
-    <ClInclude Include="AdlxLoopEyefinity.h">
+    <ClInclude Include="AdlxLoopDisplayEyefinity.h">
       <Filter>Page Files\Loop</Filter>
     </ClInclude>
     <ClInclude Include="AdlxLoopTuning.h">
       <Filter>Page Files\Loop</Filter>
     </ClInclude>
-    <ClInclude Include="GraphicsFsrShowInformation.h">
+    <ClInclude Include="GraphicsSettingsEnvironment.h">
       <Filter>Page Files\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="ADL\oem_structures.h">
@@ -355,6 +358,15 @@
       <Filter>Page Files\Display</Filter>
     </ClInclude>
     <ClInclude Include="AdlxLoopAccess.h">
+      <Filter>Page Files\Loop</Filter>
+    </ClInclude>
+    <ClInclude Include="AdlxLoopDisplayGamma.h">
+      <Filter>Page Files\Loop</Filter>
+    </ClInclude>
+    <ClInclude Include="AdlxLoopDisplayProfile.h">
+      <Filter>Page Files\Loop</Filter>
+    </ClInclude>
+    <ClInclude Include="AdlxLoopTuningProfile.h">
       <Filter>Page Files\Loop</Filter>
     </ClInclude>
   </ItemGroup>

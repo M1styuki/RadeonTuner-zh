@@ -79,6 +79,13 @@ namespace winrt::RadeonTuner::implementation
 			bool contextShortcut = RegistryCheck(HKEY_ENUM::CLASSES_ROOT, std::wstring(L"Directory\\background\\shell\\") + RadeonTunerSystemIntegration::ContextMenuKey);
 			toggleswitch_Shortcut_ContextMenu().IsOn(contextShortcut);
 
+			//Check Windows update driver exclude setting
+			std::optional<DWORD> updateExcludeDrivers = RegistryGetDword(HKEY_ENUM::LOCAL_MACHINE, L"Software\\Policies\\Microsoft\\Windows\\WindowsUpdate", L"ExcludeWUDriversInQualityUpdate");
+			if (updateExcludeDrivers.has_value())
+			{
+				toggleswitch_UpdateExcludeDrivers().IsOn(updateExcludeDrivers.value() >= 1);
+			}
+
 			//Fix validate shortcut paths if directory moved
 
 			//Enable saving

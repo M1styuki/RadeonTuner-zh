@@ -26,7 +26,7 @@ namespace winrt::RadeonTuner::implementation
 
 			//Add selected items
 			int addCount = 0;
-			for (auto const& app : selectedApps)
+			for (const AppPickerIdl& app : selectedApps)
 			{
 				//Get executable name
 				std::wstring executableName = hstring_to_wstring(app.ExeName());
@@ -97,7 +97,7 @@ namespace winrt::RadeonTuner::implementation
 			//Remove selected items
 			int removeCount = 0;
 			bool currentAppRemoved = false;
-			for (auto const& app : selectedApps)
+			for (const AppPickerIdl& app : selectedApps)
 			{
 				//Get executable name
 				std::wstring executableName = hstring_to_wstring(app.ExeName());
@@ -476,27 +476,23 @@ namespace winrt::RadeonTuner::implementation
 		catch (...) {}
 	}
 
-	void MainPage::textbox_FsrDllLoadPath_TextChanged(IInspectable const& sender, TextBoxTextChangingEventArgs const& e)
+	void MainPage::toggleswitch_FsrDisableMLSwapchain_Toggled(IInspectable const& sender, RoutedEventArgs const& e)
 	{
 		try
 		{
-			//Get setting value
-			auto newValueHstring = sender.as<TextBox>().Text();
-			auto newValue = hstring_to_wstring(newValueHstring);
-
-			//Set FSR library version information
-			FsrOverrideDllUpdateTextPathInfo(newValue);
-			FsrOverrideDllUpdateTextVersion(newValue);
-
 			//Check if saving is disabled
 			if (disable_saving) { return; }
+
+			//Get setting value
+			auto newSender = sender.as<ToggleSwitch>();
+			bool newValue = newSender.IsOn();
 
 			//Adjust button colors
 			SolidColorBrush colorIgnored = Application::Current().Resources().Lookup(box_value(L"ApplicationIgnoredBrush")).as<SolidColorBrush>();
 			button_Graphics_Apply().Background(colorIgnored);
 
 			//Update current value
-			graphicsSettingsProfile.FsrOvrDLLPath.Current = newValue;
+			graphicsSettingsProfile.FsrDisableMLSwapchain.Current = newValue;
 		}
 		catch (...) {}
 	}
@@ -519,8 +515,16 @@ namespace winrt::RadeonTuner::implementation
 				return;
 			}
 
-			//Set text and trigger event
-			textbox_FsrDllLoadPath().Text(newValue);
+			//Set FSR library version information
+			FsrOverrideDllUpdateTextPathInfo(newValue);
+			FsrOverrideDllUpdateTextVersion(newValue);
+
+			//Adjust button colors
+			SolidColorBrush colorIgnored = Application::Current().Resources().Lookup(box_value(L"ApplicationIgnoredBrush")).as<SolidColorBrush>();
+			button_Graphics_Apply().Background(colorIgnored);
+
+			//Update current value
+			graphicsSettingsProfile.FsrOvrDLLPath.Current = newValue;
 		}
 		catch (...) {}
 	}
@@ -532,33 +536,18 @@ namespace winrt::RadeonTuner::implementation
 			//Check if saving is disabled
 			if (disable_saving) { return; }
 
-			//Get default FSR Override Library
-			std::wstring newValue = FsrOverrideDllGetPathDefault();
+			//Note: Setting empty string will make driver automatically select newest FSR library.
 
-			//Set text and trigger event
-			textbox_FsrDllLoadPath().Text(newValue);
-		}
-		catch (...) {}
-	}
-
-	void MainPage::combobox_FsrOtaUpdates_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e)
-	{
-		try
-		{
-			//Fix check if ADL2_CloudProfile_DLL_Get is used to trigger update or get dll path.
-
-			//Check if saving is disabled
-			if (disable_saving) { return; }
-
-			//Get setting value
-			auto newValue = sender.as<ComboBox>().SelectedIndex();
+			//Set FSR library version information
+			FsrOverrideDllUpdateTextPathInfo(L" ");
+			FsrOverrideDllUpdateTextVersion(L" ");
 
 			//Adjust button colors
 			SolidColorBrush colorIgnored = Application::Current().Resources().Lookup(box_value(L"ApplicationIgnoredBrush")).as<SolidColorBrush>();
 			button_Graphics_Apply().Background(colorIgnored);
 
 			//Update current value
-			graphicsSettingsProfile.FsrOtaIndex.Current = newValue;
+			graphicsSettingsProfile.FsrOvrDLLPath.Current = L" ";
 		}
 		catch (...) {}
 	}
@@ -644,16 +633,10 @@ namespace winrt::RadeonTuner::implementation
 			//Update interface
 			if (newValue)
 			{
-				combobox_FrameGenSearchMode().IsEnabled(true);
-				combobox_FrameGenPerfMode().IsEnabled(true);
-				combobox_FrameGenResponseMode().IsEnabled(true);
 				combobox_FrameGenAlgorithm().IsEnabled(true);
 			}
 			else
 			{
-				combobox_FrameGenSearchMode().IsEnabled(false);
-				combobox_FrameGenPerfMode().IsEnabled(false);
-				combobox_FrameGenResponseMode().IsEnabled(false);
 				combobox_FrameGenAlgorithm().IsEnabled(false);
 			}
 
@@ -663,66 +646,6 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update current value
 			graphicsSettingsProfile.FrameGenEnabled.Current = newValue;
-		}
-		catch (...) {}
-	}
-
-	void MainPage::combobox_FrameGenSearchMode_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e)
-	{
-		try
-		{
-			//Check if saving is disabled
-			if (disable_saving) { return; }
-
-			//Get setting value
-			auto newValue = sender.as<ComboBox>().SelectedIndex();
-
-			//Adjust button colors
-			SolidColorBrush colorIgnored = Application::Current().Resources().Lookup(box_value(L"ApplicationIgnoredBrush")).as<SolidColorBrush>();
-			button_Graphics_Apply().Background(colorIgnored);
-
-			//Update current value
-			graphicsSettingsProfile.FrameGenSearchMode.Current = newValue;
-		}
-		catch (...) {}
-	}
-
-	void MainPage::combobox_FrameGenPerfMode_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e)
-	{
-		try
-		{
-			//Check if saving is disabled
-			if (disable_saving) { return; }
-
-			//Get setting value
-			auto newValue = sender.as<ComboBox>().SelectedIndex();
-
-			//Adjust button colors
-			SolidColorBrush colorIgnored = Application::Current().Resources().Lookup(box_value(L"ApplicationIgnoredBrush")).as<SolidColorBrush>();
-			button_Graphics_Apply().Background(colorIgnored);
-
-			//Update current value
-			graphicsSettingsProfile.FrameGenPerfMode.Current = newValue;
-		}
-		catch (...) {}
-	}
-
-	void MainPage::combobox_FrameGenResponseMode_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e)
-	{
-		try
-		{
-			//Check if saving is disabled
-			if (disable_saving) { return; }
-
-			//Get setting value
-			auto newValue = sender.as<ComboBox>().SelectedIndex();
-
-			//Adjust button colors
-			SolidColorBrush colorIgnored = Application::Current().Resources().Lookup(box_value(L"ApplicationIgnoredBrush")).as<SolidColorBrush>();
-			button_Graphics_Apply().Background(colorIgnored);
-
-			//Update current value
-			graphicsSettingsProfile.FrameGenResponseMode.Current = newValue;
 		}
 		catch (...) {}
 	}
@@ -798,12 +721,13 @@ namespace winrt::RadeonTuner::implementation
 			if (disable_saving) { return; }
 
 			//Get setting value
-			int newValue = (int)e.NewValue();
+			int minValue = (int)slider_RadeonChill_Min().Value();
+			int maxValue = (int)slider_RadeonChill_Max().Value();
 
 			//Match values
-			if (newValue > slider_RadeonChill_Max().Value())
+			if (minValue > maxValue)
 			{
-				slider_RadeonChill_Max().Value(newValue);
+				slider_RadeonChill_Max().Value(minValue);
 			}
 
 			//Adjust button colors
@@ -811,7 +735,7 @@ namespace winrt::RadeonTuner::implementation
 			button_Graphics_Apply().Background(colorIgnored);
 
 			//Update current value
-			graphicsSettingsProfile.ChillMinFps.Current = newValue;
+			graphicsSettingsProfile.ChillMinFps.Current = minValue;
 		}
 		catch (...) {}
 	}
@@ -824,12 +748,13 @@ namespace winrt::RadeonTuner::implementation
 			if (disable_saving) { return; }
 
 			//Get setting value
-			int newValue = (int)e.NewValue();
+			int minValue = (int)slider_RadeonChill_Min().Value();
+			int maxValue = (int)slider_RadeonChill_Max().Value();
 
 			//Match values
-			if (radeon_Chill_Linked || newValue < slider_RadeonChill_Min().Value())
+			if (radeon_Chill_Linked || maxValue < minValue)
 			{
-				slider_RadeonChill_Min().Value(newValue);
+				slider_RadeonChill_Min().Value(maxValue);
 			}
 
 			//Adjust button colors
@@ -837,7 +762,7 @@ namespace winrt::RadeonTuner::implementation
 			button_Graphics_Apply().Background(colorIgnored);
 
 			//Update current value
-			graphicsSettingsProfile.ChillMaxFps.Current = newValue;
+			graphicsSettingsProfile.ChillMaxFps.Current = maxValue;
 		}
 		catch (...) {}
 	}
@@ -853,7 +778,7 @@ namespace winrt::RadeonTuner::implementation
 			if (!radeon_Chill_Linked)
 			{
 				AVDebugWriteLine("Link Radeon Chill.");
-				auto bitmapImage = winrt::BitmapImage(winrt::Uri(L"ms-appx:///Assets/Link.png"));
+				auto bitmapImage = winrt::BitmapImage(winrt::Uri(ThemeGetImagePath(L"Link", true)));
 				image_RadeonChill_Link().Source(bitmapImage);
 				slider_RadeonChill_Min().IsEnabled(false);
 				radeon_Chill_Linked = true;
@@ -861,7 +786,7 @@ namespace winrt::RadeonTuner::implementation
 			else
 			{
 				AVDebugWriteLine("Unlink Radeon Chill.");
-				auto bitmapImage = winrt::BitmapImage(winrt::Uri(L"ms-appx:///Assets/Unlink.png"));
+				auto bitmapImage = winrt::BitmapImage(winrt::Uri(ThemeGetImagePath(L"Unlink", true)));
 				image_RadeonChill_Link().Source(bitmapImage);
 				slider_RadeonChill_Min().IsEnabled(true);
 				radeon_Chill_Linked = false;

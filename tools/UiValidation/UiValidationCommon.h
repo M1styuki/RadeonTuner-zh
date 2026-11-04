@@ -17,6 +17,26 @@
 //All data written here belongs under the test build's own UiValidationData folder.
 namespace RadeonTunerUiValidation
 {
+	inline std::wstring SomeText(winrt::Windows::Foundation::IInspectable const& value)
+	{
+		if (!value) { return L""; }
+		auto text = value.try_as<winrt::hstring>();
+		return text.has_value() ? std::wstring(text.value().c_str()) : L"";
+	}
+
+	inline std::wstring SomeText(winrt::hstring const& value)
+	{
+		return std::wstring(value.c_str());
+	}
+
+	inline void Require(bool condition, std::wstring const& message)
+	{
+		if (!condition)
+		{
+			throw winrt::hresult_error(E_FAIL, winrt::hstring(message));
+		}
+	}
+
 	inline bool AutoMode = true;
 	inline bool PreflightOnly = false;
 	inline bool ShowTrayMenuOnly = false;
@@ -28,6 +48,9 @@ namespace RadeonTunerUiValidation
 	inline bool CrossProcessRecallVerified = false;
 	inline bool EnumListsPrepared = false;
 	inline bool ThemeSwitchVerified = false;
+	inline bool UiCompatibilityVerified = false;
+	inline bool FlatLayoutVerified = false;
+	inline int FlatToggleRowsVerified = 0;
 	inline int CrossProcessRecallChildExitCode = -1;
 	inline uint64_t CrossProcessRecallMilliseconds = 0;
 	inline long ScenarioFailureHresult = 0;

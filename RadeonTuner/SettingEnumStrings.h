@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "pch.h"
 
 //Registry
@@ -77,6 +77,11 @@ const std::vector<std::wstring> ADL_FREESYNC_MODE =
 const std::vector<std::wstring> RADT_THEME_STYLE =
 {
 	L"灰色", L"黑色", L"白色"
+};
+
+const std::vector<std::wstring> ADL_FANCONTROL_MODES_STRING =
+{
+	L"无风扇控制", L"仅零 RPM", L"范围风扇转速", L"自定义风扇曲线"
 };
 
 //ADLX

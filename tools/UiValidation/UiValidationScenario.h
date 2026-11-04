@@ -5,12 +5,14 @@
 #include <string>
 #include <vector>
 #include "pch.h"
+#include <winrt/Windows.UI.Xaml.Automation.h>
 #include "MainPage.h"
 #include "AppVariables.h"
 #include "MainVariables.h"
 #include "AppPickerIdl.h"
 #include "SettingCheck.h"
 #include "UiValidationCommon.h"
+#include "UiBehaviorTests.h"
 
 namespace RadeonTunerUiValidation
 {
@@ -22,14 +24,6 @@ namespace RadeonTunerUiValidation
 
 	const int SampleWaitMilliseconds = 500;
 
-	inline void Require(bool condition, std::wstring const& message)
-	{
-		if (!condition)
-		{
-			throw winrt::hresult_error(E_FAIL, winrt::hstring(message));
-		}
-	}
-
 	inline int CountVisualTree(DependencyObject const& root)
 	{
 		int count = 1;
@@ -39,6 +33,152 @@ namespace RadeonTunerUiValidation
 			count += CountVisualTree(VisualTreeHelper::GetChild(root, index));
 		}
 		return count;
+	}
+
+	inline int MinInt(int left, int right)
+	{
+		return left < right ? left : right;
+	}
+
+	inline bool IsEffectivelyVisible(DependencyObject const& element, DependencyObject const& pageRoot)
+	{
+		DependencyObject current = element;
+		while (current)
+		{
+			auto frameworkElement = current.try_as<FrameworkElement>();
+			if (frameworkElement && frameworkElement.Visibility() == Visibility::Collapsed)
+			{
+				return false;
+			}
+			if (winrt::get_abi(current) == winrt::get_abi(pageRoot))
+			{
+				break;
+			}
+			current = VisualTreeHelper::GetParent(current);
+		}
+		return true;
+	}
+
+	inline std::wstring TooltipText(FrameworkElement const& element)
+	{
+		try
+		{
+			auto tooltip = winrt::Windows::UI::Xaml::Controls::ToolTipService::GetToolTip(element);
+			auto text = tooltip.try_as<winrt::hstring>();
+			return text ? std::wstring(text.value()) : L"";
+		}
+		catch (...)
+		{
+			return L"";
+		}
+	}
+
+	inline int ValidateFlatPage(FrameworkElement const& pageRoot, std::wstring const& pageName)
+	{
+		int validatedRows = 0;
+		auto headingStyle = winrt::Windows::UI::Xaml::Application::Current().Resources().Lookup(winrt::box_value(L"ApplicationSectionHeader")).as<winrt::Windows::UI::Xaml::Style>();
+		std::function<void(DependencyObject const&)> inspect = [&](DependencyObject const& node)
+		{
+			auto textBlock = node.try_as<winrt::Windows::UI::Xaml::Controls::TextBlock>();
+			if (textBlock && textBlock.Style() && winrt::get_abi(textBlock.Style()) == winrt::get_abi(headingStyle))
+			{
+				throw winrt::hresult_error(E_FAIL, winrt::hstring(L"Group heading remains on page: " + pageName));
+			}
+
+			auto border = node.try_as<winrt::Windows::UI::Xaml::Controls::Border>();
+			if (border && border.Background() && (border.CornerRadius().TopLeft > 0 || border.CornerRadius().TopRight > 0 || border.CornerRadius().BottomLeft > 0 || border.CornerRadius().BottomRight > 0))
+			{
+				//Borders inside native input controls are allowed and are not page cards
+				bool insideNativeControl = false;
+				DependencyObject ancestor = VisualTreeHelper::GetParent(border);
+				while (ancestor && winrt::get_abi(ancestor) != winrt::get_abi(pageRoot))
+				{
+					if (ancestor.try_as<winrt::Windows::UI::Xaml::Controls::Control>())
+					{
+						insideNativeControl = true;
+						break;
+					}
+					ancestor = VisualTreeHelper::GetParent(ancestor);
+				}
+				if (!insideNativeControl)
+				{
+					throw winrt::hresult_error(E_FAIL, winrt::hstring(L"Card-like filled border remains on page: " + pageName));
+				}
+			}
+
+			auto toggle = node.try_as<winrt::Windows::UI::Xaml::Controls::ToggleSwitch>();
+			if (toggle && IsEffectivelyVisible(toggle, pageRoot))
+			{
+				std::wstring toggleName(winrt::Windows::UI::Xaml::Automation::AutomationProperties::GetName(toggle).c_str());
+				if (toggleName.empty())
+				{
+					throw winrt::hresult_error(E_FAIL, winrt::hstring(L"Toggle has no automation label on page: " + pageName));
+				}
+				if (!SomeText(toggle.OnContent()).empty() || !SomeText(toggle.OffContent()).empty())
+				{
+					throw winrt::hresult_error(E_FAIL, winrt::hstring(L"Toggle still has On/OffContent text on page: " + pageName));
+				}
+				if (toggle.HorizontalAlignment() != winrt::Windows::UI::Xaml::HorizontalAlignment::Right)
+				{
+					throw winrt::hresult_error(E_FAIL, winrt::hstring(L"Toggle is not right aligned on page: " + pageName));
+				}
+
+				auto parent = VisualTreeHelper::GetParent(toggle).try_as<winrt::Windows::UI::Xaml::Controls::Grid>();
+				if (!parent)
+				{
+					throw winrt::hresult_error(E_FAIL, winrt::hstring(L"Toggle row is not a Grid on page: " + pageName));
+				}
+				int toggleColumn = winrt::Windows::UI::Xaml::Controls::Grid::GetColumn(toggle);
+				int labelColumn = 1000;
+				int helpColumn = 1000;
+				int warningColumn = 1000;
+				int childCount = VisualTreeHelper::GetChildrenCount(parent);
+				for (int index = 0; index < childCount; index++)
+				{
+					auto child = VisualTreeHelper::GetChild(parent, index).try_as<FrameworkElement>();
+					if (!child) { continue; }
+					int childColumn = winrt::Windows::UI::Xaml::Controls::Grid::GetColumn(child);
+					if (childColumn >= toggleColumn) { continue; }
+					auto textBlockChild = child.try_as<winrt::Windows::UI::Xaml::Controls::TextBlock>();
+					if (textBlockChild && !std::wstring(textBlockChild.Text().c_str()).empty())
+					{
+						labelColumn = MinInt(labelColumn, childColumn);
+					}
+					auto imageChild = child.try_as<winrt::Windows::UI::Xaml::Controls::Image>();
+					if (imageChild)
+					{
+						std::wstring tooltip = TooltipText(imageChild);
+						if (!tooltip.empty())
+						{
+							if (tooltip[0] == L'*') { warningColumn = MinInt(warningColumn, childColumn); }
+							else { helpColumn = MinInt(helpColumn, childColumn); }
+						}
+					}
+				}
+				if (labelColumn == 1000)
+				{
+					throw winrt::hresult_error(E_FAIL, winrt::hstring(L"Toggle row has no leading label on page: " + pageName));
+				}
+				if (helpColumn != 1000 && helpColumn <= labelColumn)
+				{
+					throw winrt::hresult_error(E_FAIL, winrt::hstring(L"Help icon does not follow the label on page: " + pageName));
+				}
+				int warningReference = helpColumn != 1000 ? helpColumn : labelColumn;
+				if (warningColumn != 1000 && warningColumn <= warningReference)
+				{
+					throw winrt::hresult_error(E_FAIL, winrt::hstring(L"Warning icon does not follow the help icon/label on page: " + pageName));
+				}
+				validatedRows++;
+			}
+
+			int childCount = VisualTreeHelper::GetChildrenCount(node);
+			for (int index = 0; index < childCount; index++)
+			{
+				inspect(VisualTreeHelper::GetChild(node, index));
+			}
+		};
+		inspect(pageRoot);
+		return validatedRows;
 	}
 
 	inline void InitializePageControls(MainPage* page)
@@ -354,6 +494,9 @@ namespace RadeonTunerUiValidation
 		report["cross_process_recall_ms"] = CrossProcessRecallMilliseconds;
 		report["enum_lists_prepared"] = EnumListsPrepared;
 		report["theme_switch_verified"] = ThemeSwitchVerified;
+		report["ui_compatibility_verified"] = UiCompatibilityVerified;
+		report["flat_layout_verified"] = FlatLayoutVerified;
+		report["flat_toggle_rows_verified"] = FlatToggleRowsVerified;
 		report["window_handle_visible_after_show"] = IsWindowVisible(AppVariables::App.GetWindowHandle()) != FALSE;
 		report["measurements_csv"] = WideToUtf8(MeasurementsCsvPath);
 		report["test_data_path"] = WideToUtf8(TestDataPath);
@@ -503,6 +646,9 @@ namespace RadeonTunerUiValidation
 				bool actionBarVisible = page->border_ActionButtons().Visibility() == Visibility::Visible;
 				Require(headerVisible == !settingsPage, L"Selection header visibility is wrong on page: " + pageName);
 				Require(actionBarVisible == !settingsPage, L"Action bar visibility is wrong on page: " + pageName);
+				int flatRows = ValidateFlatPage(pageElement, pageName);
+				FlatToggleRowsVerified += flatRows;
+				detail += L";flat_rows=" + std::to_wstring(flatRows);
 				PagesNavigated++;
 			};
 			checkPage(0, L"Tuning", page->stackpanel_Tuning());
@@ -512,6 +658,12 @@ namespace RadeonTunerUiValidation
 			checkPage(4, L"Multimedia", page->stackpanel_Multimedia());
 			checkPage(5, L"Settings", page->stackpanel_Settings());
 			checkPage(6, L"Information", page->stackpanel_Information());
+			Require(PagesNavigated == 7, L"Not all seven pages were navigated.");
+			Require(FlatToggleRowsVerified > 0, L"No toggle rows were validated.");
+			FlatLayoutVerified = true;
+
+			//Exercise gamma/base/RGB and fan-mode events, profile serialization and old-profile compatibility
+			VerifyGammaAndFanBehavior(page);
 
 			//Return to the first page before cycling overlays
 			page->listview_Main().SelectedIndex(0);

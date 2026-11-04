@@ -49,12 +49,41 @@ namespace winrt::RadeonTuner::implementation
 				if (settingsProfile.PowerTDC.Current.value() != settingsAdl.PowerTDC.Current.value()) { return false; }
 			}
 
-			if (settingsProfile.FanControl.Current.has_value() && settingsAdl.FanControl.Current.has_value() && settingsAdl.FanControl.Support)
+			//Get Fan Control Mode
+			int fanControlMode = (int)FanControlModes::NoFanControl;
+			if (settingsProfile.FanControlMode.Current.has_value())
 			{
-				if (settingsProfile.FanControl.Current.value() != settingsAdl.FanControl.Current.value()) { return false; }
+				fanControlMode = settingsProfile.FanControlMode.Current.value();
 			}
 
-			if (settingsProfile.FanControl.Current.has_value() && settingsProfile.FanControl.Current.value())
+			//Check Fan Control Mode
+			if (fanControlMode == (int)FanControlModes::FanZeroRpmOnly)
+			{
+				if (settingsProfile.FanZeroRpm.Current.has_value() && settingsAdl.FanZeroRpm.Current.has_value() && settingsAdl.FanZeroRpm.Support)
+				{
+					if (settingsProfile.FanZeroRpm.Current.value() != settingsAdl.FanZeroRpm.Current.value()) { return false; }
+				}
+			}
+			else if (fanControlMode == (int)FanControlModes::RangedFanSpeed)
+			{
+				//Fix what if someone set a custom fan curve with the same minimum (fan0) and maximum (fan4)?
+
+				if (settingsProfile.FanZeroRpm.Current.has_value() && settingsAdl.FanZeroRpm.Current.has_value() && settingsAdl.FanZeroRpm.Support)
+				{
+					if (settingsProfile.FanZeroRpm.Current.value() != settingsAdl.FanZeroRpm.Current.value()) { return false; }
+				}
+
+				if (settingsProfile.FanSpeedMin.Current.has_value() && settingsAdl.FanSpeedMin.Current.has_value() && settingsAdl.FanSpeedMin.Support)
+				{
+					if (settingsProfile.FanSpeedMin.Current.value() != settingsAdl.FanSpeedMin.Current.value()) { return false; }
+				}
+
+				if (settingsProfile.FanSpeedMax.Current.has_value() && settingsAdl.FanSpeedMax.Current.has_value() && settingsAdl.FanSpeedMax.Support)
+				{
+					if (settingsProfile.FanSpeedMax.Current.value() != settingsAdl.FanSpeedMax.Current.value()) { return false; }
+				}
+			}
+			else if (fanControlMode == (int)FanControlModes::CustomFanCurve)
 			{
 				if (settingsProfile.FanZeroRpm.Current.has_value() && settingsAdl.FanZeroRpm.Current.has_value() && settingsAdl.FanZeroRpm.Support)
 				{
@@ -111,6 +140,8 @@ namespace winrt::RadeonTuner::implementation
 					if (settingsProfile.FanTemp4.Current.value() != settingsAdl.FanTemp4.Current.value()) { return false; }
 				}
 			}
+
+			//AVDebugWriteLine(L"Tuning and fan settings are matching.");
 		}
 		catch (...) {}
 		return true;

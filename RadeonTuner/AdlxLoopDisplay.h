@@ -6,12 +6,15 @@
 
 namespace winrt::RadeonTuner::implementation
 {
-	void MainPage::AdlxCheckDisplayApplicationProfile(const std::vector<std::wstring>& processExeRunning)
+	void MainPage::AdlxLoopDisplayApplicationProfile(const std::vector<std::wstring>& processExeRunning)
 	{
 		try
 		{
-			//Get all display's
-			for (auto displayInfo : AdlGetDisplayAll())
+			//Get all displays
+			std::vector<ADLDisplayInfo> displayList = AdlGetDisplayAll();
+
+			//Loop all display's
+			for (ADLDisplayInfo& displayInfo : displayList)
 			{
 				//Device index
 				int adapterIndex = displayInfo.displayID.iDisplayLogicalAdapterIndex;
@@ -59,43 +62,13 @@ namespace winrt::RadeonTuner::implementation
 				{
 					//Get profile value
 					DisplaySettings& displaySettingsRunning = displaySettingsRunningOpt.value();
-					//AVDebugWriteLine("Comparing display settings: " << displaySettingsRunning.DeviceId.value() << L" / " << displaySettingsRunning.Application.value());
+					//AVDebugWriteLine("Found running display profile application: " << displaySettingsRunning.DeviceId.value() << L" / " << displaySettingsRunning.Application.value());
 
-					//Check if apply is required
-					if (displaySettingsRunning.UsingProfile)
-					{
-						//AVDebugWriteLine(L"Profile is currently in use: " << displaySettingsRunning.Application.value());
-						continue;
-					}
+					//Check if display profile needs to be applied
+					AdlxLoopDisplayApplyProfile(adapterIndex, displayIndex, displaySettingsRunning);
 
-					//Get current and default settings
-					DisplaySettings displaySettingsAdl = DisplaySettings_Generate_FromADL(adapterIndex, displayIndex, L"", false).value();
-
-					//Apply display settings
-					bool applyResult = AdlDisplaySettingsApply(adapterIndex, displayIndex, displaySettingsRunning, displaySettingsAdl, AdlSettingGet::Current, true);
-
-					//Check result
-					if (applyResult)
-					{
-						//Update application using status
-						DisplaySettings_Profile_Set_Using(displaySettingsRunning.DeviceId.value(), displaySettingsRunning.Application.value());
-					}
-
-					std::function<winrt::IAsyncAction()> updateFunction = [=]() -> winrt::IAsyncAction
-						{
-							if (applyResult)
-							{
-								//Show notification
-								std::wstring applicationDisplay = displaySettingsRunning.Application.value();
-								if (applicationDisplay == L"Global") { applicationDisplay = L"全局"; }
-								ShowNotification(L"显示设置已应用：" + applicationDisplay);
-								AVDebugWriteLine(L"Display settings applied: " << displaySettingsRunning.Application.value());
-
-								//Load display settings
-								co_await AdlxValuesLoadSelectDisplayApp(adl_Display_AdapterIndex, adl_Display_DisplayIndex, displaySettingsProfile.Application.value());
-							}
-						};
-					AppVariables::App.DispatcherInvoke(updateFunction);
+					//Check if display gamma needs to be applied
+					AdlxLoopDisplayApplyGamma(adapterIndex, displaySettingsRunning);
 				}
 			}
 		}

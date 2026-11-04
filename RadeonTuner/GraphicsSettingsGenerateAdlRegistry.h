@@ -160,32 +160,13 @@ namespace winrt::RadeonTuner::implementation
 				graphicsSettings.FsrOvrDLLPath.Support = graphicsSettingsSupport.FsrOvrDLLPath.Support;
 
 				//Set default
-				graphicsSettings.FsrOvrDLLPath.Default = FsrOverrideDllGetPathDefault();
+				graphicsSettings.FsrOvrDLLPath.Default = L" ";
 
 				auto adlRegistry = AdlRegistrySettingGetString(gpuAdapterIndex, "UMD", "FsrOvrDLLPath", true);
 				if (adlRegistry.has_value())
 				{
 					//Set current
 					graphicsSettings.FsrOvrDLLPath.Current = adlRegistry.value();
-				}
-			}
-			catch (...) {}
-
-			//FSR Over-The-Air Updates
-			try
-			{
-				//Set support
-				graphicsSettings.FsrOtaIndex.Support = graphicsSettingsSupport.FsrOtaIndex.Support;
-
-				//Set default
-				graphicsSettings.FsrOtaIndex.Default = 1;
-
-				auto adlRegistry = AdlRegistrySettingGetString(gpuAdapterIndex, "UMD", "FsrOtaIndex", true);
-				if (adlRegistry.has_value())
-				{
-					//Set current
-					int convertedValue = wstring_to_int(adlRegistry.value());
-					graphicsSettings.FsrOtaIndex.Current = convertedValue;
 				}
 			}
 			catch (...) {}
@@ -200,7 +181,21 @@ namespace winrt::RadeonTuner::implementation
 				graphicsSettings.FsrShowInformation.Default = 0;
 
 				//Set current
-				graphicsSettings.FsrShowInformation.Current = FsrShowInformationIsEnabled();
+				graphicsSettings.FsrShowInformation.Current = EnvironmentSettingGet(L"MLSR-WATERMARK");
+			}
+			catch (...) {}
+
+			//FSR Disable ML Swapchain
+			try
+			{
+				//Set support
+				graphicsSettings.FsrDisableMLSwapchain.Support = graphicsSettingsSupport.FsrDisableMLSwapchain.Support;
+
+				//Set default
+				graphicsSettings.FsrDisableMLSwapchain.Default = 0;
+
+				//Set current
+				graphicsSettings.FsrDisableMLSwapchain.Current = EnvironmentSettingGet(L"FFX_DISABLE_ML_SWAPCHAIN");
 			}
 			catch (...) {}
 
@@ -228,88 +223,20 @@ namespace winrt::RadeonTuner::implementation
 			{
 				//Set support
 				graphicsSettings.FrameGenEnabled.Support = graphicsSettingsSupport.FrameGenEnabled.Support;
+				graphicsSettings.FrameGenAlgorithm.Support = graphicsSettingsSupport.FrameGenAlgorithm.Support;
 
-				int fmfEnabled = -1;
-				adl_Res0 = _ADL2_DriverFrameGeneration_Settings_Get(adl_Context, gpuAdapterIndex, &fmfEnabled);
+				ADL_FRAMEGENERATION_SETTINGSX2 fmfEnabled{};
+				ADL_FRAMEGENERATION_SETTINGSX2 fmfAlgorithm{};
+				adl_Res0 = _ADL2_DriverFrameGeneration_SettingsX2_Get(adl_Context, gpuAdapterIndex, &fmfEnabled, &fmfAlgorithm);
 				if (adl_Res0 == ADL_OK)
 				{
 					//Set current
-					graphicsSettings.FrameGenEnabled.Current = fmfEnabled;
+					graphicsSettings.FrameGenEnabled.Current = fmfEnabled.Enable;
+					graphicsSettings.FrameGenAlgorithm.Current = fmfAlgorithm.Enable;
 
 					//Set default
 					graphicsSettings.FrameGenEnabled.Default = 0;
-				}
-			}
-			catch (...) {}
-
-			//Radeon Fluid Motion Search Mode setting
-			try
-			{
-				//Set support
-				graphicsSettings.FrameGenSearchMode.Support = graphicsSettingsSupport.FrameGenSearchMode.Support;
-
-				//Set default
-				graphicsSettings.FrameGenSearchMode.Default = 0;
-
-				auto resultDword = RegistryGetDword(HKEY_ENUM::CURRENT_USER, L"Software\\AMD\\DVR", L"FrameGenSearchMode");
-				if (resultDword.has_value())
-				{
-					//Set current
-					graphicsSettings.FrameGenSearchMode.Current = resultDword.value();
-				}
-			}
-			catch (...) {}
-
-			//Radeon Fluid Motion Performance Mode setting
-			try
-			{
-				//Set support
-				graphicsSettings.FrameGenPerfMode.Support = graphicsSettingsSupport.FrameGenPerfMode.Support;
-
-				//Set default
-				graphicsSettings.FrameGenPerfMode.Default = 0;
-
-				auto resultDword = RegistryGetDword(HKEY_ENUM::CURRENT_USER, L"Software\\AMD\\DVR", L"FrameGenPerfMode");
-				if (resultDword.has_value())
-				{
-					//Set current
-					graphicsSettings.FrameGenPerfMode.Current = resultDword.value();
-				}
-			}
-			catch (...) {}
-
-			//Radeon Fluid Motion Response Mode setting
-			try
-			{
-				//Set support
-				graphicsSettings.FrameGenResponseMode.Support = graphicsSettingsSupport.FrameGenResponseMode.Support;
-
-				//Set default
-				graphicsSettings.FrameGenResponseMode.Default = 0;
-
-				auto resultDword = RegistryGetDword(HKEY_ENUM::CURRENT_USER, L"Software\\AMD\\DVR", L"FrameGenFallbackMode");
-				if (resultDword.has_value())
-				{
-					//Set current
-					graphicsSettings.FrameGenResponseMode.Current = resultDword.value();
-				}
-			}
-			catch (...) {}
-
-			//Radeon Fluid Motion Algorithm setting
-			try
-			{
-				//Set support
-				graphicsSettings.FrameGenAlgorithm.Support = graphicsSettingsSupport.FrameGenAlgorithm.Support;
-
-				//Set default
-				graphicsSettings.FrameGenAlgorithm.Default = 0;
-
-				auto resultDword = RegistryGetDword(HKEY_ENUM::CURRENT_USER, L"Software\\AMD\\DVR", L"FrameGenAlgorithm");
-				if (resultDword.has_value())
-				{
-					//Set current
-					graphicsSettings.FrameGenAlgorithm.Current = resultDword.value();
+					graphicsSettings.FrameGenAlgorithm.Default = 0;
 				}
 			}
 			catch (...) {}

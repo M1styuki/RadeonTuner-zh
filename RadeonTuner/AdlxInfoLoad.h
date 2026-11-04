@@ -12,7 +12,7 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
-			//Fix missing Pixel and Texture Fillrate, Shaders Count, Bus Width, Fabrication Technology, Transistor Count, Resizable Bar.
+			//Fix missing Pixel and Texture Fillrate, Shaders Count, Bus Width, Fabrication Technology, Transistor Count
 
 			//Set gpu information
 			std::wstring gpu_info = L"";
@@ -134,6 +134,31 @@ namespace winrt::RadeonTuner::implementation
 			}
 			catch (...) {}
 
+			//Resizable BAR information
+			try
+			{
+				ADL_SAM_MODE samMode{};
+				adl_Res0 = _ADL2_SmartAccessMemory_Mode_Get(adl_Context, adl_Gpu_AdapterIndex, &samMode);
+				if (adl_Res0 == ADL_OK)
+				{
+					std::wstring samStatus = (samMode.ModeFlag > 1) ? L"已启用" : L"已禁用";
+					gpu_info += L"\n可变基址寄存器（SAM）：" + samStatus;
+				}
+			}
+			catch (...) {}
+
+			//Hardware-accelerated GPU scheduling information
+			try
+			{
+				std::optional<DWORD> hagsMode = RegistryGetDword(HKEY_ENUM::LOCAL_MACHINE, L"System\\CurrentControlSet\\Control\\GraphicsDrivers", L"HwSchMode");
+				if (hagsMode.has_value())
+				{
+					std::wstring hagsStatus = (hagsMode.value() == 2) ? L"已启用" : L"已禁用";
+					gpu_info += L"\nGPU 硬件加速调度（HAGS）：" + hagsStatus;
+				}
+			}
+			catch (...) {}
+
 			//Return information
 			AVDebugWriteLine("Loaded gpu information.");
 			return gpu_info;
@@ -153,7 +178,7 @@ namespace winrt::RadeonTuner::implementation
 
 			//Get connected displays
 			std::vector<ADLDisplayInfo> displayList = AdlGetDisplayByAdapterIndex(adl_Gpu_AdapterIndex);
-			for (ADLDisplayInfo displayInfo : displayList)
+			for (ADLDisplayInfo& displayInfo : displayList)
 			{
 				//Display name
 				display_info += L"显示器名称：" + char_to_wstring(displayInfo.strDisplayName);
