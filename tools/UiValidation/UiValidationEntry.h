@@ -144,9 +144,10 @@ namespace RadeonTunerUiValidation
 
 		AutoMode = CommandLineHasArgument(L"-ui-auto") || !CommandLineHasArgument(L"-ui-stay");
 		AnimationCheckMode = CommandLineHasArgument(L"-ui-animation-check");
+		LifecycleCheckMode = CommandLineHasArgument(L"-ui-lifecycle-check");
 		AnimationCheckStay = AnimationCheckMode && CommandLineHasArgument(L"-ui-check-stay");
-		PreviewMode = CommandLineHasArgument(L"-ui-preview") || AnimationCheckMode;
-		if (PreviewMode)
+		PreviewMode = CommandLineHasArgument(L"-ui-preview") || AnimationCheckMode || LifecycleCheckMode;
+		if (PreviewMode && !LifecycleCheckMode)
 		{
 			//Preview is a visual-only stay mode; never run the automated stress scenario or watchdog
 			AutoMode = false;

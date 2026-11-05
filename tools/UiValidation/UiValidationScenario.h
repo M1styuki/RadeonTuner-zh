@@ -1095,7 +1095,17 @@ namespace RadeonTunerUiValidation
 		PumpMessagesFor(150);
 	}
 
-	inline void VerifyTraySettingsAndLifecycle(MainPage* page, HWND windowHandle)
+	inline MainPage* CurrentValidationPage()
+	{
+		auto inspectable = AppVariables::App.CurrentPageForValidation();
+		if (!inspectable)
+		{
+			return nullptr;
+		}
+		return winrt::get_self<MainPage>(inspectable);
+	}
+
+	inline void VerifyTraySettingsAndLifecycle(MainPage*& page, HWND windowHandle)
 	{
 		//Missing setting defaults to false and SettingCheck writes that default to the private settings
 		AppVariables::Settings.Remove("HideTrayIcon");
@@ -1127,8 +1137,12 @@ namespace RadeonTunerUiValidation
 		Require(!IsWindowVisible(windowHandle), L"Close to tray did not hide the main window while the tray icon was hidden.");
 		Require(IsWindow(windowHandle), L"Close to tray destroyed the main window while the tray icon was hidden.");
 		ShowWindow(windowHandle, SW_SHOWNORMAL);
-		PumpMessagesFor(150);
+		PumpMessagesFor(350);
 		Require(IsWindowVisible(windowHandle), L"Main window did not show again after close to tray.");
+
+		//Close to tray now releases the page; all later checks use the recreated page.
+		page = CurrentValidationPage();
+		Require(page != nullptr, L"Close to tray did not recreate the page on recall.");
 		AppVariables::Settings.Set("CloseTray", previousCloseTray);
 
 		//Simulate loading the persisted value on the next start
@@ -1227,6 +1241,18 @@ namespace RadeonTunerUiValidation
 		tray["handle_count_delta"] = TrayHandleCountDelta;
 		report["tray"] = tray;
 
+		nlohmann::json lifecycle = nlohmann::json::object();
+		lifecycle["requested"] = LifecycleCheckMode;
+		lifecycle["old_page_released"] = LifecycleOldPageReleasedVerified;
+		lifecycle["timers_stopped"] = LifecycleTimersStoppedVerified;
+		lifecycle["backend_not_duplicated"] = LifecycleBackendNotDuplicatedVerified;
+		lifecycle["draft_restored"] = LifecycleDraftRestoredVerified;
+		lifecycle["tray_recall"] = LifecycleTrayRecallVerified;
+		lifecycle["exe_recall"] = LifecycleExeRecallVerified;
+		lifecycle["rapid_reopen"] = LifecycleRapidReopenVerified;
+		lifecycle["cycles_completed"] = LifecycleCyclesCompleted;
+		report["lifecycle"] = lifecycle;
+
 		report["limitations"] = nlohmann::json::array({
 			"ADL/ADLX and the normal hardware loops are not initialized in this isolated build",
 			"GPU metrics/profile auto-apply behavior is not exercised",
@@ -1237,7 +1263,7 @@ namespace RadeonTunerUiValidation
 
 		if (success)
 		{
-			report["status"] = (UnicodePathTestsPassed && SystemIntegrationTestsPassed) ? "success" : "completed_with_preflight_failures";
+			report["status"] = LifecycleCheckMode ? "success" : ((UnicodePathTestsPassed && SystemIntegrationTestsPassed) ? "success" : "completed_with_preflight_failures");
 		}
 		else
 		{
@@ -1295,6 +1321,192 @@ namespace RadeonTunerUiValidation
 		CloseHandle(processInformation.hThread);
 		CloseHandle(processInformation.hProcess);
 		return exited && childExitCode == 0;
+	}
+
+	inline MainPage* CurrentLifecyclePage()
+	{
+		auto inspectable = AppVariables::App.CurrentPageForValidation();
+		if (!inspectable)
+		{
+			return nullptr;
+		}
+		return winrt::get_self<MainPage>(inspectable);
+	}
+
+	inline winrt::fire_and_forget RunLifecycleCheck(winrt::weak_ref<MainPage> weakPage)
+	{
+		int exitCode = 0;
+		try
+		{
+			ScenarioStarted = true;
+			ScenarioStart = std::chrono::steady_clock::now();
+			MeasurementsCsvPath = TestDataPath + L"\\ui-validation-measurements.csv";
+			ResultJsonPath = TestDataPath + L"\\ui-validation-result.json";
+			if (!MeasurementFile.is_open())
+			{
+				OpenMeasurements();
+			}
+
+			//Use the real page only for setup, then release every strong reference before closing.
+			winrt::IAsyncOperation<int> messageBoxOperation{ nullptr };
+			winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> pickerOperation{ nullptr };
+			{
+				auto page = weakPage.get();
+				Require(!!page, L"Lifecycle check did not receive the initial page.");
+				page->ShowNotification(L"生命周期检查");
+				messageBoxOperation = page->ShowMessageBox(L"生命周期检查", L"关闭后不应恢复此弹窗。", { L"确定" });
+				pickerOperation = page->AdlAppPickerAddProcess();
+				Require(TimerNotification != NULL, L"Notification timer was not created for the lifecycle check.");
+				page->slider_Display_Brightness().Value(37);
+				page->toggleswitch_Display_GammaControl().IsOn(false);
+				page->UpdateDependentSettingsInterface(false);
+				page->listview_Main().SelectedIndex(3);
+				page->UpdateLayout();
+			}
+
+			HWND windowHandle = AppVariables::App.GetWindowHandle();
+			Require(windowHandle != NULL, L"Lifecycle check has no stable main window.");
+			int backendStartCount = AppVariables::App.BackendStartCountForValidation();
+			int pageCreateCount = AppVariables::App.UiPageCreateCountForValidation();
+			bool previousCloseTray = AppVariables::Settings.Load<bool>("CloseTray").value_or(false);
+			AppVariables::Settings.Set("CloseTray", true);
+			SampleStage("lifecycle_open_initial", 0, 3, L"initial page with unapplied draft");
+
+			//Close to tray: the old page must actually die and its timers must stop.
+			AppVariables::App.Exit(false);
+			co_await AsyncTaskDelay(450, AppVariables::App.GetDispatcher());
+			SampleStage("lifecycle_closed", 1, 3, L"close to tray, deferred release completed");
+			Require(!weakPage.get(), L"Old page weak reference is still alive after close to tray.");
+			Require(!AppVariables::App.UiPageAliveForValidation(), L"App still holds a page after close to tray.");
+			Require(AppVariables::App.UiReleasedForValidation(), L"DesktopWindowXamlSource was not released.");
+			Require(TimerNotification == NULL, L"Notification dispatcher timer is still active after close.");
+			Require(TimerResolutionSwitch == NULL && TimerResolutionCustom == NULL, L"Resolution dispatcher timer is still active after close.");
+			Require(!IsWindowVisible(windowHandle), L"Stable main window did not hide for tray.");
+			Require(IsWindow(windowHandle), L"Stable main window was destroyed on close to tray.");
+			Require(AppVariables::App.BackendStartCountForValidation() == backendStartCount, L"Closing/reopening restarted the backend.");
+			LifecycleOldPageReleasedVerified = true;
+			LifecycleTimersStoppedVerified = true;
+			LifecycleBackendNotDuplicatedVerified = true;
+
+			//Reopen from the tray path.
+			AppVariables::App.ShowFromTrayForValidation();
+			co_await AsyncTaskDelay(450, AppVariables::App.GetDispatcher());
+			SampleStage("lifecycle_open", 1, 3, L"recreated page from stable window/tray path");
+			Require(IsWindowVisible(windowHandle), L"Tray recall did not show the window.");
+			Require(AppVariables::App.UiPageCreateCountForValidation() == pageCreateCount + 1, L"UI page was not recreated exactly once.");
+			auto* recreatedPage = CurrentLifecyclePage();
+			Require(recreatedPage != nullptr, L"Recreated page is not resolvable.");
+			Require(std::abs(recreatedPage->slider_Display_Brightness().Value() - 37) < 0.01, L"Unapplied brightness draft was not restored.");
+			Require(!recreatedPage->toggleswitch_Display_GammaControl().IsOn(), L"Unapplied gamma toggle draft was not restored.");
+			Require(recreatedPage->listview_Main().SelectedIndex() == 3, L"Selected page was not restored.");
+			Require(recreatedPage->grid_Overlay_MessageBox().Visibility() == Visibility::Collapsed, L"Cancelled message box overlay was restored.");
+			Require(recreatedPage->grid_Overlay_AppPicker().Visibility() == Visibility::Collapsed, L"Cancelled app picker overlay was restored.");
+			LifecycleDraftRestoredVerified = true;
+			AppVariables::App.EnsureBackendStarted();
+			Require(AppVariables::App.BackendStartCountForValidation() == backendStartCount, L"Reopen started a second backend.");
+
+			//Rapid close/open before the deferred release must cancel teardown and keep one page.
+			int rapidCreateCount = AppVariables::App.UiPageCreateCountForValidation();
+			AppVariables::App.Exit(false);
+			AppVariables::App.ShowFromTrayForValidation();
+			co_await AsyncTaskDelay(250, AppVariables::App.GetDispatcher());
+			Require(IsWindowVisible(windowHandle), L"Rapid reopen did not show the window.");
+			Require(AppVariables::App.UiPageCreateCountForValidation() == rapidCreateCount, L"Rapid reopen created an extra page instead of canceling release.");
+			Require(CurrentLifecyclePage() != nullptr, L"Rapid reopen lost the current page.");
+			LifecycleRapidReopenVerified = true;
+
+			//Close for real, then recall through the native tray double-click callback.
+			AppVariables::App.Exit(false);
+			co_await AsyncTaskDelay(450, AppVariables::App.GetDispatcher());
+			Require(!AppVariables::App.UiPageAliveForValidation(), L"UI page survived before tray recall.");
+			Require(PostMessageW(windowHandle, 0x8001, 0, WM_LBUTTONDBLCLK) != FALSE, L"Could not post the tray double-click callback.");
+			co_await AsyncTaskDelay(500, AppVariables::App.GetDispatcher());
+			Require(IsWindowVisible(windowHandle), L"Tray double-click did not recall the window.");
+			Require(AppVariables::App.UiPageCreateCountForValidation() == rapidCreateCount + 1, L"Tray recall did not create exactly one page.");
+			LifecycleTrayRecallVerified = true;
+
+			//Release again and recall twice through the same single-instance matcher used by the EXE.
+			for (int recallRound = 1; recallRound <= 2; recallRound++)
+			{
+				AppVariables::App.Exit(false);
+				co_await AsyncTaskDelay(450, AppVariables::App.GetDispatcher());
+				Require(!AppVariables::App.UiPageAliveForValidation(), L"UI page survived before EXE recall.");
+				int childExitCode = -1;
+				uint64_t recallMilliseconds = 0;
+				Require(RunCrossProcessRecall(childExitCode, recallMilliseconds), L"EXE recall child failed, exit code: " + std::to_wstring(childExitCode));
+				co_await AsyncTaskDelay(450, AppVariables::App.GetDispatcher());
+				Require(IsWindowVisible(windowHandle), L"EXE recall did not show the window.");
+			}
+			LifecycleExeRecallVerified = true;
+
+			//Repeated close/open samples for WorkingSet/PrivateBytes evidence. No fixed reduction is asserted.
+			for (int cycle = 1; cycle <= 3; cycle++)
+			{
+				Require(CurrentLifecyclePage() != nullptr, L"Current page is missing before a close cycle.");
+				AppVariables::App.Exit(false);
+				co_await AsyncTaskDelay(450, AppVariables::App.GetDispatcher());
+				Require(!AppVariables::App.UiPageAliveForValidation(), L"UI page survived a repeated close cycle.");
+				Require(TimerNotification == NULL, L"UI timer survived a repeated close cycle.");
+				SampleStage("lifecycle_closed_repeat", cycle, 3, L"repeated close sample");
+				AppVariables::App.ShowFromTrayForValidation();
+				co_await AsyncTaskDelay(450, AppVariables::App.GetDispatcher());
+				SampleStage("lifecycle_open_repeat", cycle, 3, L"repeated open sample");
+				Require(IsWindowVisible(windowHandle), L"Repeated reopen did not show the window.");
+				LifecycleCyclesCompleted++;
+			}
+
+			Require(AppVariables::App.BackendStartCountForValidation() == backendStartCount, L"Repeated rebuilds started extra backend tasks.");
+			LifecycleBackendNotDuplicatedVerified = true;
+			AppVariables::Settings.Set("CloseTray", previousCloseTray);
+
+			nlohmann::json lifecycleReport = nlohmann::json::object();
+			lifecycleReport["checked_utc"] = UtcNowString();
+			lifecycleReport["old_page_released"] = LifecycleOldPageReleasedVerified;
+			lifecycleReport["timers_stopped"] = LifecycleTimersStoppedVerified;
+			lifecycleReport["backend_not_duplicated"] = LifecycleBackendNotDuplicatedVerified;
+			lifecycleReport["draft_restored"] = LifecycleDraftRestoredVerified;
+			lifecycleReport["tray_recall"] = LifecycleTrayRecallVerified;
+			lifecycleReport["exe_recall"] = LifecycleExeRecallVerified;
+			lifecycleReport["rapid_reopen"] = LifecycleRapidReopenVerified;
+			lifecycleReport["cycles_completed"] = LifecycleCyclesCompleted;
+			lifecycleReport["backend_start_count"] = backendStartCount;
+			lifecycleReport["page_create_count"] = AppVariables::App.UiPageCreateCountForValidation();
+			lifecycleReport["measurements_csv"] = WideToUtf8(MeasurementsCsvPath);
+			lifecycleReport["note"] = "Samples are same-process WorkingSet/PrivateBytes observations, not a fixed reduction claim or a real driver measurement.";
+			WriteUtf8File(TestDataPath + L"\\ui-validation-lifecycle.json", lifecycleReport.dump(2));
+
+			ScenarioCompleted = true;
+			WriteResultJson(true, 0);
+			exitCode = 0;
+		}
+		catch (winrt::hresult_error const& exception)
+		{
+			RecordScenarioFailure(exception.code(), L"RunLifecycleCheck", exception.message().c_str());
+			ScenarioCompleted = true;
+			WriteResultJson(false, exception.code());
+			exitCode = 3;
+		}
+		catch (std::exception const& exception)
+		{
+			RecordScenarioFailure(E_FAIL, L"RunLifecycleCheck", Utf8ToWide(exception.what()));
+			ScenarioCompleted = true;
+			WriteResultJson(false, E_FAIL);
+			exitCode = 3;
+		}
+		catch (...)
+		{
+			RecordScenarioFailure(E_FAIL, L"RunLifecycleCheck", L"Unknown exception");
+			ScenarioCompleted = true;
+			WriteResultJson(false, E_FAIL);
+			exitCode = 3;
+		}
+
+		CloseMeasurements();
+		if (AutoMode)
+		{
+			AppVariables::App.UiValidationExit(exitCode);
+		}
+		co_return;
 	}
 
 	inline winrt::Windows::Foundation::IAsyncAction RunSynchronous(MainPage* page)

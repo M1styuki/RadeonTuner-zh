@@ -7,6 +7,9 @@
 #include "App.g.cpp"
 #endif
 #include "AppVariables.h"
+#include "MainPage.h"
+#include "RadeonTunerBackend.h"
+#include "RadeonTunerUiSession.h"
 #ifdef RADEONTUNER_UI_VALIDATION
 #if __has_include("..\tools\UiValidation\UiValidationCommon.h")
 #include "..\tools\UiValidation\UiValidationCommon.h"
@@ -27,6 +30,7 @@ namespace winrt::RadeonTuner::implementation
 	const UINT TM_SETTINGS = 0x8002;
 	const UINT TM_WEBSITE = 0x8003;
 	const UINT TM_EXIT = 0x8004;
+	const UINT_PTR TIMER_RELEASE_UI = 0x8101;
 
 	//Application tray callback
 	void AppTrayCallback(LPARAM lParam)
@@ -37,8 +41,8 @@ namespace winrt::RadeonTuner::implementation
 			{
 			case WM_LBUTTONDBLCLK:
 			{
-				//Show window in normal state
-				ShowWindow(_hWnd_MainWindow, SW_SHOWNORMAL);
+				//Recreate the released UI before showing the stable native window
+				AppVariables::App.EnsureUI(true);
 				return;
 			}
 			case WM_RBUTTONUP:
@@ -65,8 +69,8 @@ namespace winrt::RadeonTuner::implementation
 			{
 			case TM_SETTINGS:
 			{
-				//Show window in normal state
-				ShowWindow(_hWnd_MainWindow, SW_SHOWNORMAL);
+				//Recreate the released UI before showing the stable native window
+				AppVariables::App.EnsureUI(true);
 				return;
 			}
 			case TM_WEBSITE:
@@ -291,12 +295,31 @@ namespace winrt::RadeonTuner::implementation
 				AppVariables::App.Exit(false);
 				return 0;
 			}
+			case WM_SHOWWINDOW:
+			{
+				//Portable launcher, single-instance recall and tray all end up here.
+				//Create the released XAML island before Windows actually shows the window.
+				if (wParam)
+				{
+					AppVariables::App.EnsureUI(false);
+				}
+				return DefWindowProcW(hWnd, messageCode, wParam, lParam);
+			}
+			case WM_TIMER:
+			{
+				//Deferred UI release after pending UI work and safety timers finished
+				AppVariables::App.HandleUiReleaseTimer((UINT_PTR)wParam);
+				return 0;
+			}
 			case WM_SIZE:
 			{
-				//Resize xaml window
-				RECT rectClient;
-				GetClientRect(hWnd, &rectClient);
-				MoveWindow(_hWnd_XamlWindow, 0, 0, rectClient.right, rectClient.bottom, true);
+				//Resize xaml window only while the island exists
+				if (_hWnd_XamlWindow != NULL)
+				{
+					RECT rectClient;
+					GetClientRect(hWnd, &rectClient);
+					MoveWindow(_hWnd_XamlWindow, 0, 0, rectClient.right, rectClient.bottom, true);
+				}
 				return 0;
 			}
 			case WM_SETTINGCHANGE:
@@ -331,18 +354,12 @@ namespace winrt::RadeonTuner::implementation
 			std::optional<bool> CloseTray = AppVariables::Settings.Load<bool>("CloseTray");
 			if (!forceExit && CloseTray.has_value() && CloseTray.value())
 			{
-				AVDebugWriteLine("Closing application to tray.");
-
-				//Fix unload xaml resources to reduce memory load when in tray
-
-				//Show window in hidden state
-				ShowWindow(_hWnd_MainWindow, SW_HIDE);
+				//Hide now, release the whole UI after pending interactions finish
+				HideToTray();
 			}
 			else
 			{
 				AVDebugWriteLine("Exiting application.");
-
-				//Fix stop and wait for loops
 
 				//Delete tray icon
 				TrayIconDelete();
@@ -353,6 +370,369 @@ namespace winrt::RadeonTuner::implementation
 				//Exit application
 				exit(0);
 			}
+		}
+		catch (...) {}
+	}
+
+	void App::HideToTray()
+	{
+		try
+		{
+			AVDebugWriteLine("Closing application to tray.");
+
+			//Stop notification-only UI timers immediately. Resolution safety timers
+			//stay alive while hidden so an unconfirmed mode change still reverts.
+			if (auto inspectable = CurrentPageForInternal())
+			{
+				if (auto* page = winrt::get_self<MainPage>(inspectable))
+				{
+					page->StopNotificationTimer();
+				}
+			}
+
+			ShowWindow(_hWnd_MainWindow, SW_HIDE);
+
+			_uiReleasePending = true;
+			ScheduleUiRelease();
+		}
+		catch (...) {}
+	}
+
+	winrt::Windows::Foundation::IInspectable App::CurrentPageForInternal()
+	{
+		try
+		{
+			std::lock_guard<std::mutex> lock(_uiPageMutex);
+			return _uiPage.get();
+		}
+		catch (...)
+		{
+			return nullptr;
+		}
+	}
+
+	void App::ScheduleUiRelease()
+	{
+		try
+		{
+			if (_hWnd_MainWindow != NULL)
+			{
+				KillTimer(_hWnd_MainWindow, TIMER_RELEASE_UI);
+				SetTimer(_hWnd_MainWindow, TIMER_RELEASE_UI, 120, NULL);
+			}
+			else
+			{
+				ReleaseUI();
+			}
+		}
+		catch (...) {}
+	}
+
+	void App::HandleUiReleaseTimer(UINT_PTR timerId)
+	{
+		if (timerId != TIMER_RELEASE_UI)
+		{
+			return;
+		}
+		try
+		{
+			KillTimer(_hWnd_MainWindow, TIMER_RELEASE_UI);
+			if (!_uiReleasePending)
+			{
+				return;
+			}
+
+			//Keep the page while page initialization or a resolution confirmation
+			//is still finishing, then release it for real.
+			if (_uiWorkCount > 0)
+			{
+				SetTimer(_hWnd_MainWindow, TIMER_RELEASE_UI, 200, NULL);
+				return;
+			}
+			if (auto inspectable = CurrentPageForInternal())
+			{
+				if (auto* page = winrt::get_self<MainPage>(inspectable))
+				{
+					if (page->HasActiveResolutionTimer())
+					{
+						SetTimer(_hWnd_MainWindow, TIMER_RELEASE_UI, 500, NULL);
+						return;
+					}
+				}
+			}
+			ReleaseUI();
+		}
+		catch (...) {}
+	}
+
+	void App::BeginUiWork()
+	{
+		_uiWorkCount++;
+	}
+
+	void App::EndUiWork()
+	{
+		if (_uiWorkCount > 0)
+		{
+			_uiWorkCount--;
+		}
+		if (_uiWorkCount == 0 && _uiReleasePending)
+		{
+			ScheduleUiRelease();
+		}
+	}
+
+	void App::NotifyUiPageRegistered(MainPage const& page)
+	{
+		std::lock_guard<std::mutex> lock(_uiPageMutex);
+		winrt::Windows::Foundation::IInspectable inspectable = page.as<winrt::Windows::Foundation::IInspectable>();
+		_uiPage = winrt::weak_ref<winrt::Windows::Foundation::IInspectable>(inspectable);
+		_uiSessionId++;
+		_uiSessionPublished.store(_uiSessionId);
+		_uiPageCreateCount++;
+	}
+
+	void App::NotifyUiPageReleased()
+	{
+		std::lock_guard<std::mutex> lock(_uiPageMutex);
+		_uiPage = winrt::weak_ref<winrt::Windows::Foundation::IInspectable>{};
+		_uiSessionId++;
+		_uiSessionPublished.store(_uiSessionId);
+	}
+
+	void App::CreateXamlIsland()
+	{
+		//Attach a fresh DesktopWindowXamlSource to the stable native window.
+		//WindowsXamlManager and the dispatcher stay alive for the thread lifetime.
+		_desktopWindowXamlSource = DesktopWindowXamlSource();
+		auto desktopWindowXamlSourceNative = _desktopWindowXamlSource.as<IDesktopWindowXamlSourceNative2>();
+
+		HRESULT hResult = desktopWindowXamlSourceNative->AttachToWindow(_hWnd_MainWindow);
+		if (FAILED(hResult))
+		{
+#ifdef RADEONTUNER_UI_VALIDATION
+			RadeonTunerUiValidation::RecordInitFailure(hResult, L"AttachToWindow", L"AttachToWindow failed");
+#endif
+			DestroyXamlIsland();
+			return;
+		}
+
+		hResult = desktopWindowXamlSourceNative->get_WindowHandle(&_hWnd_XamlWindow);
+		if (FAILED(hResult) || _hWnd_XamlWindow == NULL)
+		{
+#ifdef RADEONTUNER_UI_VALIDATION
+			RadeonTunerUiValidation::RecordInitFailure(FAILED(hResult) ? hResult : E_FAIL, L"get_WindowHandle", L"get_WindowHandle failed");
+#endif
+			DestroyXamlIsland();
+			return;
+		}
+
+		RECT rectClient;
+		GetClientRect(_hWnd_MainWindow, &rectClient);
+		MoveWindow(_hWnd_XamlWindow, 0, 0, rectClient.right, rectClient.bottom, true);
+
+		MainPage page;
+		NotifyUiPageRegistered(page);
+		try
+		{
+			_desktopWindowXamlSource.Content(page);
+			ShowWindow(_hWnd_XamlWindow, SW_SHOWNORMAL);
+		}
+		catch (...)
+		{
+			NotifyUiPageReleased();
+			DestroyXamlIsland();
+			throw;
+		}
+	}
+
+	void App::DestroyXamlIsland()
+	{
+		try
+		{
+			if (_desktopWindowXamlSource != NULL)
+			{
+				try { _desktopWindowXamlSource.Content(nullptr); } catch (...) {}
+				try { _desktopWindowXamlSource.Close(); } catch (...) {}
+				_desktopWindowXamlSource = NULL;
+			}
+			//The DesktopWindowXamlSource owns its child HWND; Close above releases it.
+			_hWnd_XamlWindow = NULL;
+		}
+		catch (...) {}
+	}
+
+	void App::ReleaseUI()
+	{
+		if (_uiWorkCount > 0)
+		{
+			_uiReleasePending = true;
+			return;
+		}
+		_uiReleasePending = false;
+		KillTimer(_hWnd_MainWindow, TIMER_RELEASE_UI);
+
+		//Snapshot plain values and stop storyboards/timers before the page and its
+		//control tree are released. No XAML object is kept in the snapshot.
+		if (auto inspectable = CurrentPageForInternal())
+		{
+			if (auto* page = winrt::get_self<MainPage>(inspectable))
+			{
+				RadeonTunerUiSession::Capture(*page);
+				RadeonTunerUiSession::PrepareForRelease(*page);
+			}
+		}
+
+		//Invalidate the session first so queued UI callbacks resolve no page.
+		NotifyUiPageReleased();
+		DestroyXamlIsland();
+		AVDebugWriteLine("Released application UI for tray.");
+	}
+
+	void App::EnsureUI(bool showWindow)
+	{
+		try
+		{
+			if (_uiEnsureInProgress)
+			{
+				return;
+			}
+			_uiEnsureInProgress = true;
+
+			//Reopening before the deferred release cancels it and keeps the existing page.
+			if (_uiReleasePending)
+			{
+				KillTimer(_hWnd_MainWindow, TIMER_RELEASE_UI);
+				_uiReleasePending = false;
+			}
+
+			if (_desktopWindowXamlSource == NULL)
+			{
+				if (_windowsXamlManager == NULL)
+				{
+					winrt::init_apartment(apartment_type::single_threaded);
+					_windowsXamlManager = WindowsXamlManager::InitializeForCurrentThread();
+				}
+				if (_dispatcher == NULL)
+				{
+					if (CoreWindow coreWindow = CoreWindow::GetForCurrentThread())
+					{
+						_dispatcher = coreWindow.Dispatcher();
+					}
+				}
+				CreateXamlIsland();
+			}
+
+			if (showWindow && _hWnd_MainWindow != NULL && _desktopWindowXamlSource != NULL)
+			{
+				ShowWindow(_hWnd_MainWindow, SW_SHOWNORMAL);
+			}
+			_uiEnsureInProgress = false;
+		}
+		catch (...)
+		{
+			_uiEnsureInProgress = false;
+			try
+			{
+				NotifyUiPageReleased();
+				DestroyXamlIsland();
+			}
+			catch (...) {}
+			AVDebugWriteLine("Failed ensuring application UI (Exception).");
+		}
+	}
+
+	void App::EnsureBackendStarted()
+	{
+		if (_backendStarted.exchange(true))
+		{
+			return;
+		}
+		_backendStartCount++;
+#ifdef RADEONTUNER_UI_VALIDATION
+		//The isolated validation build never starts ADL/ADLX loops.
+		AVDebugWriteLine("Backend start requested (validation build, no hardware loop).");
+#else
+		_backendMetricsThread = std::thread(RadeonTunerBackend::MetricsLoop);
+		_backendMetricsThread.detach();
+		_backendProfileThread = std::thread(RadeonTunerBackend::ProfileLoop);
+		_backendProfileThread.detach();
+		AVDebugWriteLine("Started backend loops.");
+#endif
+	}
+
+	bool App::IsCurrentUiPage(MainPage const& page)
+	{
+		try
+		{
+			std::lock_guard<std::mutex> lock(_uiPageMutex);
+			auto current = _uiPage.get();
+			if (!current)
+			{
+				return false;
+			}
+			auto inspectable = page.as<winrt::Windows::Foundation::IInspectable>();
+			return winrt::get_abi(current) == winrt::get_abi(inspectable);
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
+	uint64_t App::CurrentUiSessionId()
+	{
+		return _uiSessionPublished.load();
+	}
+
+	void App::RunOnUi(std::function<void(MainPage&)> const& action, uint64_t expectedSession)
+	{
+		try
+		{
+			if (!action)
+			{
+				return;
+			}
+			CoreDispatcher dispatcher = _dispatcher;
+			if (dispatcher == NULL)
+			{
+				return;
+			}
+
+			winrt::weak_ref<winrt::Windows::Foundation::IInspectable> weakPage;
+			uint64_t session = 0;
+			{
+				std::lock_guard<std::mutex> lock(_uiPageMutex);
+				weakPage = _uiPage;
+				session = expectedSession != 0 ? expectedSession : _uiSessionPublished.load();
+			}
+			if (!weakPage)
+			{
+				return;
+			}
+
+			dispatcher.RunAsync(CoreDispatcherPriority::Normal, [this, weakPage, session, action]()
+				{
+					try
+					{
+						if (session != _uiSessionPublished.load())
+						{
+							return;
+						}
+						auto inspectable = weakPage.get();
+						if (!inspectable)
+						{
+							return;
+						}
+						auto* page = winrt::get_self<MainPage>(inspectable);
+						if (!page)
+						{
+							return;
+						}
+						action(*page);
+					}
+					catch (...) {}
+				});
 		}
 		catch (...) {}
 	}
@@ -399,6 +779,41 @@ namespace winrt::RadeonTuner::implementation
 			ShowTrayMenu(pointMenu, autoCloseMilliseconds);
 		}
 		catch (...) {}
+	}
+
+	uint64_t App::UiSessionIdForValidation()
+	{
+		return _uiSessionPublished.load();
+	}
+
+	int App::UiPageCreateCountForValidation()
+	{
+		return _uiPageCreateCount;
+	}
+
+	int App::BackendStartCountForValidation()
+	{
+		return _backendStartCount;
+	}
+
+	bool App::UiReleasedForValidation()
+	{
+		return _desktopWindowXamlSource == NULL;
+	}
+
+	bool App::UiPageAliveForValidation()
+	{
+		return CurrentPageForInternal() != nullptr;
+	}
+
+	winrt::Windows::Foundation::IInspectable App::CurrentPageForValidation()
+	{
+		return CurrentPageForInternal();
+	}
+
+	void App::ShowFromTrayForValidation()
+	{
+		EnsureUI(true);
 	}
 #endif
 
@@ -476,7 +891,7 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
-			if (_desktopWindowXamlSource == NULL)
+			if (_hWnd_MainWindow == NULL)
 			{
 				return;
 			}
@@ -498,7 +913,7 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
-			//Initialize for current thread
+			//Initialize for current thread once; the manager must live until the thread exits
 			winrt::init_apartment(apartment_type::single_threaded);
 			_windowsXamlManager = WindowsXamlManager::InitializeForCurrentThread();
 			if (CoreWindow coreWindow = CoreWindow::GetForCurrentThread())
@@ -523,7 +938,7 @@ namespace winrt::RadeonTuner::implementation
 			}
 			HICON iconHandle = (HICON)LoadImageW(nullptr, iconPath.c_str(), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
 
-			//Register window class
+			//Register window class once
 			WNDCLASSEX windowClass = { };
 			windowClass.cbSize = sizeof(WNDCLASSEX);
 			windowClass.lpfnWndProc = WindowProc;
@@ -533,19 +948,23 @@ namespace winrt::RadeonTuner::implementation
 			windowClass.hIcon = iconHandle;
 			if (RegisterClassExW(&windowClass) == NULL)
 			{
+				DWORD lastError = GetLastError();
+				if (lastError != ERROR_CLASS_ALREADY_EXISTS)
+				{
 #ifdef RADEONTUNER_UI_VALIDATION
-				RadeonTunerUiValidation::RecordInitFailure(HRESULT_FROM_WIN32(GetLastError()), L"RegisterClassExW", L"RegisterClassExW failed");
-				return;
+					RadeonTunerUiValidation::RecordInitFailure(HRESULT_FROM_WIN32(lastError), L"RegisterClassExW", L"RegisterClassExW failed");
+					return;
 #else
-				MessageBoxW(NULL, L"注册窗口类失败", L"错误", NULL);
-				return;
+					MessageBoxW(NULL, L"注册窗口类失败", L"错误", NULL);
+					return;
 #endif
+				}
 			}
 
-			//Create main window
+			//Create the stable native window. It is shown only after the XAML island exists.
 			int windowWidth = 1340;
 			int windowHeight = 960;
-			long dwStyle = WS_VISIBLE | WS_OVERLAPPEDWINDOW;
+			long dwStyle = WS_OVERLAPPEDWINDOW;
 
 			_hWnd_MainWindow = CreateWindowW(szWindowClass, szWindowTitle, dwStyle, CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight, NULL, NULL, hInstance, NULL);
 			if (_hWnd_MainWindow == NULL)
@@ -562,67 +981,25 @@ namespace winrt::RadeonTuner::implementation
 			//Apply the native title bar and popup menu theme for the saved theme style
 			RefreshNativeTheme();
 
-			//Create desktop window xaml source
-			_desktopWindowXamlSource = DesktopWindowXamlSource();
-
-			//Get native desktop window xaml source
-			auto desktopWindowXamlSourceNative = _desktopWindowXamlSource.as<IDesktopWindowXamlSourceNative2>();
-
-			//Attach DesktopWindowXamlSource to main window
-			HRESULT hResult = desktopWindowXamlSourceNative->AttachToWindow(_hWnd_MainWindow);
-			if (FAILED(hResult))
+			//Create the first UI island; later tray/EXE recalls call EnsureUI again
+			EnsureUI(winVisible);
+			if (_desktopWindowXamlSource == NULL)
 			{
-#ifdef RADEONTUNER_UI_VALIDATION
-				RadeonTunerUiValidation::RecordInitFailure(hResult, L"AttachToWindow", L"AttachToWindow failed");
 				return;
-#else
-				MessageBoxW(NULL, L"附加窗口失败", L"错误", NULL);
-				return;
-#endif
 			}
-
-			//Get DesktopWindowXamlSource window handle
-			hResult = desktopWindowXamlSourceNative->get_WindowHandle(&_hWnd_XamlWindow);
-			if (FAILED(hResult))
-			{
-#ifdef RADEONTUNER_UI_VALIDATION
-				RadeonTunerUiValidation::RecordInitFailure(hResult, L"get_WindowHandle", L"get_WindowHandle failed");
-				return;
-#else
-				MessageBoxW(NULL, L"获取 XAML 窗口句柄失败", L"错误", NULL);
-				return;
-#endif
-			}
-
-			//Set xaml window size and location
-			RECT rectClient;
-			GetClientRect(_hWnd_MainWindow, &rectClient);
-			MoveWindow(_hWnd_XamlWindow, 0, 0, rectClient.right, rectClient.bottom, true);
-
-			//Show windows in normal state
-			ShowWindow(_hWnd_XamlWindow, SW_SHOWNORMAL);
-			ShowWindow(_hWnd_MainWindow, SW_SHOWNORMAL);
-
-			//Set main window on top based on setting
-			if (winOnTop)
-			{
-				SetTopMost(winOnTop);
-			}
-
-			//Hide main window based on setting
-			//Note: On Windows 10 hiding the xaml window directly breaks rendering
 			if (!winVisible)
 			{
 				ShowWindow(_hWnd_MainWindow, SW_HIDE);
 			}
-
-			//Set DesktopWindowXamlSource content
-			_desktopWindowXamlSource.Content(MainPage());
+			if (winOnTop)
+			{
+				SetTopMost(true);
+			}
 
 			//Create application tray icon unless the setting hides it
 			TrayIconCreate(hInstance);
 
-			//Window message loop
+			//Window message loop; the window and message queue outlive every UI page
 			MSG lpMsg;
 			while (GetMessageW(&lpMsg, NULL, 0, 0))
 			{

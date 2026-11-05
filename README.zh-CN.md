@@ -22,6 +22,6 @@ pwsh -File tools\Portable\Build-Portable.ps1 -OutFile .build-work\delivery\Radeo
 
 ## 界面验证
 
-`tools\verify-localization.ps1` 与 `tools\verify-ui-layout.ps1` 检查汉化及布局。添加 `/p:UiValidation=true` 可构建独立隔离版，其 `-ui-animation-check` 验证开关连点、反向动画及条件行折叠；该版本阻断 ADL 初始化及用户设置保存，仅用于界面检查。
+`tools\verify-localization.ps1` 与 `tools\verify-ui-layout.ps1` 检查汉化及布局。添加 `/p:UiValidation=true` 可构建独立隔离版，其 `-ui-animation-check` 验证开关连点、反向动画及条件行折叠；`-ui-lifecycle-check` 验证关闭到托盘后旧页面释放、计时器停止、草稿恢复、快速重开以及托盘/重复 EXE 唤回，并记录同进程 WorkingSet/PrivateBytes 样本。该版本阻断 ADL 初始化及用户设置保存，仅用于界面检查。
 
 尚未取得相同实机条件下的完整程序内存前后对比，不宣称具体内存降幅。

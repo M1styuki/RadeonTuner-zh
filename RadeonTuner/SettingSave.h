@@ -172,6 +172,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::toggleswitch_SkipSupportCheckGraphics_Toggled(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled

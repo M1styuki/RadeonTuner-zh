@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "pch.h"
 #include "MainPage.h"
 #include "MainVariables.h"
@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::DisplayList_Combined(bool waitUpdate)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Wait for resolutions to have updated
@@ -33,6 +34,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::DisplayList_SelectCurrent_Values(bool waitUpdate)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Wait for resolutions to have updated
@@ -118,6 +120,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::DisplayList_Resolution(bool waitUpdate)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Wait for resolutions to have updated
@@ -170,6 +173,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::DisplayList_RefreshRate(bool waitUpdate)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Wait for refresh rates to have updated

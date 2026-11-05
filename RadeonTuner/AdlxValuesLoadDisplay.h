@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::AdlxValuesLoadSelectDisplayApp(int dispAdapterIndex, int dispDisplayIndex, std::wstring application)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Disable saving

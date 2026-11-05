@@ -5,6 +5,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::button_GpuSelect_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -22,6 +23,7 @@ namespace winrt::RadeonTuner::implementation
 
 			//Show selection prompt
 			int messageResult = co_await ShowMessageBox(L"选择显卡", L"选择要调整的显卡。", messageAnswers);
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return; }
 
 			//Get selected GPU
 			AdapterInfo adapterInfo = listGpus[messageResult];
@@ -34,6 +36,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_DisplaySelect_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -51,6 +54,7 @@ namespace winrt::RadeonTuner::implementation
 
 			//Show selection prompt
 			int messageResult = co_await ShowMessageBox(L"选择显示器", L"选择要调整的显示器。当显示器处于复制或 Eyefinity 模式时，可能只会看到一个显示器，并且部分设置会共享。", messageAnswers);
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return; }
 
 			//Get selected display
 			ADLDisplayInfo displayInfo = displayList[messageResult];
@@ -63,6 +67,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_AppSelect_Graphics_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -76,6 +81,7 @@ namespace winrt::RadeonTuner::implementation
 
 			//Show selection prompt
 			int messageResult = co_await ShowMessageBox(L"选择应用程序", L"选择要调整的应用程序。", messageAnswers);
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return; }
 
 			//Get selected application
 			std::wstring selectedApplication = messageResult == 0 ? L"Global" : messageAnswers[messageResult];
@@ -88,6 +94,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_AppSelect_Tuning_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -101,6 +108,7 @@ namespace winrt::RadeonTuner::implementation
 
 			//Show selection prompt
 			int messageResult = co_await ShowMessageBox(L"选择应用程序", L"选择要调整的应用程序。", messageAnswers);
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return; }
 
 			//Get selected application
 			std::wstring selectedApplication = messageResult == 0 ? L"Global" : messageAnswers[messageResult];
@@ -113,6 +121,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_AppSelect_Display_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -126,6 +135,7 @@ namespace winrt::RadeonTuner::implementation
 
 			//Show selection prompt
 			int messageResult = co_await ShowMessageBox(L"选择应用程序", L"选择要调整的应用程序。", messageAnswers);
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return; }
 
 			//Get selected application
 			std::wstring selectedApplication = messageResult == 0 ? L"Global" : messageAnswers[messageResult];

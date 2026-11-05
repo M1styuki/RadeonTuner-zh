@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncOperation<bool> MainPage::CustomResolution_Create(int adapterIndex, int displayIndex, ADLDisplayModeInfoX2 modeInfoX2)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Set timing standard to custom
@@ -73,6 +74,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncOperation<bool> MainPage::CustomResolution_Remove(int adapterIndex, int displayIndex, ADLDisplayModeInfoX2 modeInfoX2)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Show debug information
@@ -422,21 +424,26 @@ namespace winrt::RadeonTuner::implementation
 			grid_Overlay_ConfirmResolution().Visibility(Visibility::Visible);
 			textblock_Overlay_ConfirmResolution_SubText().Text(L"将在 " + number_to_wstring(displayResolutionConfirmTimeSec) + L" 秒后删除自定义分辨率……");
 
-			//Resolution switch timer tick
-			std::function<void(IInspectable const& sender, IInspectable const& e)> tickFunction = [&](auto, auto)
+			//Resolution switch timer tick; only a weak page is captured so a queued tick
+			//from a released page cannot touch its controls.
+			auto weakPage = get_weak();
+			std::function<void(IInspectable const& sender, IInspectable const& e)> tickFunction = [weakPage](auto, auto)
 				{
 					try
 					{
 						//Update countdown time
 						displayResolutionConfirmTimeSec -= 1;
 
+						auto page = weakPage.get();
+						if (!page) { return; }
+
 						//Update countdown text
-						textblock_Overlay_ConfirmResolution_SubText().Text(L"将在 " + number_to_wstring(displayResolutionConfirmTimeSec) + L" 秒后删除自定义分辨率……");
+						page->textblock_Overlay_ConfirmResolution_SubText().Text(L"将在 " + number_to_wstring(displayResolutionConfirmTimeSec) + L" 秒后删除自定义分辨率……");
 
 						//Check if time is up and remove resolution
 						if (displayResolutionConfirmTimeSec <= 0)
 						{
-							DisplaySettings_Confirm_CustomResolution_Stop(true);
+							page->DisplaySettings_Confirm_CustomResolution_Stop(true);
 						}
 					}
 					catch (...) {}
@@ -461,7 +468,7 @@ namespace winrt::RadeonTuner::implementation
 			AVDebugWriteLine(L"Confirmed custom resolution, removing: " << removeResolution);
 
 			//Stop resolution switch timer
-			TimerResolutionCustom.Stop();
+			if (TimerResolutionCustom != NULL) { TimerResolutionCustom.Stop(); }
 
 			//Hide overlay
 			grid_Main().IsHitTestVisible(true);

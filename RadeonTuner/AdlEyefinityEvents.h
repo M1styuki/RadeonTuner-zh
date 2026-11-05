@@ -34,6 +34,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_Eyefinity_Overlay_Remove_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -72,6 +73,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_Eyefinity_Overlay_Create_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -110,6 +112,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_Eyefinity_Enable_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -154,6 +157,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_Eyefinity_Disable_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled

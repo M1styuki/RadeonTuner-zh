@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::button_AppAdd_Display_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -58,6 +59,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_AppRemove_Display_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -129,6 +131,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_Display_Apply_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -190,6 +193,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_Display_Reset_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -247,6 +251,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_Display_Import_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled

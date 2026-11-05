@@ -42,6 +42,16 @@ namespace RadeonTunerUiValidation
 	inline bool ShowTrayMenuOnly = false;
 	inline bool PreviewMode = false;
 	inline bool AnimationCheckMode = false;
+	inline bool LifecycleCheckMode = false;
+	inline bool LifecycleCheckStarted = false;
+	inline int LifecycleCyclesCompleted = 0;
+	inline bool LifecycleOldPageReleasedVerified = false;
+	inline bool LifecycleTimersStoppedVerified = false;
+	inline bool LifecycleBackendNotDuplicatedVerified = false;
+	inline bool LifecycleDraftRestoredVerified = false;
+	inline bool LifecycleTrayRecallVerified = false;
+	inline bool LifecycleExeRecallVerified = false;
+	inline bool LifecycleRapidReopenVerified = false;
 	inline bool AnimationCheckStay = false;
 	inline bool UnicodePathTestsPassed = false;
 	inline bool SystemIntegrationTestsPassed = false;

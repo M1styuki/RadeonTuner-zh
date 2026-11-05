@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::button_Multimedia_Apply_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -62,6 +63,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_Multimedia_Reset_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled

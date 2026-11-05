@@ -110,12 +110,8 @@ namespace winrt::RadeonTuner::implementation
 			if (disable_saving) { return; }
 
 			//Validate and update fan graph
-			std::function<void()> invokeVoid = [&]
-				{
-					ValidateFanSettings();
-					UpdateFanGraphProfile();
-				};
-			AppVariables::App.DispatcherInvoke(invokeVoid);
+			ValidateFanSettings();
+			UpdateFanGraphProfile();
 
 			//Adjust button colors
 			SolidColorBrush colorIgnored = Application::Current().Resources().Lookup(box_value(L"ApplicationIgnoredBrush")).as<SolidColorBrush>();

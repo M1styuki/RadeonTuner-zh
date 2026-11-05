@@ -2,6 +2,7 @@
 #include "pch.h"
 
 //Status
+inline bool BackendInitialized = false;
 inline bool disable_saving = true;
 inline bool disable_saving_settings = true;
 inline bool disable_saving_customresolution = true;

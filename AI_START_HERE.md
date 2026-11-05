@@ -30,3 +30,15 @@
 - 原有.NETCore6.0.36/8.0.29/10.0.6、WindowsDesktop8.0.29/10.0.6及VC++x64运行库14.51.36247保留；DOTNET_TieredCompilation=0为原有设置。
 - 本任务work含源码、baseline/界面测试副本、下载、NuGet私有缓存与安装前后清单。baseline/packages是指向本项目packages的目录联接，清理时先解除联接，不能遍历链接删除。
 - VS安装暂存 %TEMP%\5jiqdgfs；安装日志前缀20261102235155/235346/235422/235424和20261103000401/000402/000405/000544，以及dd_vs_BuildTools_decompression_log.txt属于本任务。其他日志、共享缓存及凭据保留。
+
+## 2026-11-05 新一轮：按需释放界面与透明图标
+- 上轮已按用户授权完成源码上传及本机开发环境清理；现从 M1styuki/RadeonTuner-zh main 的489fa50恢复同一路径。旧DSH本地历史已在明确项目收尾时删除，本轮有意新建会话，不能续接已删除ID或重新安装本机编译器。
+- 用户新增要求：关闭设置面板后不再保留整套界面；去掉应用图标底色，仅保留白色图形；仅云端编译，下载后覆盖 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe。原有界面布局/功能/设置文件保持，原交付及用户数据在新版验收前保留。
+- 当前80MB解释已核对源码：App::Exit(false)关闭托盘分支只SW_HIDE，未卸载XAML；监控循环隐藏时跳过采集，但MainPage及XAML树仍被Content持有；配置保持/应用检测循环仍每10秒或被请求后2秒运行。未测量各部分内存占比，不把80MB全部归为泄漏。
+- 批准实现方向：同进程，App持有后台任务与配置状态，UI为可释放会话；后台不得持有MainPage原始this。关闭时停UI定时器/动画、断开Content并Close DesktopWindowXamlSource，释放MainPage及控件/图像引用；重新打开创建UI并从已有状态恢复，不能重复驱动初始化/默认值写入/后台线程。保留WindowsXamlManager和线程Dispatcher到线程结束；微软明确不支持在同一线程Close后重新创建manager。后台回调经UI线程解析当前弱页面，只允许更新当前会话。保留保持生效、应用配置切换、Gamma/Eyefinity、托盘/隐藏托盘/再次EXE唤回及未应用草稿语义。
+- 需证明：旧页面弱引用释放，反复开关无累积页面/线程/定时器，后台功能不依赖页面存活；隔离UI样本测同进程打开/关闭内存，不能伪装成真实驱动全面验收或承诺固定降幅。严禁普通启动正式核心做测试，严禁新增驱动失败/配置迁移模拟。
+- 云端构建优先官方runner windows-2025-vs2026（VS18/v145、SDK26100），保留Release/UiValidation分离以及现有硬阻断。原动画连点检查保留，生命周期只测此次变化。图标由Codex另行处理，DSH不改图标资源。
+- 图标已获用户明确同意改为程序按原图像素去底，不再生成/重绘。原AppIconColor.ico的256PNG帧提取白色分量，全部原有实心白色像素保持不变；两连通主体及抗锯齿边缘保留，RGB为白色、背景alpha=0、心形内部alpha=255。替换AppIcon.ico/AppIconColor.ico/AppIconMono.ico，内含256/64/48/32/24/16尺寸；原生小图标解码与深色底预览已检查。两次生成式图像产物质量不合格，不纳入源码或交付。本轮仅临时提取脚本和预览在work/icon-review，完成后清理。
+- 当前DSH新会话 session-c605187d-a18a-4ef4-8d4a-353f838e7a13：首包25分钟超时停止，第二包同会话定向完成4项独立审查修复（picker旧会话取消、Overlay不进快照、计时器单次Tick注册、指标查询恢复后台并校验expectedSession）。已做汉化12项/布局7页104行/diff静态检查，尚未云编译和实际运行。独立审查代理正在复核；Codex已补MetricsLoop遗漏的MainPage using。
+- 用户确认性能数据/图形状态/所选设备检查可在面板创建后再采集，关闭即暂停；配置保持/应用配置/Gamma/Eyefinity继续后台工作。后台仅保留必要框架基础，释放的是页面/控件/岛，不宣称框架全部卸载或具体RAM降幅。
+- 云构建配置使用windows-2025-vs2026，Release与UiValidation工件分离；GitHub已有Git凭据具备repo/workflow权限。将提交并触发首次云端编译，不在本机重装VS/SDK。

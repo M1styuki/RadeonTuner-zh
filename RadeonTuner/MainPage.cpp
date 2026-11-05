@@ -4,6 +4,7 @@
 #include <winrt/Windows.UI.Xaml.Media.Animation.h>
 #include <cmath>
 #include <limits>
+#include <utility>
 
 //Launchers
 #include "SteamFuncLibraryFolders.h"
@@ -12,6 +13,9 @@
 #include "SteamFunctions.h"
 
 #include "AppVariables.h"
+#include "MainVariables.h"
+#include "RadeonTunerBackend.h"
+#include "RadeonTunerUiSession.h"
 
 #include "AdlAppsFunc.h"
 #include "AdlAppsUnlock.h"
@@ -131,6 +135,12 @@
 
 namespace winrt::RadeonTuner::implementation
 {
+	namespace
+	{
+		//Notification timer generation, kept outside the page so a queued tick cannot touch a released page.
+		uint64_t g_notificationGeneration = 0;
+	}
+
 	namespace
 	{
 		bool SystemAnimationsEnabled()
@@ -435,9 +445,12 @@ namespace winrt::RadeonTuner::implementation
 			uint64_t generation = ++pageTransitionGeneration;
 			winrt::weak_ref<FrameworkElement> weakPage(page);
 			winrt::weak_ref<TranslateTransform> weakTransform(transform);
-			storyboard.Completed([this, generation, weakPage, weakTransform](IInspectable const&, IInspectable const&)
+			auto weakOwner = get_weak();
+			storyboard.Completed([weakOwner, generation, weakPage, weakTransform](IInspectable const&, IInspectable const&)
 			{
-				if (generation != pageTransitionGeneration) { return; }
+				auto owner = weakOwner.get();
+				if (!owner) { return; }
+				if (generation != owner->pageTransitionGeneration) { return; }
 				try
 				{
 					if (auto currentPage = weakPage.get())
@@ -450,8 +463,8 @@ namespace winrt::RadeonTuner::implementation
 					}
 				}
 				catch (...) {}
-				pageTransitionStoryboard = nullptr;
-				pageTransitionTarget = nullptr;
+				owner->pageTransitionStoryboard = nullptr;
+				owner->pageTransitionTarget = nullptr;
 			});
 
 			pageTransitionStoryboard = storyboard;
@@ -583,12 +596,15 @@ namespace winrt::RadeonTuner::implementation
 			void* storyboardKey = static_cast<void*>(winrt::get_abi(storyboard));
 			winrt::weak_ref<FrameworkElement> weakBorder(border);
 			winrt::weak_ref<TranslateTransform> weakTransform(transform);
-			storyboard.Completed([this, key, storyboardKey, weakBorder, weakTransform](IInspectable const&, IInspectable const&)
+			auto weakOwner = get_weak();
+			storyboard.Completed([weakOwner, key, storyboardKey, weakBorder, weakTransform](IInspectable const&, IInspectable const&)
 			{
-				auto current = comboPopupAnimations.find(key);
-				if (current == comboPopupAnimations.end()) { return; }
+				auto owner = weakOwner.get();
+				if (!owner) { return; }
+				auto current = owner->comboPopupAnimations.find(key);
+				if (current == owner->comboPopupAnimations.end()) { return; }
 				if (static_cast<void*>(winrt::get_abi(current->second)) != storyboardKey) { return; }
-				comboPopupAnimations.erase(current);
+				owner->comboPopupAnimations.erase(current);
 				try
 				{
 					if (auto currentBorder = weakBorder.get())
@@ -848,21 +864,31 @@ namespace winrt::RadeonTuner::implementation
 						auto field = sender.as<ComboBox>();
 						field.PlaceholderText(field.IsEnabled() ? L"未设置" : L"不可用");
 					});
-					comboBox.Loaded([this](IInspectable const& sender, RoutedEventArgs const&)
+					auto weakOwner = get_weak();
+					comboBox.Loaded([weakOwner](IInspectable const& sender, RoutedEventArgs const&)
 					{
-						auto comboBox = sender.as<ComboBox>();
-						comboBox.ApplyTemplate();
-						PatchComboBoxVisuals(comboBox);
+						if (auto owner = weakOwner.get())
+						{
+							auto comboBox = sender.as<ComboBox>();
+							comboBox.ApplyTemplate();
+							owner->PatchComboBoxVisuals(comboBox);
+						}
 					});
-					comboBox.DropDownOpened([this](IInspectable const& sender, IInspectable const&)
+					comboBox.DropDownOpened([weakOwner](IInspectable const& sender, IInspectable const&)
 					{
-						auto comboBox = sender.as<ComboBox>();
-						PatchComboBoxVisuals(comboBox);
-						AnimateComboBoxPopup(comboBox, true);
+						if (auto owner = weakOwner.get())
+						{
+							auto comboBox = sender.as<ComboBox>();
+							owner->PatchComboBoxVisuals(comboBox);
+							owner->AnimateComboBoxPopup(comboBox, true);
+						}
 					});
-					comboBox.DropDownClosed([this](IInspectable const& sender, IInspectable const&)
+					comboBox.DropDownClosed([weakOwner](IInspectable const& sender, IInspectable const&)
 					{
-						AnimateComboBoxPopup(sender.as<ComboBox>(), false);
+						if (auto owner = weakOwner.get())
+						{
+							owner->AnimateComboBoxPopup(sender.as<ComboBox>(), false);
+						}
 					});
 				}
 
@@ -1009,6 +1035,14 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::page_Loaded(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		//Keep this page alive while its initial load or restore is still running.
+		auto strongThis = get_strong();
+		AppVariables::App.BeginUiWork();
+		struct UiWorkGuard
+		{
+			~UiWorkGuard() { AppVariables::App.EndUiWork(); }
+		} uiWorkGuard;
+
 		try
 		{
 			InitializeValueHints();
@@ -1019,6 +1053,7 @@ namespace winrt::RadeonTuner::implementation
 			disable_saving = true;
 			disable_saving_settings = true;
 			disable_saving_customresolution = true;
+			AppVariables::App.EnsureBackendStarted();
 			RadeonTunerUiValidation::InitializePageControls(this);
 
 			//Visual check mode: show the real native Win32 tray menu anchored inside this window only
@@ -1050,17 +1085,80 @@ namespace winrt::RadeonTuner::implementation
 			if (RadeonTunerUiValidation::PreviewMode)
 			{
 				RadeonTunerUiValidation::SeedPreviewMetrics(this);
+				if (RadeonTunerUiValidation::LifecycleCheckMode)
+				{
+					if (!RadeonTunerUiValidation::LifecycleCheckStarted)
+					{
+						RadeonTunerUiValidation::LifecycleCheckStarted = true;
+						RadeonTunerUiValidation::RunLifecycleCheck(get_weak());
+					}
+					RadeonTunerUiSession::Restore(*this);
+					co_return;
+				}
 				if (RadeonTunerUiValidation::AnimationCheckMode)
 				{
 					co_await AsyncTaskDelay(250, AppVariables::App.GetDispatcher());
 					co_await RadeonTunerUiValidation::RunAnimationRegression(this);
 				}
+				RadeonTunerUiSession::Restore(*this);
 				co_return;
 			}
 
 			co_await RadeonTunerUiValidation::RunSynchronous(this);
 			co_return;
 #else
+			//A recreated page only restores UI from the App-owned backend state. It must
+			//never initialize ADL, write driver defaults, reload profiles, start loops or
+			//run the update check a second time.
+			if (BackendInitialized)
+			{
+				disable_saving = true;
+				disable_saving_settings = true;
+
+				ThemeAdjustStyle();
+				co_await SettingLoad();
+				disable_saving_settings = true;
+
+				//Repopulate the per-page enum lists; this is pure UI and not a driver init.
+				AdlxValuesPrepare();
+
+				//Current model and selected profiles survive in the global backend state.
+				TuningFanSettings_Convert_ToUI_Profile(tuningFanSettingsProfile, AdlSettingGet::Current);
+				DisplaySettings_Convert_ToUI_Profile(displaySettingsProfile, AdlSettingGet::Current);
+				GraphicsSettings_Convert_ToUI_Profile(graphicsSettingsProfile, AdlSettingGet::Current);
+				MultimediaSettings_Convert_ToUI_Profile(multimediaSettingsProfile, AdlSettingGet::Current);
+
+				//Restore selection labels from the backend state even if no snapshot exists yet.
+				try
+				{
+					auto gpuInfo = AdlGetGpuByAdapterIndex(adl_Gpu_AdapterIndex);
+					if (gpuInfo.has_value()) { textblock_GpuSelect().Text(char_to_wstring(gpuInfo.value().strAdapterName)); }
+					auto displayInfo = AdlGetDisplayByDisplayIndex(adl_Display_AdapterIndex, adl_Display_DisplayIndex);
+					if (displayInfo.has_value()) { textblock_DisplaySelect().Text(char_to_wstring(displayInfo.value().strDisplayName)); }
+				}
+				catch (...) {}
+
+				ShowExperimentalSettings(true);
+				SelectDefaultIndexes();
+				AdlxValuesLoadEyefinityDisplays();
+				co_await DisplayList_Combined(false);
+				AdlxInfoLoad();
+				RadeonTunerUiSession::Restore(*this);
+				UpdateFanControlModeInterface(tuningFanSettingsProfile, false);
+
+				//Redraw values derived from the restored draft controls without writing settings.
+				ValidateFanSettings();
+				UpdateFanGraphProfile();
+				UpdateFanInputFields();
+				UpdateDependentSettingsInterface(false);
+
+				disable_saving = false;
+				disable_saving_settings = false;
+
+				AVDebugWriteLine("Restored application UI from backend state.");
+				co_return;
+			}
+
 			//Fix check if DCH / UWP or downgraded driver is installed and warn not supported
 			//Fix check if other overclock applications are running and warn user
 
@@ -1073,6 +1171,7 @@ namespace winrt::RadeonTuner::implementation
 				grid_Main().IsHitTestVisible(false);
 				std::vector<std::wstring> messageAnswers{ L"仍然继续", L"退出应用程序" };
 				int messageResult = co_await ShowMessageBox(L"驱动程序软件类型不兼容", L"强烈建议使用“仅驱动程序”软件类型安装驱动，以避免 RadeonTuner 可能出现的问题。\n\n请使用“仅驱动程序”软件类型和“恢复出厂设置”选项重新安装驱动；可在 Radeon 驱动安装程序的“附加选项”中找到这些选项。", messageAnswers);
+				if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return; }
 				if (messageResult == 0)
 				{
 					//Enable interface
@@ -1093,6 +1192,7 @@ namespace winrt::RadeonTuner::implementation
 				grid_Main().IsHitTestVisible(false);
 				std::vector<std::wstring> messageAnswers{ L"运行 AMD Cleanup Utility", L"退出应用程序" };
 				int messageResult = co_await ShowMessageBox(L"ADL 初始化失败", L"请重新安装或更新 AMD 驱动程序；如果此消息持续出现，请尝试使用 AMD Cleanup Utility 并重新安装驱动程序。（" + initResult_Adl + L"）", messageAnswers);
+				if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return; }
 				if (messageResult == 0)
 				{
 					//Launch driver cleanup utility
@@ -1110,6 +1210,10 @@ namespace winrt::RadeonTuner::implementation
 				}
 			}
 
+			//Initialization is one-shot for this process; a recreated page must not
+			//initialize ADL or write driver defaults again.
+			BackendInitialized = true;
+
 			//Prepare adlx values
 			AdlxValuesPrepare();
 
@@ -1126,6 +1230,7 @@ namespace winrt::RadeonTuner::implementation
 				grid_Main().IsHitTestVisible(false);
 				std::vector<std::wstring> messageAnswers{ L"运行 AMD Cleanup Utility", L"退出应用程序" };
 				int messageResult = co_await ShowMessageBox(L"未找到任何 GPU", L"请重新安装或更新 AMD 驱动程序；如果此消息持续出现，请尝试使用 AMD Cleanup Utility 并重新安装驱动程序。", messageAnswers);
+				if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return; }
 				if (messageResult == 0)
 				{
 					//Launch driver cleanup utility
@@ -1160,7 +1265,7 @@ namespace winrt::RadeonTuner::implementation
 			//Sync graphics profile settings
 			AdlAppSyncAll();
 
-			//Set default registry values
+			//Set default registry values, exactly once per process
 			AdlSetDefaultSettings();
 
 			//Check admin setttings
@@ -1175,15 +1280,10 @@ namespace winrt::RadeonTuner::implementation
 			//Select default indexes
 			SelectDefaultIndexes();
 
-			//Start adlx loop metrics
-			std::thread threadLoopMetrics(&MainPage::AdlxLoopMetrics, this);
-			threadLoopMetrics.detach();
+			//Backend stays alive when this page is released. Start it once.
+			AppVariables::App.EnsureBackendStarted();
 
-			//Start adlx loop keep active
-			std::thread threadLoopKeepActive(&MainPage::AdlxLoopProfile, this);
-			threadLoopKeepActive.detach();
-
-			//Check for application update
+			//Check for application update, only on the first initialization
 			std::optional<bool> setStartCheckUpdate = AppVariables::Settings.Load<bool>("StartCheckUpdate");
 			if (setStartCheckUpdate.has_value() && setStartCheckUpdate.value())
 			{
@@ -1201,11 +1301,16 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update first launch setting
 			AppVariables::Settings.Set("FirstLaunch", false);
+
+			//Starting hidden is the same tray state as closing later: keep backend, release UI.
+			if (!AppVariables::App.GetIsWindowVisible())
+			{
+				AppVariables::App.HideToTray();
+			}
 #endif
 		}
 		catch (...) {}
 	}
-
 	void MainPage::SelectDefaultIndexes()
 	{
 		try
@@ -1427,22 +1532,34 @@ namespace winrt::RadeonTuner::implementation
 
 	void MainPage::ShowNotification(std::wstring text)
 	{
+		if (!AppVariables::App.IsCurrentUiPage(*this)) { return; }
 		try
 		{
 			//Set notification text
 			grid_Overlay_Notification().Visibility(Visibility::Visible);
 			textblock_Notification_Text().Text(text);
 
-			//Notification timer tick
-			std::function<void(IInspectable const& sender, IInspectable const& e)> tickFunction = [&](auto, auto)
+			//Only a weak page is captured by the timer tick. A queued tick from an
+			//older page cannot touch a released or recreated page.
+			winrt::weak_ref<MainPage> weakPage = get_weak();
+			uint64_t generation = g_notificationGeneration;
+			auto tickFunction = [weakPage, generation](IInspectable const&, IInspectable const&)
 				{
 					try
 					{
-						//Hide notification text
-						grid_Overlay_Notification().Visibility(Visibility::Collapsed);
-
-						//Stop notification timer
-						TimerNotification.Stop();
+						if (generation != g_notificationGeneration)
+						{
+							return;
+						}
+						if (auto page = weakPage.get())
+						{
+							page->grid_Overlay_Notification().Visibility(Visibility::Collapsed);
+						}
+						if (TimerNotification != NULL)
+						{
+							TimerNotification.Stop();
+							TimerNotification = NULL;
+						}
 					}
 					catch (...) {}
 				};
@@ -1452,13 +1569,88 @@ namespace winrt::RadeonTuner::implementation
 			{
 				TimerNotification = winrt::Windows::UI::Xaml::DispatcherTimer();
 				TimerNotification.Interval(TimeSpan(40000000));
-				TimerNotification.Tick(tickFunction);
 			}
+			TimerNotification.Tick(tickFunction);
 			TimerNotification.Start();
 		}
 		catch (...) {}
 	}
 
+	winrt::Windows::Foundation::IInspectable MainPage::KeepAliveForUi()
+	{
+		return this->as<winrt::Windows::Foundation::IInspectable>();
+	}
+
+	void MainPage::StopNotificationTimer()
+	{
+		//Invalidate any queued notification tick before releasing its handler.
+		g_notificationGeneration++;
+		try { grid_Overlay_Notification().Visibility(Visibility::Collapsed); } catch (...) {}
+		if (TimerNotification != NULL)
+		{
+			try { TimerNotification.Stop(); } catch (...) {}
+			try { TimerNotification.Tick(nullptr); } catch (...) {}
+			TimerNotification = NULL;
+		}
+	}
+
+	bool MainPage::HasActiveResolutionTimer()
+	{
+		try
+		{
+			if (TimerResolutionSwitch != NULL && TimerResolutionSwitch.IsEnabled()) { return true; }
+			if (TimerResolutionCustom != NULL && TimerResolutionCustom.IsEnabled()) { return true; }
+		}
+		catch (...) {}
+		return false;
+	}
+
+	void MainPage::StopUiTimersForRelease()
+	{
+		StopNotificationTimer();
+		if (TimerResolutionSwitch != NULL)
+		{
+			try { TimerResolutionSwitch.Stop(); } catch (...) {}
+			try { TimerResolutionSwitch.Tick(nullptr); } catch (...) {}
+			TimerResolutionSwitch = NULL;
+		}
+		if (TimerResolutionCustom != NULL)
+		{
+			try { TimerResolutionCustom.Stop(); } catch (...) {}
+			try { TimerResolutionCustom.Tick(nullptr); } catch (...) {}
+			TimerResolutionCustom = NULL;
+		}
+	}
+
+	void MainPage::StopUiAnimationsForRelease()
+	{
+		++pageTransitionGeneration;
+		if (pageTransitionStoryboard)
+		{
+			try { pageTransitionStoryboard.Stop(); } catch (...) {}
+		}
+		pageTransitionStoryboard = nullptr;
+		pageTransitionTarget = nullptr;
+
+		auto dependentAnimationsStop = std::move(dependentAnimations);
+		dependentAnimations.clear();
+		for (auto& entry : dependentAnimationsStop)
+		{
+			try { entry.second.Stop(); } catch (...) {}
+		}
+		auto comboPopupAnimationsStop = std::move(comboPopupAnimations);
+		comboPopupAnimations.clear();
+		for (auto& entry : comboPopupAnimationsStop)
+		{
+			try { entry.second.Stop(); } catch (...) {}
+		}
+		auto toggleKnobAnimationsStop = std::move(toggleKnobAnimations);
+		toggleKnobAnimations.clear();
+		for (auto& entry : toggleKnobAnimationsStop)
+		{
+			try { entry.second.Stop(); } catch (...) {}
+		}
+	}
 	std::wstring MainPage::ThemeGetImagePath(std::wstring imageName, bool includeAppx)
 	{
 		std::wstring imagePath = L"";
@@ -1533,5 +1725,303 @@ namespace winrt::RadeonTuner::implementation
 			AppVariables::App.RefreshNativeTheme();
 		}
 		catch (...) {}
+	}
+}
+
+
+//UI session helpers. These are intentionally outside the page type so the
+//snapshot can outlive the page and contains no XAML reference.
+namespace
+{
+	struct UiSnapshotEntry
+	{
+		bool HasEnabled = false;
+		bool Enabled = true;
+		bool HasVisibility = false;
+		int Visibility = 0;
+		bool HasIsOn = false;
+		bool IsOn = false;
+		bool HasValue = false;
+		double Value = 0;
+		bool HasIndex = false;
+		int Index = -1;
+		bool HasText = false;
+		std::wstring Text;
+	};
+
+	std::unordered_map<std::wstring, UiSnapshotEntry> g_uiSnapshot;
+
+	void VisitUiElements(winrt::Windows::UI::Xaml::DependencyObject const& node, std::function<void(winrt::Windows::UI::Xaml::FrameworkElement const&)> const& action)
+	{
+		using winrt::Windows::UI::Xaml::FrameworkElement;
+		using winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
+
+		if (auto element = node.try_as<FrameworkElement>())
+		{
+			action(element);
+		}
+		int childCount = VisualTreeHelper::GetChildrenCount(node);
+		for (int index = 0; index < childCount; index++)
+		{
+			auto child = VisualTreeHelper::GetChild(node, index);
+			if (child)
+			{
+				VisitUiElements(child, action);
+			}
+		}
+	}
+}
+
+namespace RadeonTunerUiSession
+{
+	using winrt::Windows::UI::Xaml::Controls::ComboBox;
+	using winrt::Windows::UI::Xaml::Controls::ListView;
+	using winrt::Windows::UI::Xaml::Controls::Slider;
+	using winrt::Windows::UI::Xaml::Controls::TextBox;
+	using winrt::Windows::UI::Xaml::Controls::TextBlock;
+	using winrt::Windows::UI::Xaml::Controls::ToggleSwitch;
+	using winrt::Windows::UI::Xaml::FrameworkElement;
+
+	void Capture(winrt::RadeonTuner::implementation::MainPage& page)
+	{
+		try
+		{
+			g_uiSnapshot.clear();
+			VisitUiElements(page, [](FrameworkElement const& element)
+				{
+					try
+					{
+						std::wstring name(element.Name().c_str());
+						if (name.empty())
+						{
+							return;
+						}
+
+						//Transient modal/overlay content is never restored as a draft.
+						if (name.find(L"_Overlay_") != std::wstring::npos || name.rfind(L"grid_Overlay_", 0) == 0)
+						{
+							return;
+						}
+
+						UiSnapshotEntry entry{};
+						if (auto control = element.try_as<winrt::Windows::UI::Xaml::Controls::Control>())
+						{
+							entry.HasEnabled = true;
+							entry.Enabled = control.IsEnabled();
+						}
+						entry.HasVisibility = true;
+						entry.Visibility = (int)element.Visibility();
+
+						if (auto toggle = element.try_as<ToggleSwitch>())
+						{
+							entry.HasIsOn = true;
+							entry.IsOn = toggle.IsOn();
+						}
+						if (auto slider = element.try_as<Slider>())
+						{
+							entry.HasValue = true;
+							entry.Value = slider.Value();
+						}
+						if (auto comboBox = element.try_as<ComboBox>())
+						{
+							entry.HasIndex = true;
+							entry.Index = comboBox.SelectedIndex();
+						}
+						if (auto textBox = element.try_as<TextBox>())
+						{
+							entry.HasText = true;
+							entry.Text = textBox.Text().c_str();
+						}
+						else if (auto textBlock = element.try_as<TextBlock>())
+						{
+							entry.HasText = true;
+							entry.Text = textBlock.Text().c_str();
+						}
+						if (auto listView = element.try_as<ListView>())
+						{
+							entry.HasIndex = true;
+							entry.Index = listView.SelectedIndex();
+						}
+
+						g_uiSnapshot[name] = std::move(entry);
+					}
+					catch (...) {}
+				});
+		}
+		catch (...) {}
+	}
+
+	void PrepareForRelease(winrt::RadeonTuner::implementation::MainPage& page)
+	{
+		try
+		{
+			page.StopUiAnimationsForRelease();
+			page.StopUiTimersForRelease();
+		}
+		catch (...) {}
+	}
+
+	void Restore(winrt::RadeonTuner::implementation::MainPage& page)
+	{
+		if (g_uiSnapshot.empty())
+		{
+			return;
+		}
+		try
+		{
+			VisitUiElements(page, [](FrameworkElement const& element)
+				{
+					try
+					{
+						std::wstring name(element.Name().c_str());
+						if (name.empty())
+						{
+							return;
+						}
+						auto entry = g_uiSnapshot.find(name);
+						if (entry == g_uiSnapshot.end())
+						{
+							return;
+						}
+						const UiSnapshotEntry& state = entry->second;
+
+						//Restore values first; the real handlers run with saving disabled
+						//and only refresh dependent presentation.
+						if (state.HasIsOn)
+						{
+							if (auto toggle = element.try_as<ToggleSwitch>())
+							{
+								toggle.IsOn(state.IsOn);
+							}
+						}
+						if (state.HasValue)
+						{
+							if (auto slider = element.try_as<Slider>())
+							{
+								slider.Value(state.Value);
+							}
+						}
+						if (state.HasIndex)
+						{
+							if (auto comboBox = element.try_as<ComboBox>())
+							{
+								comboBox.SelectedIndex(state.Index);
+							}
+							else if (auto listView = element.try_as<ListView>())
+							{
+								listView.SelectedIndex(state.Index);
+							}
+						}
+						if (state.HasText)
+						{
+							if (auto textBox = element.try_as<TextBox>())
+							{
+								textBox.Text(state.Text);
+							}
+							else if (auto textBlock = element.try_as<TextBlock>())
+							{
+								textBlock.Text(state.Text);
+							}
+						}
+						if (state.HasEnabled)
+						{
+							if (auto control = element.try_as<winrt::Windows::UI::Xaml::Controls::Control>())
+							{
+								control.IsEnabled(state.Enabled);
+							}
+						}
+						if (state.HasVisibility)
+						{
+							element.Visibility((winrt::Windows::UI::Xaml::Visibility)state.Visibility);
+						}
+					}
+					catch (...) {}
+				});
+		}
+		catch (...) {}
+	}
+
+	bool HasSnapshot()
+	{
+		return !g_uiSnapshot.empty();
+	}
+
+	void ClearSnapshot()
+	{
+		g_uiSnapshot.clear();
+	}
+}
+
+
+namespace RadeonTunerBackend
+{
+	void MetricsLoop()
+	{
+		using winrt::RadeonTuner::implementation::MainPage;
+		while (true)
+		{
+			try
+			{
+				Sleep(1000);
+				if (AppVariables::ApplicationExiting)
+				{
+					return;
+				}
+
+				//Metrics are UI-only: skip while the page is released or hidden.
+				if (!AppVariables::App.GetIsWindowVisible())
+				{
+					continue;
+				}
+
+				//Collect metrics on this background thread; only text updates are dispatched
+				//to the current UI session. The session ID is checked at dispatch time.
+				uint64_t expectedSession = AppVariables::App.CurrentUiSessionId();
+				MainPage::TuningMetrics_Update(expectedSession);
+				MainPage::GraphicsStatus_Update(expectedSession);
+				MainPage::AdlxLoopSelectedDeviceAccess();
+			}
+			catch (...) {}
+		}
+	}
+
+	void ProfileLoop()
+	{
+		using winrt::RadeonTuner::implementation::MainPage;
+
+		while (true)
+		{
+			try
+			{
+				if (!AppVariables::LaunchLoopProfile)
+				{
+					Sleep(10000);
+				}
+				else
+				{
+					Sleep(2000);
+					AppVariables::LaunchLoopProfile = false;
+				}
+
+				if (AppVariables::ApplicationExiting)
+				{
+					return;
+				}
+
+				std::vector<std::wstring> processExeRunning{};
+				std::vector<AVProcess> processAll = Get_ProcessAll();
+				processExeRunning.reserve(processAll.size());
+				for (AVProcess& process : processAll)
+				{
+					std::wstring exeNameLower = wstring_to_lower(process.ExeNameW());
+					processExeRunning.push_back(std::move(exeNameLower));
+				}
+
+				MainPage::AdlxLoopDisplayEyefinityAutomatic(processExeRunning);
+				MainPage::AdlxLoopDisplayApplicationProfile(processExeRunning);
+				MainPage::AdlxLoopTuningApplicationProfile(processExeRunning);
+			}
+			catch (...) {}
+		}
 	}
 }

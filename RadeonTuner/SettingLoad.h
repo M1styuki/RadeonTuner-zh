@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::SettingLoad()
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Disable saving

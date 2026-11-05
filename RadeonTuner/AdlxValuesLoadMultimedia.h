@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::AdlxValuesLoadSelectMultimediaApp(int gpuAdapterIndex, std::wstring application)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Disable saving

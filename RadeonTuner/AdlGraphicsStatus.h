@@ -151,7 +151,7 @@ namespace winrt::RadeonTuner::implementation
 		return graphicsStatusList;
 	}
 
-	void MainPage::GraphicsStatus_Update()
+	void MainPage::GraphicsStatus_Update(uint64_t expectedSession)
 	{
 		try
 		{
@@ -159,7 +159,7 @@ namespace winrt::RadeonTuner::implementation
 			std::vector<GraphicsStatus> graphicsStatusList = GraphicsStatus_Get();
 
 			//Update current status
-			std::function<void()> updateFunction = [=]
+			std::function<void(MainPage&)> updateFunction = [=](MainPage& page)
 				{
 					//FSR Override Upscaling
 					{
@@ -167,7 +167,7 @@ namespace winrt::RadeonTuner::implementation
 						bool filteredAny = std::ranges::begin(filteredList) != std::ranges::end(filteredList);
 						if (filteredAny)
 						{
-							image_FsrOverrideUpscaling_Status().Visibility(Visibility::Visible);
+							page.image_FsrOverrideUpscaling_Status().Visibility(Visibility::Visible);
 
 							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (const GraphicsStatus& graphicsStatus : filteredList)
@@ -176,11 +176,11 @@ namespace winrt::RadeonTuner::implementation
 							}
 
 							//Set updated tooltip text
-							wstring_to_tooltip(image_FsrOverrideUpscaling_Status(), tooltipStringNew);
+							wstring_to_tooltip(page.image_FsrOverrideUpscaling_Status(), tooltipStringNew);
 						}
 						else
 						{
-							image_FsrOverrideUpscaling_Status().Visibility(Visibility::Collapsed);
+							page.image_FsrOverrideUpscaling_Status().Visibility(Visibility::Collapsed);
 						}
 					}
 
@@ -190,7 +190,7 @@ namespace winrt::RadeonTuner::implementation
 						bool filteredAny = std::ranges::begin(filteredList) != std::ranges::end(filteredList);
 						if (filteredAny)
 						{
-							image_FsrOverrideFrameGeneration_Status().Visibility(Visibility::Visible);
+							page.image_FsrOverrideFrameGeneration_Status().Visibility(Visibility::Visible);
 
 							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (const GraphicsStatus& graphicsStatus : filteredList)
@@ -199,11 +199,11 @@ namespace winrt::RadeonTuner::implementation
 							}
 
 							//Set updated tooltip text
-							wstring_to_tooltip(image_FsrOverrideFrameGeneration_Status(), tooltipStringNew);
+							wstring_to_tooltip(page.image_FsrOverrideFrameGeneration_Status(), tooltipStringNew);
 						}
 						else
 						{
-							image_FsrOverrideFrameGeneration_Status().Visibility(Visibility::Collapsed);
+							page.image_FsrOverrideFrameGeneration_Status().Visibility(Visibility::Collapsed);
 						}
 					}
 
@@ -213,7 +213,7 @@ namespace winrt::RadeonTuner::implementation
 						bool filteredAny = std::ranges::begin(filteredList) != std::ranges::end(filteredList);
 						if (filteredAny)
 						{
-							image_FsrOverrideMultiFrameGeneration_Status().Visibility(Visibility::Visible);
+							page.image_FsrOverrideMultiFrameGeneration_Status().Visibility(Visibility::Visible);
 
 							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (const GraphicsStatus& graphicsStatus : filteredList)
@@ -222,11 +222,11 @@ namespace winrt::RadeonTuner::implementation
 							}
 
 							//Set updated tooltip text
-							wstring_to_tooltip(image_FsrOverrideMultiFrameGeneration_Status(), tooltipStringNew);
+							wstring_to_tooltip(page.image_FsrOverrideMultiFrameGeneration_Status(), tooltipStringNew);
 						}
 						else
 						{
-							image_FsrOverrideMultiFrameGeneration_Status().Visibility(Visibility::Collapsed);
+							page.image_FsrOverrideMultiFrameGeneration_Status().Visibility(Visibility::Collapsed);
 						}
 					}
 
@@ -236,7 +236,7 @@ namespace winrt::RadeonTuner::implementation
 						bool filteredAny = std::ranges::begin(filteredList) != std::ranges::end(filteredList);
 						if (filteredAny)
 						{
-							image_FsrOverrideRayRegeneration_Status().Visibility(Visibility::Visible);
+							page.image_FsrOverrideRayRegeneration_Status().Visibility(Visibility::Visible);
 
 							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (const GraphicsStatus& graphicsStatus : filteredList)
@@ -245,11 +245,11 @@ namespace winrt::RadeonTuner::implementation
 							}
 
 							//Set updated tooltip text
-							wstring_to_tooltip(image_FsrOverrideRayRegeneration_Status(), tooltipStringNew);
+							wstring_to_tooltip(page.image_FsrOverrideRayRegeneration_Status(), tooltipStringNew);
 						}
 						else
 						{
-							image_FsrOverrideRayRegeneration_Status().Visibility(Visibility::Collapsed);
+							page.image_FsrOverrideRayRegeneration_Status().Visibility(Visibility::Collapsed);
 						}
 					}
 
@@ -259,7 +259,7 @@ namespace winrt::RadeonTuner::implementation
 						bool filteredAny = std::ranges::begin(filteredList) != std::ranges::end(filteredList);
 						if (filteredAny)
 						{
-							image_FsrOverrideNeuralRadianceCaching_Status().Visibility(Visibility::Visible);
+							page.image_FsrOverrideNeuralRadianceCaching_Status().Visibility(Visibility::Visible);
 
 							std::wstring tooltipStringNew = L"此设置已在以下应用程序中生效：";
 							for (const GraphicsStatus& graphicsStatus : filteredList)
@@ -268,11 +268,11 @@ namespace winrt::RadeonTuner::implementation
 							}
 
 							//Set updated tooltip text
-							wstring_to_tooltip(image_FsrOverrideNeuralRadianceCaching_Status(), tooltipStringNew);
+							wstring_to_tooltip(page.image_FsrOverrideNeuralRadianceCaching_Status(), tooltipStringNew);
 						}
 						else
 						{
-							image_FsrOverrideNeuralRadianceCaching_Status().Visibility(Visibility::Collapsed);
+							page.image_FsrOverrideNeuralRadianceCaching_Status().Visibility(Visibility::Collapsed);
 						}
 					}
 
@@ -283,7 +283,7 @@ namespace winrt::RadeonTuner::implementation
 					//image_RadeonImageSharpening1_Status
 					//image_RadeonImageSharpening2_Status
 				};
-			AppVariables::App.DispatcherInvoke(updateFunction);
+			AppVariables::App.RunOnUi(updateFunction, expectedSession);
 		}
 		catch (...) {}
 	}

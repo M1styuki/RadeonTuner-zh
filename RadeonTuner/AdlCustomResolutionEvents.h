@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::button_CustomResolution_ShowHide_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			bool manageVisible = grid_Overlay_CustomResolution().Visibility() == Visibility::Visible;
@@ -66,6 +67,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::button_CustomResolution_Remove_Click(IInspectable const& sender, RoutedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Fix when there are two custom resolutions and the one you don't remove is not compatible you may end up with a black (no signal) screen.
@@ -151,6 +153,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::combobox_CustomResolution_TimingStandard_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -171,6 +174,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::textbox_CustomResolution_Resolution_TextChanged(IInspectable const& sender, TextChangedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled
@@ -191,6 +195,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::textbox_CustomResolution_RefreshRate_TextChanged(IInspectable const& sender, TextChangedEventArgs const& e)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check if saving is disabled

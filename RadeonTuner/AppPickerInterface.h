@@ -8,6 +8,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> MainPage::AdlAppPickerAdd()
 	{
+		auto strongThis = get_strong();
 		auto applist = winrt::single_threaded_observable_vector<RadeonTuner::AppPickerIdl>();
 		try
 		{
@@ -67,6 +68,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> MainPage::AdlAppPickerAddProcess()
 	{
+		auto strongThis = get_strong();
 		auto selectedList = winrt::single_threaded_observable_vector<RadeonTuner::AppPickerIdl>();
 		try
 		{
@@ -142,9 +144,15 @@ namespace winrt::RadeonTuner::implementation
 			//Wait in background
 			while (!appPickerCompleted && !appPickerCancel)
 			{
+				//A released page must cancel this picker without touching the shared flags of a newer picker.
+				if (!AppVariables::App.IsCurrentUiPage(*this))
+				{
+					co_return selectedList;
+				}
 				co_await AsyncTaskDelay(100, AppVariables::App.GetDispatcher());
 			}
 
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return selectedList; }
 			//Append selected items
 			if (appPickerCompleted)
 			{
@@ -169,6 +177,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> MainPage::AdlAppPickerAddLauncher()
 	{
+		auto strongThis = get_strong();
 		auto selectedList = winrt::single_threaded_observable_vector<RadeonTuner::AppPickerIdl>();
 		try
 		{
@@ -283,9 +292,15 @@ namespace winrt::RadeonTuner::implementation
 			//Wait in background
 			while (!appPickerCompleted && !appPickerCancel)
 			{
+				//A released page must cancel this picker without touching the shared flags of a newer picker.
+				if (!AppVariables::App.IsCurrentUiPage(*this))
+				{
+					co_return selectedList;
+				}
 				co_await AsyncTaskDelay(100, AppVariables::App.GetDispatcher());
 			}
 
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return selectedList; }
 			//Append selected items
 			if (appPickerCompleted)
 			{
@@ -310,6 +325,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> MainPage::AdlAppPickerRemoveAppGraphics()
 	{
+		auto strongThis = get_strong();
 		auto selectedList = winrt::single_threaded_observable_vector<RadeonTuner::AppPickerIdl>();
 		try
 		{
@@ -355,9 +371,15 @@ namespace winrt::RadeonTuner::implementation
 			//Wait in background
 			while (!appPickerCompleted && !appPickerCancel)
 			{
+				//A released page must cancel this picker without touching the shared flags of a newer picker.
+				if (!AppVariables::App.IsCurrentUiPage(*this))
+				{
+					co_return selectedList;
+				}
 				co_await AsyncTaskDelay(100, AppVariables::App.GetDispatcher());
 			}
 
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return selectedList; }
 			//Append selected items
 			if (appPickerCompleted)
 			{
@@ -382,6 +404,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> MainPage::AdlAppPickerRemoveAppTuning()
 	{
+		auto strongThis = get_strong();
 		auto selectedList = winrt::single_threaded_observable_vector<RadeonTuner::AppPickerIdl>();
 		try
 		{
@@ -427,9 +450,15 @@ namespace winrt::RadeonTuner::implementation
 			//Wait in background
 			while (!appPickerCompleted && !appPickerCancel)
 			{
+				//A released page must cancel this picker without touching the shared flags of a newer picker.
+				if (!AppVariables::App.IsCurrentUiPage(*this))
+				{
+					co_return selectedList;
+				}
 				co_await AsyncTaskDelay(100, AppVariables::App.GetDispatcher());
 			}
 
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return selectedList; }
 			//Append selected items
 			if (appPickerCompleted)
 			{
@@ -454,6 +483,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> MainPage::AdlAppPickerRemoveAppDisplay()
 	{
+		auto strongThis = get_strong();
 		auto selectedList = winrt::single_threaded_observable_vector<RadeonTuner::AppPickerIdl>();
 		try
 		{
@@ -499,9 +529,15 @@ namespace winrt::RadeonTuner::implementation
 			//Wait in background
 			while (!appPickerCompleted && !appPickerCancel)
 			{
+				//A released page must cancel this picker without touching the shared flags of a newer picker.
+				if (!AppVariables::App.IsCurrentUiPage(*this))
+				{
+					co_return selectedList;
+				}
 				co_await AsyncTaskDelay(100, AppVariables::App.GetDispatcher());
 			}
 
+			if (!AppVariables::App.IsCurrentUiPage(*this)) { co_return selectedList; }
 			//Append selected items
 			if (appPickerCompleted)
 			{

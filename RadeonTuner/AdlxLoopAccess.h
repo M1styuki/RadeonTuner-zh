@@ -20,11 +20,10 @@ namespace winrt::RadeonTuner::implementation
 			if (adl_Res0 != ADL_OK || lpAccess <= 0)
 			{
 				AVDebugWriteLine("Selected GPU not available: " << adl_Gpu_AdapterIndex);
-				std::function<void()> invokeVoid = [&]
+				AppVariables::App.RunOnUi([](MainPage& page)
 					{
-						AdlxValuesResetSelectGpu();
-					};
-				AppVariables::App.DispatcherInvoke(invokeVoid);
+						page.AdlxValuesResetSelectGpu();
+					});
 			}
 
 			//Check display accessibility
@@ -34,11 +33,10 @@ namespace winrt::RadeonTuner::implementation
 			if (adl_Res0 != ADL_OK || adlModeCurrent->iModeValue <= 0)
 			{
 				AVDebugWriteLine("Selected display not available: " << adl_Display_AdapterIndex << " / " << adl_Display_DisplayIndex);
-				std::function<void()> invokeVoid = [&]
+				AppVariables::App.RunOnUi([](MainPage& page)
 					{
-						AdlxValuesResetSelectDisplay();
-					};
-				AppVariables::App.DispatcherInvoke(invokeVoid);
+						page.AdlxValuesResetSelectDisplay();
+					});
 			}
 
 			//Fix if both are inaccessible due to a driver update reinitialize ADL.

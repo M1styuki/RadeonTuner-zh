@@ -1,6 +1,7 @@
 #pragma once
 #include "MainPage.g.h"
 #include <unordered_map>
+#include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.UI.Xaml.Media.Animation.h>
 
 namespace winrt::RadeonTuner::implementation
@@ -8,6 +9,13 @@ namespace winrt::RadeonTuner::implementation
 	struct MainPage : MainPageT<MainPage>
 	{
 		MainPage() {}
+
+		//UI session lifecycle used by App::ReleaseUI; no page reference is kept globally.
+		void StopNotificationTimer();
+		bool HasActiveResolutionTimer();
+		void StopUiTimersForRelease();
+		void StopUiAnimationsForRelease();
+		winrt::Windows::Foundation::IInspectable KeepAliveForUi();
 
 		void PointerMoved_AdjustCursor(IInspectable const& sender, PointerRoutedEventArgs const& e);
 		winrt::IAsyncAction page_Loaded(IInspectable const& sender, RoutedEventArgs const& e);
@@ -20,12 +28,12 @@ namespace winrt::RadeonTuner::implementation
 		void AdlSetDefaultSettings();
 		bool AdlCheckDriverOnlySoftware();
 
-		std::vector<AdapterInfo> AdlGetGpuAll(bool ignoreDuplicate);
-		std::optional<AdapterInfo> AdlGetGpuByDeviceId(std::wstring deviceId);
-		std::optional<AdapterInfo> AdlGetGpuByAdapterIndex(int adapterIndex);
-		std::vector<ADLDisplayInfo> AdlGetDisplayAll();
-		std::vector<ADLDisplayInfo> AdlGetDisplayByAdapterIndex(int adapterIndex);
-		std::optional<ADLDisplayInfo> AdlGetDisplayByDisplayIndex(int adapterIndex, int displayIndex);
+		static std::vector<AdapterInfo> AdlGetGpuAll(bool ignoreDuplicate);
+		static std::optional<AdapterInfo> AdlGetGpuByDeviceId(std::wstring deviceId);
+		static std::optional<AdapterInfo> AdlGetGpuByAdapterIndex(int adapterIndex);
+		static std::vector<ADLDisplayInfo> AdlGetDisplayAll();
+		static std::vector<ADLDisplayInfo> AdlGetDisplayByAdapterIndex(int adapterIndex);
+		static std::optional<ADLDisplayInfo> AdlGetDisplayByDisplayIndex(int adapterIndex, int displayIndex);
 
 		winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> AdlAppPickerAdd();
 		winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> AdlAppPickerAddProcess();
@@ -55,17 +63,17 @@ namespace winrt::RadeonTuner::implementation
 		bool AdlAppPropertyUpdate(AdlApplication& adlApp, std::vector<AdlAppProperty> properties, bool addOnly);
 		bool AdlAppPropertyUpdate(AdlApplication& adlApp, std::wstring propertyGpuId, std::wstring propertyName, std::wstring propertyValue);
 
-		bool Adl_Overdrive8_Values_Reset(int gpuAdapterIndex);
-		bool Adl_Overdrive8_Values_Set(int gpuAdapterIndex, std::vector<std::tuple<ADLOD8SettingId, int, bool>> saveSettings);
-		std::optional<int> Adl_Overdrive8_Load_Value(int gpuAdapterIndex, ADLOD8SettingId settingId);
-		std::optional<ADLOD8SingleInitSettingWrap> Adl_Overdrive8_Load_Default(int gpuAdapterIndex, ADLOD8SettingId settingId);
-		bool Adl_Overdrive8_Feature_Supported(int gpuAdapterIndex, ADLOD8FeatureControl featureId);
+		static bool Adl_Overdrive8_Values_Reset(int gpuAdapterIndex);
+		static bool Adl_Overdrive8_Values_Set(int gpuAdapterIndex, std::vector<std::tuple<ADLOD8SettingId, int, bool>> saveSettings);
+		static std::optional<int> Adl_Overdrive8_Load_Value(int gpuAdapterIndex, ADLOD8SettingId settingId);
+		static std::optional<ADLOD8SingleInitSettingWrap> Adl_Overdrive8_Load_Default(int gpuAdapterIndex, ADLOD8SettingId settingId);
+		static bool Adl_Overdrive8_Feature_Supported(int gpuAdapterIndex, ADLOD8FeatureControl featureId);
 
 		bool Adl_Eyefinity_Create_Custom(int displayAdapterIndex);
-		bool Adl_Eyefinity_Delete_All(int displayAdapterIndex);
-		bool Adl_Eyefinity_IsEnabled(int displayAdapterIndex);
-		AdlCustomResult Adl_Eyefinity_Toggle(int displayAdapterIndex, bool setEnabled);
-		bool Adl_Eyefinity_Automatic_IsEnabled();
+		static bool Adl_Eyefinity_Delete_All(int displayAdapterIndex);
+		static bool Adl_Eyefinity_IsEnabled(int displayAdapterIndex);
+		static AdlCustomResult Adl_Eyefinity_Toggle(int displayAdapterIndex, bool setEnabled);
+		static bool Adl_Eyefinity_Automatic_IsEnabled();
 
 		void button_Overlay_CustomResolution_Close_Click(IInspectable const& sender, RoutedEventArgs const& e);
 		void button_Overlay_CustomResolution_Create_Click(IInspectable const& sender, RoutedEventArgs const& e);
@@ -77,26 +85,26 @@ namespace winrt::RadeonTuner::implementation
 		winrt::IAsyncOperation<bool> CustomResolution_Create(int adapterIndex, int displayIndex, ADLDisplayModeInfoX2 modeInfoX2);
 		winrt::IAsyncOperation<bool> CustomResolution_Remove(int adapterIndex, int displayIndex, ADLDisplayModeInfoX2 modeInfoX2);
 
-		DWORD AdlGammaRampClamp(float clampValue);
-		bool AdlGammaRampMatch(const AdlGammaRamp& gammaRampBegin, const AdlGammaRamp& gammaRampEnd);
-		AdlGammaRamp AdlGammaRampBuild(float baseGamma, float redGamma, float greenGamma, float blueGamma);
-		bool AdlGammaApply(int gpuAdapterIndex, float baseGamma, float redGamma, float greenGamma, float blueGamma);
+		static DWORD AdlGammaRampClamp(float clampValue);
+		static bool AdlGammaRampMatch(const AdlGammaRamp& gammaRampBegin, const AdlGammaRamp& gammaRampEnd);
+		static AdlGammaRamp AdlGammaRampBuild(float baseGamma, float redGamma, float greenGamma, float blueGamma);
+		static bool AdlGammaApply(int gpuAdapterIndex, float baseGamma, float redGamma, float greenGamma, float blueGamma);
 
 		bool AdlRegistrySettingSet(int gpuAdapterIndex, std::string subKey, std::string keyName, std::wstring keyValue);
 		bool AdlRegistrySettingSet(int gpuAdapterIndex, std::string subKey, std::string keyName, int keyValue);
 		std::optional<std::wstring> AdlRegistrySettingGetString(int gpuAdapterIndex, std::string subKey, std::string keyName, bool decodeBinary);
 		std::optional<INT> AdlRegistrySettingGetInt(int gpuAdapterIndex, std::string subKey, std::string keyName);
 
-		std::wstring AdlxGetGpuIdentifier(int adapterIndex);
-		std::wstring AdlxGetDisplayIdentifier(int adapterIndex, int displayIndex);
+		static std::wstring AdlxGetGpuIdentifier(int adapterIndex);
+		static std::wstring AdlxGetDisplayIdentifier(int adapterIndex, int displayIndex);
 
 		bool GraphicsSettings_Convert_ToUI_Adl(GraphicsSettings graphicsSettings, AdlSettingGet settingType);
 		bool GraphicsSettings_Convert_ToUI_Profile(GraphicsSettings graphicsSettings, AdlSettingGet settingType);
 		std::optional<GraphicsSettings> GraphicsSettings_Generate_FromADLApp(int gpuAdapterIndex, AdlApplication& adlApplication, bool loadDefault);
 		std::optional<GraphicsSettings> GraphicsSettings_Generate_FromADLRegistry(int gpuAdapterIndex, std::wstring application, bool loadDefault);
 		GraphicsSettings GraphicsSettingsGetSupport(int gpuAdapterIndex);
-		std::vector<GraphicsStatus> GraphicsStatus_Get();
-		void GraphicsStatus_Update();
+		static std::vector<GraphicsStatus> GraphicsStatus_Get();
+		static void GraphicsStatus_Update(uint64_t expectedSession);
 
 		bool GraphicsSettings_Profiles_SaveToFile();
 		bool GraphicsSettings_Profiles_LoadFromFile();
@@ -111,7 +119,7 @@ namespace winrt::RadeonTuner::implementation
 
 		bool DisplaySettings_Convert_ToUI_Adl(DisplaySettings displaySettings, AdlSettingGet settingType);
 		bool DisplaySettings_Convert_ToUI_Profile(DisplaySettings displaySettings, AdlSettingGet settingType);
-		std::optional<DisplaySettings> DisplaySettings_Generate_FromADL(int adapterIndex, int displayIndex, std::wstring application, bool loadDefault);
+		static std::optional<DisplaySettings> DisplaySettings_Generate_FromADL(int adapterIndex, int displayIndex, std::wstring application, bool loadDefault);
 
 		bool DisplaySettings_Profiles_SaveToFile();
 		bool DisplaySettings_Profiles_LoadFromFile();
@@ -123,9 +131,9 @@ namespace winrt::RadeonTuner::implementation
 		std::optional<std::reference_wrapper<DisplaySettings>> DisplaySettings_Profile_Get(std::wstring deviceId, std::wstring application);
 		std::vector<std::wstring> DisplaySettings_Profile_GetAllApps(std::wstring deviceId);
 		bool DisplaySettings_Profile_Set_UsingGlobal();
-		bool DisplaySettings_Profile_Set_Using(std::wstring deviceId, std::wstring application);
+		static bool DisplaySettings_Profile_Set_Using(std::wstring deviceId, std::wstring application);
 		bool DisplaySettings_Profile_Any_Using(std::wstring deviceId);
-		bool DisplaySettings_Match(DisplaySettings settingsProfile, DisplaySettings settingsAdl, bool appProfileOnly);
+		static bool DisplaySettings_Match(DisplaySettings settingsProfile, DisplaySettings settingsAdl, bool appProfileOnly);
 
 		bool MultimediaSettings_Convert_ToUI_Adl(MultimediaSettings multimediaSettings, AdlSettingGet settingType);
 		bool MultimediaSettings_Convert_ToUI_Profile(MultimediaSettings multimediaSettings, AdlSettingGet settingType);
@@ -147,9 +155,9 @@ namespace winrt::RadeonTuner::implementation
 
 		bool TuningFanSettings_Convert_ToUI_Adl(TuningFanSettings tuningFanSettings, AdlSettingGet settingType);
 		bool TuningFanSettings_Convert_ToUI_Profile(TuningFanSettings tuningFanSettings, AdlSettingGet settingType);
-		std::optional<TuningFanSettings> TuningFanSettings_Generate_FromADL(int gpuAdapterIndex, std::wstring application, bool loadDefault);
-		bool TuningFanSettings_Match(TuningFanSettings settingsProfile, TuningFanSettings settingsAdl);
-		void TuningMetrics_Update();
+		static std::optional<TuningFanSettings> TuningFanSettings_Generate_FromADL(int gpuAdapterIndex, std::wstring application, bool loadDefault);
+		static bool TuningFanSettings_Match(TuningFanSettings settingsProfile, TuningFanSettings settingsAdl);
+		static void TuningMetrics_Update(uint64_t expectedSession);
 
 		bool TuningFanSettings_Profiles_SaveToFile();
 		bool TuningFanSettings_Profiles_LoadFromFile();
@@ -161,7 +169,7 @@ namespace winrt::RadeonTuner::implementation
 		std::optional<std::reference_wrapper<TuningFanSettings>> TuningFanSettings_Profile_Get(std::wstring deviceId, std::wstring application);
 		std::vector<std::wstring> TuningFanSettings_Profile_GetAllApps(std::wstring deviceId);
 		bool TuningFanSettings_Profile_Set_UsingGlobal();
-		bool TuningFanSettings_Profile_Set_Using(std::wstring deviceId, std::wstring application);
+		static bool TuningFanSettings_Profile_Set_Using(std::wstring deviceId, std::wstring application);
 		bool TuningFanSettings_Profile_Any_Using(std::wstring deviceId);
 
 		void AdlxValuesExportDisplay();
@@ -174,8 +182,8 @@ namespace winrt::RadeonTuner::implementation
 
 		bool AdlGraphicsSettingsApply(int gpuAdapterIndex, std::wstring gpuUniqueIdentifierHex, AdlApplication& adlApp, GraphicsSettings graphicsSettings, AdlSettingGet settingGet);
 		bool AdlMultimediaSettingsApply(int gpuAdapterIndex, MultimediaSettings multimediaSettings, AdlSettingGet settingGet);
-		bool AdlTuningFanSettingsApply(int gpuAdapterIndex, TuningFanSettings tuningFanSettings, AdlSettingGet settingGet);
-		bool AdlDisplaySettingsApply(int displayAdapterIndex, int displayDisplayIndex, DisplaySettings targetSettings, DisplaySettings adlSettings, AdlSettingGet settingGet, bool appProfileOnly);
+		static bool AdlTuningFanSettingsApply(int gpuAdapterIndex, TuningFanSettings tuningFanSettings, AdlSettingGet settingGet);
+		static bool AdlDisplaySettingsApply(int displayAdapterIndex, int displayDisplayIndex, DisplaySettings targetSettings, DisplaySettings adlSettings, AdlSettingGet settingGet, bool appProfileOnly);
 
 		void AdlxValuesResetSelectGpu();
 		void AdlxValuesResetSelectDisplay();
@@ -216,15 +224,15 @@ namespace winrt::RadeonTuner::implementation
 		void ThemeAdjustStyle();
 		std::wstring ThemeGetImagePath(std::wstring imageName, bool includeAppx);
 
-		void AdlxLoopMetrics();
-		void AdlxLoopProfile();
-		void AdlxLoopSelectedDeviceAccess();
-		void AdlxLoopDisplayEyefinityAutomatic(const std::vector<std::wstring>& processExeRunning);
-		void AdlxLoopDisplayApplyGamma(int adapterIndex, DisplaySettings displaySettingsRunning);
-		void AdlxLoopDisplayApplyProfile(int adapterIndex, int displayIndex, DisplaySettings displaySettingsRunning);
-		void AdlxLoopDisplayApplicationProfile(const std::vector<std::wstring>& processExeRunning);
-		void AdlxLoopTuningApplyProfile(int adapterIndex, TuningFanSettings tuningFanSettingsRunning);
-		void AdlxLoopTuningApplicationProfile(const std::vector<std::wstring>& processExeRunning);
+		static void AdlxLoopMetrics();
+		static void AdlxLoopProfile();
+		static void AdlxLoopSelectedDeviceAccess();
+		static void AdlxLoopDisplayEyefinityAutomatic(const std::vector<std::wstring>& processExeRunning);
+		static void AdlxLoopDisplayApplyGamma(int adapterIndex, DisplaySettings displaySettingsRunning);
+		static void AdlxLoopDisplayApplyProfile(int adapterIndex, int displayIndex, DisplaySettings displaySettingsRunning);
+		static void AdlxLoopDisplayApplicationProfile(const std::vector<std::wstring>& processExeRunning);
+		static void AdlxLoopTuningApplyProfile(int adapterIndex, TuningFanSettings tuningFanSettingsRunning);
+		static void AdlxLoopTuningApplicationProfile(const std::vector<std::wstring>& processExeRunning);
 
 		winrt::IAsyncAction button_Eyefinity_Overlay_Remove_Click(IInspectable const& sender, RoutedEventArgs const& e);
 		winrt::IAsyncAction button_Eyefinity_Overlay_Create_Click(IInspectable const& sender, RoutedEventArgs const& e);

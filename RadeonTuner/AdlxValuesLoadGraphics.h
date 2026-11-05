@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::AdlxValuesLoadSelectGraphicsApp(int gpuAdapterIndex, std::wstring application)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Check application

@@ -7,6 +7,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncAction MainPage::AdlxValuesImportTuning()
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Show file dialog

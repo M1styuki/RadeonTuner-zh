@@ -1,9 +1,14 @@
 #pragma once
 #include "pch.h"
+#include <atomic>
+#include <mutex>
+#include <thread>
 #include "App.g.h"
 
 namespace winrt::RadeonTuner::implementation
 {
+	struct MainPage;
+
 	//Classes
 	class App
 	{
@@ -23,15 +28,42 @@ namespace winrt::RadeonTuner::implementation
 		HRESULT RefreshTrayIcon();
 		void RefreshNativeTheme();
 		void ShowTrayMenu(POINT point, int autoCloseMilliseconds);
+
+		//UI session lifecycle. EnsureUI and ReleaseUI run on the UI thread.
+		void EnsureUI(bool showWindow);
+		void ReleaseUI();
+		void HandleUiReleaseTimer(UINT_PTR timerId);
+		void HideToTray();
+		void EnsureBackendStarted();
+		void RunOnUi(std::function<void(MainPage&)> const& action, uint64_t expectedSession = 0);
+		uint64_t CurrentUiSessionId();
+		bool IsCurrentUiPage(MainPage const& page);
+		void BeginUiWork();
+		void EndUiWork();
+
 #ifdef RADEONTUNER_UI_VALIDATION
 		void UiValidationExit(int exitCode);
 		bool TrayIconIsAddedForValidation();
 		HICON TrayIconHandleForValidation();
 		HRESULT TrayIconLastHresultForValidation();
 		void ShowTrayMenuForValidation(int autoCloseMilliseconds);
+		uint64_t UiSessionIdForValidation();
+		int UiPageCreateCountForValidation();
+		int BackendStartCountForValidation();
+		bool UiReleasedForValidation();
+		bool UiPageAliveForValidation();
+		winrt::Windows::Foundation::IInspectable CurrentPageForValidation();
+		void ShowFromTrayForValidation();
 #endif
 
 	private:
+		winrt::Windows::Foundation::IInspectable CurrentPageForInternal();
+		void CreateXamlIsland();
+		void DestroyXamlIsland();
+		void ScheduleUiRelease();
+		void NotifyUiPageRegistered(MainPage const& page);
+		void NotifyUiPageReleased();
+
 		CoreDispatcher _dispatcher = NULL;
 		WindowsXamlManager _windowsXamlManager = NULL;
 		DesktopWindowXamlSource _desktopWindowXamlSource = NULL;
@@ -43,5 +75,26 @@ namespace winrt::RadeonTuner::implementation
 		bool _nativeThemeDark = false;
 		bool _nativeThemeHighContrast = false;
 		HWND _nativeThemeWindow = NULL;
+
+		//The weak page is the only UI reference held by App. The page itself owns
+		//all controls, animations and dispatcher timers.
+		mutable std::mutex _uiPageMutex;
+		winrt::weak_ref<winrt::Windows::Foundation::IInspectable> _uiPage;
+		uint64_t _uiSessionId = 0;
+		std::atomic<uint64_t> _uiSessionPublished{ 0 };
+		int _uiPageCreateCount = 0;
+		int _uiWorkCount = 0;
+		bool _uiReleasePending = false;
+		bool _uiEnsureInProgress = false;
+
+		//Backend loops are started once, independently of the page lifetime.
+		std::atomic<bool> _backendStarted{ false };
+		int _backendStartCount = 0;
+#ifdef RADEONTUNER_UI_VALIDATION
+		bool _backendValidationCounted = false;
+#else
+		std::thread _backendMetricsThread;
+		std::thread _backendProfileThread;
+#endif
 	};
 }

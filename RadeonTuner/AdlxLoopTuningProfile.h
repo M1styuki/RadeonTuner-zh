@@ -4,6 +4,27 @@
 #include "AppVariables.h"
 #include "MainVariables.h"
 
+namespace RadeonTunerBackend
+{
+	winrt::fire_and_forget LoadTuningApplication(winrt::Windows::Foundation::IInspectable page, int gpuAdapterIndex, std::wstring application)
+	{
+		if (!page)
+		{
+			co_return;
+		}
+		auto* currentPage = winrt::get_self<winrt::RadeonTuner::implementation::MainPage>(page);
+		if (!currentPage)
+		{
+			co_return;
+		}
+		if (!AppVariables::App.IsCurrentUiPage(*currentPage))
+		{
+			co_return;
+		}
+		co_await currentPage->AdlxValuesLoadSelectTuningApp(gpuAdapterIndex, application);
+	}
+}
+
 namespace winrt::RadeonTuner::implementation
 {
 	void MainPage::AdlxLoopTuningApplyProfile(int adapterIndex, TuningFanSettings tuningFanSettingsRunning)
@@ -42,21 +63,23 @@ namespace winrt::RadeonTuner::implementation
 					TuningFanSettings_Profile_Set_Using(tuningFanSettingsRunning.DeviceId.value(), tuningFanSettingsRunning.Application.value());
 				}
 
-				std::function<winrt::IAsyncAction()> updateFunction = [=]() -> winrt::IAsyncAction
-					{
-						if (applyResult)
-						{
-							//Show notification
-							std::wstring applicationDisplay = tuningFanSettingsRunning.Application.value();
-							if (applicationDisplay == L"Global") { applicationDisplay = L"全局"; }
-							ShowNotification(L"调校与风扇设置已应用：" + applicationDisplay);
-							AVDebugWriteLine(L"Tuning and fans settings applied: " << tuningFanSettingsRunning.Application.value());
+				if (!applyResult)
+				{
+					return;
+				}
 
-							//Load tuning and fans settings
-							co_await AdlxValuesLoadSelectTuningApp(adl_Gpu_AdapterIndex, tuningFanSettingsProfile.Application.value());
-						}
-					};
-				AppVariables::App.DispatcherInvoke(updateFunction);
+				//UI updates resolve the current weak page on the UI thread.
+				std::wstring applicationDisplay = tuningFanSettingsRunning.Application.value();
+				if (applicationDisplay == L"Global") { applicationDisplay = L"全局"; }
+				std::wstring applicationProfile = tuningFanSettingsProfile.Application.value();
+				int gpuAdapterIndex = adl_Gpu_AdapterIndex;
+				AppVariables::App.RunOnUi([=](MainPage& page)
+					{
+						auto strongPage = page.KeepAliveForUi();
+						page.ShowNotification(L"调校与风扇设置已应用：" + applicationDisplay);
+						AVDebugWriteLine(L"Tuning and fans settings applied: " << applicationDisplay);
+						RadeonTunerBackend::LoadTuningApplication(strongPage, gpuAdapterIndex, applicationProfile);
+					});
 			}
 		}
 		catch (...) {}

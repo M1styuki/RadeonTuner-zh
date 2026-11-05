@@ -62,21 +62,26 @@ namespace winrt::RadeonTuner::implementation
 			grid_Overlay_ConfirmResolution().Visibility(Visibility::Visible);
 			textblock_Overlay_ConfirmResolution_SubText().Text(L"将在 " + number_to_wstring(displayResolutionConfirmTimeSec) + L" 秒后还原……");
 
-			//Resolution switch timer tick
-			std::function<void(IInspectable const& sender, IInspectable const& e)> tickFunction = [&](auto, auto)
+			//Resolution switch timer tick; only a weak page is captured so a queued tick
+			//from a released page cannot touch its controls.
+			auto weakPage = get_weak();
+			std::function<void(IInspectable const& sender, IInspectable const& e)> tickFunction = [weakPage](auto, auto)
 				{
 					try
 					{
 						//Update countdown time
 						displayResolutionConfirmTimeSec -= 1;
 
+						auto page = weakPage.get();
+						if (!page) { return; }
+
 						//Update countdown text
-						textblock_Overlay_ConfirmResolution_SubText().Text(L"将在 " + number_to_wstring(displayResolutionConfirmTimeSec) + L" 秒后还原……");
+						page->textblock_Overlay_ConfirmResolution_SubText().Text(L"将在 " + number_to_wstring(displayResolutionConfirmTimeSec) + L" 秒后还原……");
 
 						//Check if time is up and revert resolution
 						if (displayResolutionConfirmTimeSec <= 0)
 						{
-							DisplaySettings_Confirm_Resolution_Stop(true);
+							page->DisplaySettings_Confirm_Resolution_Stop(true);
 						}
 					}
 					catch (...) {}
@@ -96,12 +101,13 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::DisplaySettings_Confirm_Resolution_Stop(bool revertResolution)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			AVDebugWriteLine(L"Confirmed resolution switch, reverting: " << revertResolution);
 
 			//Stop resolution switch timer
-			TimerResolutionSwitch.Stop();
+			if (TimerResolutionSwitch != NULL) { TimerResolutionSwitch.Stop(); }
 
 			//Hide overlay
 			grid_Main().IsHitTestVisible(true);

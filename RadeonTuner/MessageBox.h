@@ -6,6 +6,7 @@ namespace winrt::RadeonTuner::implementation
 {
 	winrt::IAsyncOperation<int> MainPage::ShowMessageBox(std::wstring Question, std::wstring Description, std::vector<std::wstring> Answers)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Set messagebox texts
@@ -46,6 +47,11 @@ namespace winrt::RadeonTuner::implementation
 			//Wait in background
 			while (!messageBoxComplete)
 			{
+				//A released page must not keep this coroutine and its strong page alive forever.
+				if (!AppVariables::App.IsCurrentUiPage(*this))
+				{
+					co_return -1;
+				}
 				co_await AsyncTaskDelay(100, AppVariables::App.GetDispatcher());
 			}
 

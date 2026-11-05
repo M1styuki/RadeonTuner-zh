@@ -67,6 +67,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::AdlxValuesLoadSelectDisplay(ADLDisplayInfo displayInfo)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Disable saving
@@ -108,6 +109,7 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::IAsyncAction MainPage::AdlxValuesLoadSelectGpu(AdapterInfo adapterInfo)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			//Disable saving
