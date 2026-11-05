@@ -384,7 +384,7 @@ namespace winrt::RadeonTuner::implementation
 			//stay alive while hidden so an unconfirmed mode change still reverts.
 			if (auto inspectable = CurrentPageForInternal())
 			{
-				if (auto* page = winrt::get_self<MainPage>(inspectable))
+				if (auto* page = winrt::get_self<MainPage>(inspectable.as<winrt::RadeonTuner::MainPage>()))
 				{
 					page->StopNotificationTimer();
 				}
@@ -451,7 +451,7 @@ namespace winrt::RadeonTuner::implementation
 			}
 			if (auto inspectable = CurrentPageForInternal())
 			{
-				if (auto* page = winrt::get_self<MainPage>(inspectable))
+				if (auto* page = winrt::get_self<MainPage>(inspectable.as<winrt::RadeonTuner::MainPage>()))
 				{
 					if (page->HasActiveResolutionTimer())
 					{
@@ -577,7 +577,7 @@ namespace winrt::RadeonTuner::implementation
 		//control tree are released. No XAML object is kept in the snapshot.
 		if (auto inspectable = CurrentPageForInternal())
 		{
-			if (auto* page = winrt::get_self<MainPage>(inspectable))
+			if (auto* page = winrt::get_self<MainPage>(inspectable.as<winrt::RadeonTuner::MainPage>()))
 			{
 				RadeonTunerUiSession::Capture(*page);
 				RadeonTunerUiSession::PrepareForRelease(*page);
@@ -726,7 +726,7 @@ namespace winrt::RadeonTuner::implementation
 						{
 							return;
 						}
-						auto* page = winrt::get_self<MainPage>(inspectable);
+						auto* page = winrt::get_self<MainPage>(inspectable.as<winrt::RadeonTuner::MainPage>());
 						if (!page)
 						{
 							return;

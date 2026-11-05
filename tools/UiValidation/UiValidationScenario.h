@@ -1102,7 +1102,7 @@ namespace RadeonTunerUiValidation
 		{
 			return nullptr;
 		}
-		return winrt::get_self<MainPage>(inspectable);
+		return winrt::get_self<MainPage>(inspectable.as<winrt::RadeonTuner::MainPage>());
 	}
 
 	inline void VerifyTraySettingsAndLifecycle(MainPage*& page, HWND windowHandle)
@@ -1330,7 +1330,7 @@ namespace RadeonTunerUiValidation
 		{
 			return nullptr;
 		}
-		return winrt::get_self<MainPage>(inspectable);
+		return winrt::get_self<MainPage>(inspectable.as<winrt::RadeonTuner::MainPage>());
 	}
 
 	inline winrt::fire_and_forget RunLifecycleCheck(winrt::weak_ref<MainPage> weakPage)
