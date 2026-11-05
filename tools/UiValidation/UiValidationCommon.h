@@ -40,6 +40,9 @@ namespace RadeonTunerUiValidation
 	inline bool AutoMode = true;
 	inline bool PreflightOnly = false;
 	inline bool ShowTrayMenuOnly = false;
+	inline bool PreviewMode = false;
+	inline bool AnimationCheckMode = false;
+	inline bool AnimationCheckStay = false;
 	inline bool UnicodePathTestsPassed = false;
 	inline bool SystemIntegrationTestsPassed = false;
 	inline bool ScenarioStarted = false;
@@ -50,7 +53,7 @@ namespace RadeonTunerUiValidation
 	inline bool ThemeSwitchVerified = false;
 	inline bool UiCompatibilityVerified = false;
 	inline bool FlatLayoutVerified = false;
-	inline int FlatToggleRowsVerified = 0;
+	inline int FlatRowsVerified = 0;
 	inline int CrossProcessRecallChildExitCode = -1;
 	inline uint64_t CrossProcessRecallMilliseconds = 0;
 	inline long ScenarioFailureHresult = 0;

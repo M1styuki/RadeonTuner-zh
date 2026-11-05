@@ -507,7 +507,11 @@ namespace winrt::RadeonTuner::implementation
 			}
 
 			//Set window strings
+#ifdef RADEONTUNER_UI_VALIDATION
+			const LPCWSTR szWindowTitle = RadeonTunerUiValidation::PreviewMode ? L"RadeonTuner 界面预览（示例数据）" : L"RadeonTuner";
+#else
 			const LPCWSTR szWindowTitle = L"RadeonTuner";
+#endif
 			const LPCWSTR szWindowClass = L"RadeonTunerMainWindow";
 
 			//Load application icon

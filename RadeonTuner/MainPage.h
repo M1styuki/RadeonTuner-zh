@@ -1,5 +1,7 @@
 #pragma once
 #include "MainPage.g.h"
+#include <unordered_map>
+#include <winrt/Windows.UI.Xaml.Media.Animation.h>
 
 namespace winrt::RadeonTuner::implementation
 {
@@ -191,8 +193,20 @@ namespace winrt::RadeonTuner::implementation
 		std::wstring AdlxInfoApplication();
 		void UpdateFanGraphGpu(TuningFanSettings tuningFanSettings);
 		void UpdateFanGraphProfile();
-		void UpdateFanControlModeInterface(TuningFanSettings tuningFanSettings);
+		void UpdateFanChartAxisLayout();
+		void viewbox_Fan_Plot_SizeChanged(IInspectable const& sender, SizeChangedEventArgs const& e);
+		void UpdateFanControlModeInterface(TuningFanSettings tuningFanSettings, bool animate = false);
 		void ValidateFanSettings();
+		void UpdateFanInputFields();
+		void ApplyFanInputValue(TextBox const& textBox);
+		Slider FanInputAdapter(TextBox const& textBox);
+		void UpdateDependentSettingsInterface(bool animate);
+		void ApplyDependentRow(FrameworkElement const& row, bool visible, bool animate);
+		void FinalizeDependentRow(FrameworkElement const& row, bool visible);
+		void InitializeValueHints();
+		void toggle_Loaded(IInspectable const& sender, RoutedEventArgs const& e);
+		void InitializeComboBoxVisuals();
+		void PatchComboBoxVisuals(ComboBox const& comboBox);
 		winrt::IAsyncAction SettingLoad();
 		void SettingAdmin();
 		void SelectDefaultIndexes();
@@ -243,6 +257,8 @@ namespace winrt::RadeonTuner::implementation
 		void combobox_Display_ColorDepth_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 		void combobox_Display_PixelFormat_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 		void slider_FanCurve_ValueChanged(IInspectable const& sender, RangeBaseValueChangedEventArgs const& e);
+		void textbox_FanInput_KeyDown(IInspectable const& sender, KeyRoutedEventArgs const& e);
+		void textbox_FanInput_LostFocus(IInspectable const& sender, RoutedEventArgs const& e);
 		void slider_Display_Contrast_ValueChanged(IInspectable const& sender, RangeBaseValueChangedEventArgs const& e);
 		void slider_Display_Saturation_ValueChanged(IInspectable const& sender, RangeBaseValueChangedEventArgs const& e);
 		void toggleswitch_FsrLatencyReduction_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
@@ -340,9 +356,6 @@ namespace winrt::RadeonTuner::implementation
 		void textbox_TimingSyncWidth_TextChanged(IInspectable const& sender, TextChangedEventArgs const& e);
 		void combobox_TimingPolarity_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 
-		void ToggleRadeonServices(bool disableServices);
-		void button_DisableRadeonServices_Click(IInspectable const& sender, RoutedEventArgs const& e);
-		void button_EnableRadeonServices_Click(IInspectable const& sender, RoutedEventArgs const& e);
 
 		void LaunchDriverCleanup();
 		winrt::IAsyncAction DisplayList_Combined(bool waitUpdate);
@@ -389,6 +402,55 @@ namespace winrt::RadeonTuner::implementation
 		void toggleswitch_FsrDisableMLSwapchain_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
 		void combobox_FanControl_Mode_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 		void slider_FanRanged_ValueChanged(IInspectable const& sender, RangeBaseValueChangedEventArgs const& e);
+
+#ifdef RADEONTUNER_UI_VALIDATION
+		size_t UiValidationAnimationCount() const { return dependentAnimations.size(); }
+		size_t UiValidationToggleCount() const { return toggleKnobInitialized.size(); }
+		size_t UiValidationKnobAnimationCount() const { return toggleKnobAnimations.size(); }
+		std::optional<double> UiValidationAnimationFrom(FrameworkElement const& row) const
+		{
+			auto it = dependentAnimations.find(static_cast<void*>(winrt::get_abi(row)));
+			if (it == dependentAnimations.end()) { return std::nullopt; }
+			return it->second.Children().GetAt(0).as<winrt::Windows::UI::Xaml::Media::Animation::DoubleAnimation>().From().Value();
+		}
+#endif
+	private:
+		void AnimateToggleKnob(ToggleSwitch const& toggle, winrt::Windows::UI::Xaml::Media::TranslateTransform const& knob);
+		void AnimatePageEntrance(FrameworkElement const& page);
+		void FinalizePageTransition();
+		void AnimateComboBoxPopup(ComboBox const& comboBox, bool open);
+		FrameworkElement FindComboBoxPopupBorder(ComboBox const& comboBox);
+
+		struct DependentFoldAnimationGuard
+		{
+			explicit DependentFoldAnimationGuard(MainPage& page) : page(page), previous(page.suppressDependentFoldAnimation)
+			{
+				page.suppressDependentFoldAnimation = true;
+			}
+
+			~DependentFoldAnimationGuard()
+			{
+				page.suppressDependentFoldAnimation = previous;
+			}
+
+			DependentFoldAnimationGuard(DependentFoldAnimationGuard const&) = delete;
+			DependentFoldAnimationGuard& operator=(DependentFoldAnimationGuard const&) = delete;
+
+			MainPage& page;
+			bool previous;
+		};
+
+		bool valueHintsInitialized = false;
+		std::unordered_map<void*, bool> toggleKnobInitialized;
+		bool comboVisualsInitialized = false;
+		bool suppressDependentFoldAnimation = false;
+		uint64_t pageTransitionGeneration = 0;
+		FrameworkElement pageTransitionTarget{ nullptr };
+		winrt::Windows::UI::Xaml::Media::Animation::Storyboard pageTransitionStoryboard{ nullptr };
+		std::unordered_map<void*, winrt::Windows::UI::Xaml::Media::Animation::Storyboard> dependentAnimations;
+		std::unordered_map<void*, winrt::Windows::UI::Xaml::Media::Animation::Storyboard> comboPopupAnimations;
+		std::unordered_map<void*, winrt::Windows::UI::Xaml::Media::Animation::Storyboard> toggleKnobAnimations;
+
 	};
 }
 

@@ -21,10 +21,74 @@
                     <SolidColorBrush x:Key="ThemeControlBrush">#FFFFFF</SolidColorBrush>
                     <Color x:Key="ThemeNavSelectedColor">#E4E9F1</Color>
                     <SolidColorBrush x:Key="ThemeNavSelectedBrush">#E4E9F1</SolidColorBrush>
-                    <Color x:Key="ThemeNavIndicatorColor">#C93A3A</Color>
-                    <SolidColorBrush x:Key="ThemeNavIndicatorBrush">#C93A3A</SolidColorBrush>
+                    <Color x:Key="ThemeNavIndicatorColor">#B84B52</Color>
+                    <SolidColorBrush x:Key="ThemeNavIndicatorBrush">#B84B52</SolidColorBrush>
                     <Color x:Key="ApplicationDimGrayColor">#5B6472</Color>
                     <SolidColorBrush x:Key="ApplicationDimGrayBrush">#5B6472</SolidColorBrush>
+                    <SolidColorBrush x:Key="TextControlBackground" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#F5F7FA" />
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#EEF1F5" />
+                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="#C9D0DA" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#AEB8C6" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#B84B52" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="#DCE2EA" />
+                    <SolidColorBrush x:Key="TextControlForeground" Color="#1B2028" />
+                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#1B2028" />
+                    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#1B2028" />
+                    <SolidColorBrush x:Key="TextControlForegroundDisabled" Color="#8A94A3" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#6B7482" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#6B7482" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#6B7482" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundDisabled" Color="#A0A8B5" />
+                    <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#B84B52" Opacity="0.45" />
+                    <SolidColorBrush x:Key="ComboBoxBackground" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#F5F7FA" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#EEF1F5" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundDisabled" Color="#EEF1F5" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundUnfocused" Color="#E4E9F1" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundBorderBrushFocused" Color="#B84B52" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundBorderBrushUnfocused" Color="#C9D0DA" />
+                    <SolidColorBrush x:Key="ComboBoxForeground" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxForegroundDisabled" Color="#8A94A3" />
+                    <SolidColorBrush x:Key="ComboBoxForegroundFocused" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxForegroundFocusedPressed" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxPlaceHolderForeground" Color="#6B7482" />
+                    <SolidColorBrush x:Key="ComboBoxPlaceHolderForegroundFocusedPressed" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#C9D0DA" />
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#AEB8C6" />
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#AEB8C6" />
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushDisabled" Color="#DCE2EA" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownBackgroundPointerOver" Color="#F5F7FA" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownBackgroundPointerPressed" Color="#EEF1F5" />
+                    <SolidColorBrush x:Key="ComboBoxFocusedDropDownBackgroundPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ComboBoxFocusedDropDownBackgroundPointerPressed" Color="#EEF1F5" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForeground" Color="#5B6472" />
+                    <SolidColorBrush x:Key="ComboBoxEditableDropDownGlyphForeground" Color="#5B6472" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundDisabled" Color="#A0A8B5" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocused" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocusedPressed" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownForeground" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#C9D0DA" />
+                    <SolidColorBrush x:Key="ComboBoxItemForeground" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundPressed" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundPointerOver" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundDisabled" Color="#8A94A3" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedUnfocused" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPressed" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPointerOver" Color="#1B2028" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedDisabled" Color="#8A94A3" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#E4E9F1" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#E9EDF3" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundDisabled" Color="Transparent" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="#F0DFE0" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedUnfocused" Color="#F0DFE0" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="#E7CED0" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="#EAD6D8" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedDisabled" Color="Transparent" />
                     <x:String x:Key="ThemeImageApps">/Assets/AppsDark.png</x:String>
                     <x:String x:Key="ThemeImageCheckmark">/Assets/CheckmarkDark.png</x:String>
                     <x:String x:Key="ThemeImageCross">/Assets/CrossDark.png</x:String>
@@ -49,24 +113,130 @@
                     <x:String x:Key="ThemeImageVideocard">/Assets/VideocardDark.png</x:String>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <Color x:Key="ThemeForegroundColor">#F0F2F5</Color>
-                    <SolidColorBrush x:Key="ThemeForegroundBrush">#F0F2F5</SolidColorBrush>
-                    <Color x:Key="ThemeBackgroundColor">#222730</Color>
-                    <SolidColorBrush x:Key="ThemeBackgroundBrush">#222730</SolidColorBrush>
-                    <Color x:Key="ThemeBackgroundDarkColor">#1B2028</Color>
-                    <SolidColorBrush x:Key="ThemeBackgroundDarkBrush">#1B2028</SolidColorBrush>
-                    <Color x:Key="ThemeBorderColor">#343C48</Color>
-                    <SolidColorBrush x:Key="ThemeBorderBrush">#343C48</SolidColorBrush>
-                    <Color x:Key="ThemeHoverColor">#303946</Color>
-                    <SolidColorBrush x:Key="ThemeHoverBrush">#303946</SolidColorBrush>
-                    <Color x:Key="ThemeControlColor">#2A313C</Color>
-                    <SolidColorBrush x:Key="ThemeControlBrush">#2A313C</SolidColorBrush>
-                    <Color x:Key="ThemeNavSelectedColor">#2B3341</Color>
-                    <SolidColorBrush x:Key="ThemeNavSelectedBrush">#2B3341</SolidColorBrush>
-                    <Color x:Key="ThemeNavIndicatorColor">#E24646</Color>
-                    <SolidColorBrush x:Key="ThemeNavIndicatorBrush">#E24646</SolidColorBrush>
-                    <Color x:Key="ApplicationDimGrayColor">#AEB8C6</Color>
-                    <SolidColorBrush x:Key="ApplicationDimGrayBrush">#AEB8C6</SolidColorBrush>
+                    <Color x:Key="ThemeForegroundColor">#E1E5EA</Color>
+                    <SolidColorBrush x:Key="ThemeForegroundBrush">#E1E5EA</SolidColorBrush>
+                    <Color x:Key="ThemeBackgroundColor">#17191E</Color>
+                    <SolidColorBrush x:Key="ThemeBackgroundBrush">#17191E</SolidColorBrush>
+                    <Color x:Key="ThemeBackgroundDarkColor">#121418</Color>
+                    <SolidColorBrush x:Key="ThemeBackgroundDarkBrush">#121418</SolidColorBrush>
+                    <Color x:Key="ThemeBorderColor">#434A57</Color>
+                    <SolidColorBrush x:Key="ThemeBorderBrush">#434A57</SolidColorBrush>
+                    <Color x:Key="ThemeHoverColor">#303741</Color>
+                    <SolidColorBrush x:Key="ThemeHoverBrush">#303741</SolidColorBrush>
+                    <Color x:Key="ThemeControlColor">#252A33</Color>
+                    <SolidColorBrush x:Key="ThemeControlBrush">#252A33</SolidColorBrush>
+                    <Color x:Key="ThemeNavSelectedColor">#252A33</Color>
+                    <SolidColorBrush x:Key="ThemeNavSelectedBrush">#252A33</SolidColorBrush>
+                    <Color x:Key="ThemeNavIndicatorColor">#C85C63</Color>
+                    <SolidColorBrush x:Key="ThemeNavIndicatorBrush">#C85C63</SolidColorBrush>
+                    <Color x:Key="ApplicationDimGrayColor">#9DA5B4</Color>
+                    <SolidColorBrush x:Key="ApplicationDimGrayBrush">#9DA5B4</SolidColorBrush>
+                    <SolidColorBrush x:Key="TextControlBackground" Color="#252A33" />
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#303741" />
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#252A33" />
+                    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#1B1E24" />
+                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="#434A57" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#565E6D" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#C85C63" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="#343A45" />
+                    <SolidColorBrush x:Key="TextControlForeground" Color="#E1E5EA" />
+                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#F0F2F5" />
+                    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="TextControlForegroundDisabled" Color="#6F7785" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#9DA5B4" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#9DA5B4" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#9DA5B4" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundDisabled" Color="#6F7785" />
+                    <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#C85C63" Opacity="0.45" />
+                    <SolidColorBrush x:Key="ComboBoxBackground" Color="#252A33" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#303741" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#3A414D" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundDisabled" Color="#1B1E24" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundUnfocused" Color="#252A33" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundBorderBrushFocused" Color="#C85C63" />
+                    <SolidColorBrush x:Key="ComboBoxBackgroundBorderBrushUnfocused" Color="#434A57" />
+                    <SolidColorBrush x:Key="ComboBoxForeground" Color="#E1E5EA" />
+                    <SolidColorBrush x:Key="ComboBoxForegroundDisabled" Color="#6F7785" />
+                    <SolidColorBrush x:Key="ComboBoxForegroundFocused" Color="#F0F2F5" />
+                    <SolidColorBrush x:Key="ComboBoxForegroundFocusedPressed" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ComboBoxPlaceHolderForeground" Color="#9DA5B4" />
+                    <SolidColorBrush x:Key="ComboBoxPlaceHolderForegroundFocusedPressed" Color="#E1E5EA" />
+                    <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#434A57" />
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#565E6D" />
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#565E6D" />
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushDisabled" Color="#343A45" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownBackgroundPointerOver" Color="#303741" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownBackgroundPointerPressed" Color="#3A414D" />
+                    <SolidColorBrush x:Key="ComboBoxFocusedDropDownBackgroundPointerOver" Color="#252A33" />
+                    <SolidColorBrush x:Key="ComboBoxFocusedDropDownBackgroundPointerPressed" Color="#3A414D" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForeground" Color="#9DA5B4" />
+                    <SolidColorBrush x:Key="ComboBoxEditableDropDownGlyphForeground" Color="#9DA5B4" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundDisabled" Color="#6F7785" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocused" Color="#E1E5EA" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocusedPressed" Color="#E1E5EA" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#252A33" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownForeground" Color="#E1E5EA" />
+                    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#434A57" />
+                    <SolidColorBrush x:Key="ComboBoxItemForeground" Color="#E1E5EA" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundPressed" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundPointerOver" Color="#F0F2F5" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundDisabled" Color="#6F7785" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedUnfocused" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPressed" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedDisabled" Color="#6F7785" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#3A414D" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#303741" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundDisabled" Color="Transparent" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="#3A2D30" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedUnfocused" Color="#3A2D30" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="#4A373A" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="#433336" />
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedDisabled" Color="Transparent" />
+                    <x:String x:Key="ThemeImageApps">/Assets/Apps.png</x:String>
+                    <x:String x:Key="ThemeImageCheckmark">/Assets/Checkmark.png</x:String>
+                    <x:String x:Key="ThemeImageCross">/Assets/Cross.png</x:String>
+                    <x:String x:Key="ThemeImageDisplay">/Assets/Display.png</x:String>
+                    <x:String x:Key="ThemeImageDragDrop">/Assets/DragDrop.png</x:String>
+                    <x:String x:Key="ThemeImageExperimental">/Assets/Experimental.png</x:String>
+                    <x:String x:Key="ThemeImageFans">/Assets/Fans.png</x:String>
+                    <x:String x:Key="ThemeImageGraphics">/Assets/Graphics.png</x:String>
+                    <x:String x:Key="ThemeImageInformation">/Assets/Information.png</x:String>
+                    <x:String x:Key="ThemeImageLink">/Assets/Link.png</x:String>
+                    <x:String x:Key="ThemeImageMultimedia">/Assets/Multimedia.png</x:String>
+                    <x:String x:Key="ThemeImagePlus">/Assets/Plus.png</x:String>
+                    <x:String x:Key="ThemeImagePower">/Assets/Power.png</x:String>
+                    <x:String x:Key="ThemeImageRemove">/Assets/Remove.png</x:String>
+                    <x:String x:Key="ThemeImageReset">/Assets/Reset.png</x:String>
+                    <x:String x:Key="ThemeImageSettings">/Assets/Settings.png</x:String>
+                    <x:String x:Key="ThemeImageShield">/Assets/Shield.png</x:String>
+                    <x:String x:Key="ThemeImageShutdown">/Assets/Shutdown.png</x:String>
+                    <x:String x:Key="ThemeImageTuning">/Assets/Tuning.png</x:String>
+                    <x:String x:Key="ThemeImageUnlink">/Assets/Unlink.png</x:String>
+                    <x:String x:Key="ThemeImageUpdate">/Assets/Update.png</x:String>
+                    <x:String x:Key="ThemeImageVideocard">/Assets/Videocard.png</x:String>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <StaticResource x:Key="ThemeForegroundColor" ResourceKey="SystemColorWindowTextColor" />
+                    <StaticResource x:Key="ThemeForegroundBrush" ResourceKey="SystemControlForegroundBaseHighBrush" />
+                    <StaticResource x:Key="ThemeBackgroundColor" ResourceKey="SystemColorWindowColor" />
+                    <StaticResource x:Key="ThemeBackgroundBrush" ResourceKey="SystemControlBackgroundAltHighBrush" />
+                    <StaticResource x:Key="ThemeBackgroundDarkColor" ResourceKey="SystemColorWindowColor" />
+                    <StaticResource x:Key="ThemeBackgroundDarkBrush" ResourceKey="SystemControlBackgroundAltHighBrush" />
+                    <StaticResource x:Key="ThemeBorderColor" ResourceKey="SystemColorWindowTextColor" />
+                    <StaticResource x:Key="ThemeBorderBrush" ResourceKey="SystemControlForegroundBaseMediumLowBrush" />
+                    <StaticResource x:Key="ThemeHoverColor" ResourceKey="SystemColorHighlightColor" />
+                    <StaticResource x:Key="ThemeHoverBrush" ResourceKey="SystemControlHighlightListLowBrush" />
+                    <StaticResource x:Key="ThemeControlColor" ResourceKey="SystemColorButtonFaceColor" />
+                    <StaticResource x:Key="ThemeControlBrush" ResourceKey="SystemControlBackgroundBaseLowBrush" />
+                    <StaticResource x:Key="ThemeNavSelectedColor" ResourceKey="SystemColorHighlightColor" />
+                    <StaticResource x:Key="ThemeNavSelectedBrush" ResourceKey="SystemControlHighlightListAccentLowBrush" />
+                    <StaticResource x:Key="ThemeNavIndicatorColor" ResourceKey="SystemColorHighlightColor" />
+                    <StaticResource x:Key="ThemeNavIndicatorBrush" ResourceKey="SystemControlHighlightAccentBrush" />
+                    <StaticResource x:Key="ApplicationDimGrayColor" ResourceKey="SystemColorGrayTextColor" />
+                    <StaticResource x:Key="ApplicationDimGrayBrush" ResourceKey="SystemControlForegroundBaseMediumBrush" />
                     <x:String x:Key="ThemeImageApps">/Assets/Apps.png</x:String>
                     <x:String x:Key="ThemeImageCheckmark">/Assets/Checkmark.png</x:String>
                     <x:String x:Key="ThemeImageCross">/Assets/Cross.png</x:String>
@@ -93,35 +263,35 @@
             </ResourceDictionary.ThemeDictionaries>
 
             <!-- System Color -->
-            <Color x:Key="SystemAccentColor">#E24646</Color>
-            <Color x:Key="SystemAccentColorDark1">#C93A3A</Color>
-            <Color x:Key="SystemAccentColorDark2">#A82E2E</Color>
-            <Color x:Key="SystemAccentColorDark3">#7E2222</Color>
-            <Color x:Key="SystemAccentColorLight1">#EA5C5C</Color>
-            <Color x:Key="SystemAccentColorLight2">#F07272</Color>
-            <Color x:Key="SystemAccentColorLight3">#F58A8A</Color>
+            <Color x:Key="SystemAccentColor">#C85C63</Color>
+            <Color x:Key="SystemAccentColorDark1">#B04F56</Color>
+            <Color x:Key="SystemAccentColorDark2">#98454B</Color>
+            <Color x:Key="SystemAccentColorDark3">#74343A</Color>
+            <Color x:Key="SystemAccentColorLight1">#D76A71</Color>
+            <Color x:Key="SystemAccentColorLight2">#E17A80</Color>
+            <Color x:Key="SystemAccentColorLight3">#EB8A90</Color>
 
             <!-- Accent Color -->
-            <Color x:Key="ApplicationAccentLightColor">#E24646</Color>
-            <SolidColorBrush x:Key="ApplicationAccentLightBrush">#E24646</SolidColorBrush>
-            <Color x:Key="ApplicationAccentDimColor">#C93A3A</Color>
-            <SolidColorBrush x:Key="ApplicationAccentDimBrush">#C93A3A</SolidColorBrush>
-            <Color x:Key="ApplicationAccentDarkColor">#A82E2E</Color>
-            <SolidColorBrush x:Key="ApplicationAccentDarkBrush">#A82E2E</SolidColorBrush>
-            <Color x:Key="ApplicationAccentVoidColor">#7E2222</Color>
-            <SolidColorBrush x:Key="ApplicationAccentVoidBrush">#7E2222</SolidColorBrush>
+            <Color x:Key="ApplicationAccentLightColor">#C85C63</Color>
+            <SolidColorBrush x:Key="ApplicationAccentLightBrush">#C85C63</SolidColorBrush>
+            <Color x:Key="ApplicationAccentDimColor">#B04F56</Color>
+            <SolidColorBrush x:Key="ApplicationAccentDimBrush">#B04F56</SolidColorBrush>
+            <Color x:Key="ApplicationAccentDarkColor">#98454B</Color>
+            <SolidColorBrush x:Key="ApplicationAccentDarkBrush">#98454B</SolidColorBrush>
+            <Color x:Key="ApplicationAccentVoidColor">#74343A</Color>
+            <SolidColorBrush x:Key="ApplicationAccentVoidBrush">#74343A</SolidColorBrush>
 
             <!-- Basic Color -->
             <Color x:Key="ApplicationWhiteColor">#F0F2F5</Color>
             <SolidColorBrush x:Key="ApplicationWhiteBrush">#F0F2F5</SolidColorBrush>
-            <Color x:Key="ApplicationBlackColor">#14171D</Color>
-            <SolidColorBrush x:Key="ApplicationBlackBrush">#14171D</SolidColorBrush>
-            <Color x:Key="ApplicationLightGrayColor">#CECECE</Color>
-            <SolidColorBrush x:Key="ApplicationLightGrayBrush">#CECECE</SolidColorBrush>
-            <Color x:Key="ApplicationDarkGrayColor">#424242</Color>
-            <SolidColorBrush x:Key="ApplicationDarkGrayBrush">#424242</SolidColorBrush>
-            <Color x:Key="ApplicationVoidGrayColor">#2A2A2A</Color>
-            <SolidColorBrush x:Key="ApplicationVoidGrayBrush">#2A2A2A</SolidColorBrush>
+            <Color x:Key="ApplicationBlackColor">#17191E</Color>
+            <SolidColorBrush x:Key="ApplicationBlackBrush">#17191E</SolidColorBrush>
+            <Color x:Key="ApplicationLightGrayColor">#C9D0DA</Color>
+            <SolidColorBrush x:Key="ApplicationLightGrayBrush">#C9D0DA</SolidColorBrush>
+            <Color x:Key="ApplicationDarkGrayColor">#434A57</Color>
+            <SolidColorBrush x:Key="ApplicationDarkGrayBrush">#434A57</SolidColorBrush>
+            <Color x:Key="ApplicationVoidGrayColor">#252A33</Color>
+            <SolidColorBrush x:Key="ApplicationVoidGrayBrush">#252A33</SolidColorBrush>
 
             <!-- Other Color -->
             <Color x:Key="ApplicationValidColor">#1EB955</Color>
@@ -130,6 +300,10 @@
             <SolidColorBrush x:Key="ApplicationInvalidBrush">#CD1928</SolidColorBrush>
             <Color x:Key="ApplicationIgnoredColor">#EE8F3F</Color>
             <SolidColorBrush x:Key="ApplicationIgnoredBrush">#EE8F3F</SolidColorBrush>
+
+            <!-- Control metrics -->
+            <Thickness x:Key="TextControlBorderThemeThickness">1</Thickness>
+            <Thickness x:Key="ComboBoxBorderThemeThickness">1</Thickness>
 
             <!-- Templates -->
             <ControlTemplate x:Name="ListViewItemTemplateRound" TargetType="ListViewItem">
@@ -381,6 +555,117 @@
             <Style x:Name="ApplicationSlider" TargetType="Slider">
                 <!-- UseLayoutRounding fixes 125% DPI crash -->
                 <Setter Property="UseLayoutRounding" Value="False"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Background" Value="{ThemeResource ThemeBorderBrush}"/>
+                <Setter Property="Foreground" Value="{ThemeResource ThemeNavIndicatorBrush}"/>
+                <Setter Property="UseSystemFocusVisuals" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Slider">
+                            <Grid Margin="{TemplateBinding Padding}">
+                                <Grid.Resources>
+                                    <Style TargetType="Thumb" x:Key="SliderThumbStyle">
+                                        <Setter Property="Width" Value="16"/>
+                                        <Setter Property="Height" Value="16"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Background" Value="{ThemeResource ThemeForegroundBrush}"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Border Background="{TemplateBinding Background}" BorderBrush="{ThemeResource ThemeBackgroundDarkBrush}" BorderThickness="1" CornerRadius="8"/>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Grid.Resources>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="HorizontalThumb.Background" Value="{ThemeResource ThemeNavIndicatorBrush}"/>
+                                                <Setter Target="VerticalThumb.Background" Value="{ThemeResource ThemeNavIndicatorBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="HorizontalThumb.Background" Value="{ThemeResource ThemeNavIndicatorBrush}"/>
+                                                <Setter Target="VerticalThumb.Background" Value="{ThemeResource ThemeNavIndicatorBrush}"/>
+                                                <Setter Target="HorizontalThumb.Opacity" Value="0.85"/>
+                                                <Setter Target="VerticalThumb.Opacity" Value="0.85"/>
+                                                <Setter Target="HorizontalDecreaseRect.Fill" Value="{ThemeResource ThemeNavIndicatorBrush}"/>
+                                                <Setter Target="VerticalDecreaseRect.Fill" Value="{ThemeResource ThemeNavIndicatorBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="SliderContainer.Opacity" Value="0.45"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                    <VisualStateGroup x:Name="FocusEngagementStates">
+                                        <VisualState x:Name="FocusDisengaged"/>
+                                        <VisualState x:Name="FocusEngagedHorizontal">
+                                            <VisualState.Setters>
+                                                <Setter Target="SliderContainer.(Control.IsTemplateFocusTarget)" Value="False"/>
+                                                <Setter Target="HorizontalThumb.(Control.IsTemplateFocusTarget)" Value="True"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="FocusEngagedVertical">
+                                            <VisualState.Setters>
+                                                <Setter Target="SliderContainer.(Control.IsTemplateFocusTarget)" Value="False"/>
+                                                <Setter Target="VerticalThumb.(Control.IsTemplateFocusTarget)" Value="True"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <ContentPresenter x:Name="HeaderContentPresenter" Grid.Row="0" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" Visibility="Collapsed" x:DeferLoadStrategy="Lazy"/>
+                                <Grid x:Name="SliderContainer" Grid.Row="1" Background="Transparent" Control.IsTemplateFocusTarget="True">
+                                    <Grid x:Name="HorizontalTemplate" MinHeight="32">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <Rectangle x:Name="HorizontalTrackRect" Fill="{TemplateBinding Background}" Height="4" RadiusX="2" RadiusY="2" Grid.Row="1" Grid.ColumnSpan="3"/>
+                                        <Rectangle x:Name="HorizontalDecreaseRect" Fill="{TemplateBinding Foreground}" Height="4" RadiusX="2" RadiusY="2" Grid.Row="1"/>
+                                        <TickBar x:Name="TopTickBar" Visibility="Collapsed" Fill="{ThemeResource SliderTickBarFill}" Height="4" VerticalAlignment="Bottom" Margin="0,0,0,4" Grid.ColumnSpan="3"/>
+                                        <TickBar x:Name="HorizontalInlineTickBar" Visibility="Collapsed" Fill="{ThemeResource SliderInlineTickBarFill}" Height="4" Grid.Row="1" Grid.ColumnSpan="3"/>
+                                        <TickBar x:Name="BottomTickBar" Visibility="Collapsed" Fill="{ThemeResource SliderTickBarFill}" Height="4" VerticalAlignment="Top" Margin="0,4,0,0" Grid.Row="2" Grid.ColumnSpan="3"/>
+                                        <Thumb x:Name="HorizontalThumb" Style="{StaticResource SliderThumbStyle}" DataContext="{TemplateBinding Value}" Width="16" Height="16" Grid.RowSpan="3" Grid.Column="1" FocusVisualMargin="-6,-6,-6,-6" AutomationProperties.AccessibilityView="Raw"/>
+                                    </Grid>
+                                    <Grid x:Name="VerticalTemplate" MinWidth="32" Visibility="Collapsed">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Rectangle x:Name="VerticalTrackRect" Fill="{TemplateBinding Background}" Width="4" RadiusX="2" RadiusY="2" Grid.Column="1" Grid.RowSpan="3"/>
+                                        <Rectangle x:Name="VerticalDecreaseRect" Fill="{TemplateBinding Foreground}" Width="4" RadiusX="2" RadiusY="2" Grid.Column="1" Grid.Row="2"/>
+                                        <TickBar x:Name="LeftTickBar" Visibility="Collapsed" Fill="{ThemeResource SliderTickBarFill}" Width="4" HorizontalAlignment="Right" Margin="0,0,4,0" Grid.RowSpan="3"/>
+                                        <TickBar x:Name="VerticalInlineTickBar" Visibility="Collapsed" Fill="{ThemeResource SliderInlineTickBarFill}" Width="4" Grid.Column="1" Grid.RowSpan="3"/>
+                                        <TickBar x:Name="RightTickBar" Visibility="Collapsed" Fill="{ThemeResource SliderTickBarFill}" Width="4" HorizontalAlignment="Left" Margin="4,0,0,0" Grid.Column="2" Grid.RowSpan="3"/>
+                                        <Thumb x:Name="VerticalThumb" Style="{StaticResource SliderThumbStyle}" DataContext="{TemplateBinding Value}" Width="16" Height="16" Grid.Row="1" Grid.ColumnSpan="3" FocusVisualMargin="-6,-6,-6,-6" AutomationProperties.AccessibilityView="Raw"/>
+                                    </Grid>
+                                </Grid>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="ApplicationMessageBoxListView" TargetType="ListView">
@@ -408,22 +693,32 @@
             </Style>
 
             <Style x:Name="ApplicationComboBox" TargetType="ComboBox">
+                <Setter Property="Height" Value="32"/>
                 <Setter Property="MinHeight" Value="32"/>
-                <Setter Property="CornerRadius" Value="6"/>
-                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
-                <Setter Property="FontSize" Value="14"/>
-            </Style>
-
-            <Style x:Name="ApplicationButton" TargetType="Button">
-                <Setter Property="MinHeight" Value="32"/>
-                <Setter Property="Padding" Value="12,4"/>
+                <Setter Property="Padding" Value="12,0,0,0"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="CornerRadius" Value="6"/>
                 <Setter Property="Background" Value="{ThemeResource ThemeControlBrush}"/>
                 <Setter Property="BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
                 <Setter Property="Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
                 <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
-                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+
+            <Style x:Name="ApplicationButton" TargetType="Button">
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="MinHeight" Value="32"/>
+                <Setter Property="Padding" Value="10,4"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="4"/>
+                <Setter Property="Background" Value="{ThemeResource ThemeControlBrush}"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
+                <Setter Property="Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
+                <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="UseSystemFocusVisuals" Value="True"/>
                 <Setter Property="Template" Value="{ThemeResource ButtonTemplateHover}"/>
             </Style>
@@ -435,36 +730,122 @@
                 <Setter Property="MinHeight" Value="32"/>
                 <Setter Property="Padding" Value="0"/>
                 <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="CornerRadius" Value="4"/>
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="UseSystemFocusVisuals" Value="True"/>
                 <Setter Property="Template" Value="{ThemeResource ButtonTemplateHover}"/>
             </Style>
 
             <Style x:Name="ApplicationTextBox" TargetType="TextBox">
+                <Setter Property="Height" Value="32"/>
                 <Setter Property="MinHeight" Value="32"/>
-                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="4"/>
+                <Setter Property="Background" Value="{ThemeResource ThemeControlBrush}"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
+                <Setter Property="Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
                 <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
-                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="TextAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+
+            <Style x:Key="ApplicationFanNumberBox" TargetType="TextBox" BasedOn="{StaticResource ApplicationTextBox}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Grid Background="Transparent">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="NumberBorder.Background" Value="{ThemeResource ThemeHoverBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Focused">
+                                            <VisualState.Setters>
+                                                <Setter Target="NumberBorder.BorderBrush" Value="{ThemeResource ApplicationAccentLightBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="NumberBorder.Opacity" Value="0.45" />
+                                                <Setter Target="ContentElement.Opacity" Value="0.45" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <Border x:Name="NumberBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" Control.IsTemplateFocusTarget="True" />
+                                <ScrollViewer x:Name="ContentElement" Height="18" Margin="{TemplateBinding BorderThickness}" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" HorizontalScrollMode="Disabled" VerticalScrollMode="Disabled" ZoomMode="Disabled" IsTabStop="False" AutomationProperties.AccessibilityView="Raw" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Name="ApplicationTextBoxNoHit" TargetType="TextBox">
                 <Setter Property="IsTabStop" Value="False"/>
                 <Setter Property="IsHitTestVisible" Value="False"/>
+                <Setter Property="Height" Value="32"/>
                 <Setter Property="MinHeight" Value="32"/>
-                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="4"/>
+                <Setter Property="Background" Value="{ThemeResource ThemeControlBrush}"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
+                <Setter Property="Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
                 <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
-                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="TextAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border x:Name="BorderElement" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="BorderElement.Opacity" Value="0.45"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <Grid>
+                                    <TextBlock Text="{TemplateBinding Text}" TextAlignment="{TemplateBinding TextAlignment}" TextWrapping="{TemplateBinding TextWrapping}" Foreground="{TemplateBinding Foreground}" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis"/>
+                                    <ScrollViewer x:Name="ContentElement" Opacity="0" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                    <TextBlock x:Name="PlaceholderTextContentPresenter" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                    <ContentPresenter x:Name="HeaderContentPresenter" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                    <Button x:Name="DeleteButton" Width="0" Height="0" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                    <ContentPresenter x:Name="DescriptionPresenter" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Name="ApplicationTextBoxReadOnly" TargetType="TextBox">
                 <Setter Property="IsTabStop" Value="False"/>
                 <Setter Property="IsReadOnly" Value="True"/>
+                <Setter Property="Height" Value="32"/>
                 <Setter Property="MinHeight" Value="32"/>
-                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="4"/>
+                <Setter Property="Background" Value="{ThemeResource ThemeControlBrush}"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource ThemeBorderBrush}"/>
+                <Setter Property="Foreground" Value="{ThemeResource ThemeForegroundBrush}"/>
                 <Setter Property="FontFamily" Value="{StaticResource ApplicationFontFamily}"/>
-                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="TextAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
             </Style>
         </ResourceDictionary>
     </Application.Resources>

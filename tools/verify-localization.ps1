@@ -86,9 +86,11 @@ $requiredNewNames = @(
     'slider_Display_GammaRed',
     'slider_Display_GammaGreen',
     'slider_Display_GammaBlue',
-    'toggleswitch_UpdateExcludeDrivers',
-    'button_DisableRadeonServices',
-    'button_EnableRadeonServices'
+    'stackpanel_Display_Gamma_Dependent',
+    'stackpanel_Display_ColorTemperature_Kelvin_Dependent',
+    'stackpanel_Display_CVDC_Dependent',
+    'stackpanel_Display_VariBright_Level_Dependent',
+    'toggleswitch_UpdateExcludeDrivers'
 )
 $missingNewNames = @($requiredNewNames | Where-Object { -not $currentNames.ContainsKey($_) })
 if ($missingNewNames.Count -gt 0) {
@@ -145,9 +147,7 @@ $requiredNewEvents = @(
     'slider_Display_GammaRed|ValueChanged|slider_Display_GammaRGB_ValueChanged',
     'slider_Display_GammaGreen|ValueChanged|slider_Display_GammaRGB_ValueChanged',
     'slider_Display_GammaBlue|ValueChanged|slider_Display_GammaRGB_ValueChanged',
-    'toggleswitch_UpdateExcludeDrivers|Toggled|toggleswitch_UpdateExcludeDrivers_Toggled',
-    'button_DisableRadeonServices|Click|button_DisableRadeonServices_Click',
-    'button_EnableRadeonServices|Click|button_EnableRadeonServices_Click'
+    'toggleswitch_UpdateExcludeDrivers|Toggled|toggleswitch_UpdateExcludeDrivers_Toggled'
 )
 $missingNewEvents = @($requiredNewEvents | Where-Object { -not $currentEvents.Contains($_) })
 if ($missingNewEvents.Count -gt 0) {
@@ -180,8 +180,8 @@ else {
 $visibleAttributes = 'Text', 'Content', 'OffContent', 'OnContent', 'ToolTipService.ToolTip', 'PlaceholderText', 'Header'
 $allowedLatinValues = @(
     'RadeonTuner <3', 'Radeon Boost 2', 'Radeon Chill', 'Vari-Bright',
-    'Hz', 'MHz', '°C', '°F', 'W', 'H', 'Hor', 'Ver',
-    '0°C | 32°F', '50°C | 122°F', '100°C | 212°F'
+    'Hz', 'MHz', '°C', '°F', 'W', 'H', 'Hor', 'Ver', 'GB', 'mV', 'RPM',
+    '0°C', '50°C', '100°C', '0°C | 32°F', '50°C | 122°F', '100°C | 212°F'
 )
 $residualXaml = [System.Collections.Generic.HashSet[string]]::new()
 foreach ($node in $currentXml.SelectNodes('//*')) {

@@ -9,6 +9,9 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
+			//Programmatic ADL loads must not animate the dependent rows.
+			DependentFoldAnimationGuard dependentFoldGuard(*this);
+
 			//HDR Enabled
 			if (displaySettings.HdrEnabled.Support && displaySettings.HdrEnabled.Get(settingType, true).has_value())
 			{
@@ -634,6 +637,9 @@ namespace winrt::RadeonTuner::implementation
 			button_Display_Reset().IsEnabled(true);
 			button_Display_Import().IsEnabled(true);
 			button_Display_Export().IsEnabled(true);
+
+			//Reflect the loaded parent states without animation
+			UpdateDependentSettingsInterface(false);
 
 			//Return result
 			AVDebugWriteLine(L"Display settings applied to interface (ADL)");

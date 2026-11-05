@@ -398,6 +398,9 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
+			//Refresh the dependent row even when saving is disabled (isolated preview)
+			UpdateDependentSettingsInterface(!suppressDependentFoldAnimation);
+
 			//Check if saving is disabled
 			if (disable_saving) { return; }
 
@@ -529,6 +532,9 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
+			//Refresh the dependent rows even when saving is disabled (isolated preview)
+			UpdateDependentSettingsInterface(!suppressDependentFoldAnimation);
+
 			//Check if saving is disabled
 			if (disable_saving) { return; }
 
@@ -593,6 +599,9 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
+			//Refresh the dependent rows even when saving is disabled (isolated preview)
+			UpdateDependentSettingsInterface(!suppressDependentFoldAnimation);
+
 			//Check if saving is disabled
 			if (disable_saving) { return; }
 
@@ -771,6 +780,7 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
+			UpdateDependentSettingsInterface(!suppressDependentFoldAnimation);
 			//Check if saving is disabled
 			if (disable_saving) { return; }
 

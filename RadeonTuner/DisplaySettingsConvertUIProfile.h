@@ -9,6 +9,9 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
+			//Programmatic profile loads must not animate the dependent rows.
+			DependentFoldAnimationGuard dependentFoldGuard(*this);
+
 			//HDR Enabled
 			if (displaySettings.HdrEnabled.Get(settingType).has_value())
 			{
@@ -261,6 +264,9 @@ namespace winrt::RadeonTuner::implementation
 			{
 				textblock_Eyefinity_Automatic_Value().Text(L"已禁用");
 			}
+
+			//Reflect the loaded parent states without animation
+			UpdateDependentSettingsInterface(false);
 
 			//Return result
 			AVDebugWriteLine(L"Display settings applied to interface (Profile)");

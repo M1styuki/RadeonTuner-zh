@@ -646,6 +646,9 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update current value
 			graphicsSettingsProfile.FrameGenEnabled.Current = newValue;
+
+			//Show or hide the dependent algorithm row
+			UpdateDependentSettingsInterface(true);
 		}
 		catch (...) {}
 	}
@@ -709,6 +712,9 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update current value
 			graphicsSettingsProfile.ChillEnabled.Current = newValue;
+
+			//Show or hide the dependent FPS rows
+			UpdateDependentSettingsInterface(true);
 		}
 		catch (...) {}
 	}
@@ -822,6 +828,9 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update current value
 			graphicsSettingsProfile.BoostMode.Current = newValue;
+
+			//Show or hide the dependent minimum resolution row
+			UpdateDependentSettingsInterface(true);
 		}
 		catch (...) {}
 	}
@@ -873,6 +882,9 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update current value
 			graphicsSettingsProfile.RisEnabled.Current = newValue;
+
+			//Show or hide the dependent intensity row
+			UpdateDependentSettingsInterface(true);
 		}
 		catch (...) {}
 	}
@@ -930,6 +942,9 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update current value
 			graphicsSettingsProfile.RisEnabled.Current = newValue;
+
+			//Show or hide the dependent desktop and intensity rows
+			UpdateDependentSettingsInterface(true);
 		}
 		catch (...) {}
 	}
@@ -1006,6 +1021,9 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update current value
 			graphicsSettingsProfile.AntiAliasingOverride.Current = newValue;
+
+			//Show or hide method, level and EQAA together
+			UpdateDependentSettingsInterface(true);
 		}
 		catch (...) {}
 	}
@@ -1136,6 +1154,9 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update current value
 			graphicsSettingsProfile.TessellationMode.Current = newValue;
+
+			//Show or hide the dependent level row
+			UpdateDependentSettingsInterface(true);
 		}
 		catch (...) {}
 	}
@@ -1251,6 +1272,9 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update current value
 			graphicsSettingsProfile.FrtcEnabled.Current = newValue;
+
+			//Show or hide the dependent target FPS row
+			UpdateDependentSettingsInterface(true);
 		}
 		catch (...) {}
 	}

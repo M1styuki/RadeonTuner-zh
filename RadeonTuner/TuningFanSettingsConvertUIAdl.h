@@ -634,6 +634,9 @@ namespace winrt::RadeonTuner::implementation
 			//Update fan control mode interface
 			UpdateFanControlModeInterface(tuningFanSettings);
 
+			//Show the adapter values in the editable number boxes
+			UpdateFanInputFields();
+
 			//Enable or disable tuning interface
 			if (!tuningFanSettings.TuningSupport)
 			{

@@ -1,3 +1,5 @@
+[简体中文版说明与构建方法](README.zh-CN.md)
+
 ![RadeonTuner](Screenshots/screenshot1.png)
 ![RadeonTuner](Screenshots/screenshot2.png)
 ![RadeonTuner](Screenshots/screenshot3.png)

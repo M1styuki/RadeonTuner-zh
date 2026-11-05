@@ -282,9 +282,6 @@
     <ClInclude Include="SettingLoad.h">
       <Filter>Page Files\Settings</Filter>
     </ClInclude>
-    <ClInclude Include="RadeonServices.h">
-      <Filter>Page Files\Settings</Filter>
-    </ClInclude>
     <ClInclude Include="SystemIntegrationIdentity.h">
       <Filter>Page Files\Settings</Filter>
     </ClInclude>

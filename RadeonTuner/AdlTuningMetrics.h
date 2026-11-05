@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "pch.h"
 #include "MainPage.h"
 #include "AdlDefinitions.h"
@@ -100,120 +100,120 @@ namespace winrt::RadeonTuner::implementation
 				{
 					if (gpuActivityCore >= 0 && gpuActivityCore < 65535)
 					{
-						textblock_Current_Gpu_Activity().Text(number_to_wstring(gpuActivityCore) + L"%");
+						textblock_Current_Gpu_Activity().Text(number_to_wstring(gpuActivityCore));
 					}
 					else
 					{
-						textblock_Current_Gpu_Activity().Text(L"...");
+						textblock_Current_Gpu_Activity().Text(L"—");
 					}
 
 					if (gpuSpeedCore >= 0 && gpuSpeedCore < 65535)
 					{
-						textblock_Current_Core_Speed().Text(number_to_wstring(gpuSpeedCore) + L"MHz");
+						textblock_Current_Core_Speed().Text(number_to_wstring(gpuSpeedCore));
 					}
 					else
 					{
-						textblock_Current_Core_Speed().Text(L"");
+						textblock_Current_Core_Speed().Text(L"—");
 					}
 
 					if (gpuActivityMemory >= 0 && gpuActivityMemory < 65535)
 					{
-						textblock_Current_Memory_Activity().Text(number_to_wstring(gpuActivityMemory) + L"%");
+						textblock_Current_Memory_Activity().Text(number_to_wstring(gpuActivityMemory));
 					}
 					else
 					{
-						textblock_Current_Memory_Activity().Text(L"");
+						textblock_Current_Memory_Activity().Text(L"—");
 					}
 
 					if (gpuSpeedMemory >= 0 && gpuSpeedMemory < 65535)
 					{
-						textblock_Current_Memory_Speed().Text(number_to_wstring(gpuSpeedMemory) + L"MTs");
+						textblock_Current_Memory_Speed().Text(number_to_wstring(gpuSpeedMemory));
 					}
 					else
 					{
-						textblock_Current_Memory_Speed().Text(L"");
+						textblock_Current_Memory_Speed().Text(L"—");
 					}
 
 					if (gpuMemoryUsageMegabytes >= 0)
 					{
 						float gpuMemoryUsageGigabyte = gpuMemoryUsageMegabytes / 1024.0F;
-						textblock_Current_Memory_Usage().Text(float_to_wstring(gpuMemoryUsageGigabyte, 1) + L"GB");
+						textblock_Current_Memory_Usage().Text(float_to_wstring(gpuMemoryUsageGigabyte, 1));
 					}
 					else
 					{
-						textblock_Current_Memory_Usage().Text(L"");
+						textblock_Current_Memory_Usage().Text(L"—");
 					}
 
 					if (gpuWattage >= 0 && gpuWattage < 65535)
 					{
-						textblock_Current_Power_Wattage().Text(number_to_wstring(gpuWattage) + L"W");
+						textblock_Current_Power_Wattage().Text(number_to_wstring(gpuWattage));
 					}
 					else
 					{
-						textblock_Current_Power_Wattage().Text(L"");
+						textblock_Current_Power_Wattage().Text(L"—");
 					}
 
 					if (gpuVoltage >= 0 && gpuVoltage < 65535)
 					{
-						textblock_Current_Power_Voltage().Text(number_to_wstring(gpuVoltage) + L"mV");
+						textblock_Current_Power_Voltage().Text(number_to_wstring(gpuVoltage));
 					}
 					else
 					{
-						textblock_Current_Power_Voltage().Text(L"");
+						textblock_Current_Power_Voltage().Text(L"—");
 					}
 
 					if (gpuFanSpeedPercentage >= 0 && gpuFanSpeedPercentage < 65535)
 					{
-						textblock_Current_Fan_Speed_Percentage().Text(number_to_wstring(gpuFanSpeedPercentage) + L"%");
+						textblock_Current_Fan_Speed_Percentage().Text(number_to_wstring(gpuFanSpeedPercentage));
 					}
 					else
 					{
-						textblock_Current_Fan_Speed_Percentage().Text(L"");
+						textblock_Current_Fan_Speed_Percentage().Text(L"—");
 					}
 
 					if (gpuFanSpeedRpm >= 0 && gpuFanSpeedRpm < 65535)
 					{
-						textblock_Current_Fan_Speed_RPM().Text(number_to_wstring(gpuFanSpeedRpm) + L"RPM");
+						textblock_Current_Fan_Speed_RPM().Text(number_to_wstring(gpuFanSpeedRpm));
 					}
 					else
 					{
-						textblock_Current_Fan_Speed_RPM().Text(L"");
+						textblock_Current_Fan_Speed_RPM().Text(L"—");
 					}
 
 					if (gpuTemperatureCore >= 0 && gpuTemperatureCore < 65535)
 					{
-						textblock_Current_Temp_Core().Text(number_to_wstring(gpuTemperatureCore) + L"°C 核心");
+						textblock_Current_Temp_Core().Text(number_to_wstring(gpuTemperatureCore));
 					}
 					else
 					{
-						textblock_Current_Temp_Core().Text(L"");
+						textblock_Current_Temp_Core().Text(L"—");
 					}
 
 					if (gpuTemperatureMemory >= 0 && gpuTemperatureMemory < 65535)
 					{
-						textblock_Current_Temp_Memory().Text(number_to_wstring((int)gpuTemperatureMemory) + L"°C 显存");
+						textblock_Current_Temp_Memory().Text(number_to_wstring((int)gpuTemperatureMemory));
 					}
 					else
 					{
-						textblock_Current_Temp_Memory().Text(L"");
+						textblock_Current_Temp_Memory().Text(L"—");
 					}
 
 					if (gpuTemperatureHotspot >= 0 && gpuTemperatureHotspot < 65535)
 					{
-						textblock_Current_Temp_Hotspot().Text(number_to_wstring((int)gpuTemperatureHotspot) + L"°C 热点");
+						textblock_Current_Temp_Hotspot().Text(number_to_wstring((int)gpuTemperatureHotspot));
 					}
 					else
 					{
-						textblock_Current_Temp_Hotspot().Text(L"");
+						textblock_Current_Temp_Hotspot().Text(L"—");
 					}
 
 					if (gpuTemperatureIntake >= 0 && gpuTemperatureIntake < 65535)
 					{
-						textblock_Current_Temp_Intake().Text(number_to_wstring((int)gpuTemperatureIntake) + L"°C 进风");
+						textblock_Current_Temp_Intake().Text(number_to_wstring((int)gpuTemperatureIntake));
 					}
 					else
 					{
-						textblock_Current_Temp_Intake().Text(L"");
+						textblock_Current_Temp_Intake().Text(L"—");
 					}
 				};
 			AppVariables::App.DispatcherInvoke(updateFunction);

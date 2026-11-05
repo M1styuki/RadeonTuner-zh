@@ -187,6 +187,9 @@ namespace winrt::RadeonTuner::implementation
 			//Update fan control mode interface
 			UpdateFanControlModeInterface(tuningFanSettings);
 
+			//Show the adapter values in the editable number boxes
+			UpdateFanInputFields();
+
 			//Set result
 			AVDebugWriteLine(L"Tuning and fans settings applied to interface (Profile)");
 			return true;

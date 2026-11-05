@@ -198,7 +198,6 @@
     <ClInclude Include="SettingFunc.h" />
     <ClInclude Include="SettingSave.h" />
     <ClInclude Include="SettingLoad.h" />
-    <ClInclude Include="RadeonServices.h" />
     <ClInclude Include="SystemIntegrationIdentity.h" />
     <ClInclude Include="DisplaySettingsClass.h" />
     <ClInclude Include="SteamFuncLibraryFolders.h" />

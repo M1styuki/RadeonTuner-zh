@@ -274,6 +274,9 @@ namespace winrt::RadeonTuner::implementation
 				toggleswitch_OpenGL10BitPixelFormat().IsOn(graphicsSettings.OpenGL10BitPixelFormat.Get(settingType).value());
 			}
 
+			//Reflect the loaded parent states without animation
+			UpdateDependentSettingsInterface(false);
+
 			//Return result
 			AVDebugWriteLine(L"Graphics settings applied to interface (Profile)");
 			return true;

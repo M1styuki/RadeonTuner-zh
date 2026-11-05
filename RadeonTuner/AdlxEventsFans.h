@@ -2,6 +2,8 @@
 #include "pch.h"
 #include "MainPage.h"
 #include "MainVariables.h"
+#include "FanInputValue.h"
+#include <cmath>
 
 namespace winrt::RadeonTuner::implementation
 {
@@ -59,7 +61,7 @@ namespace winrt::RadeonTuner::implementation
 			tuningFanSettingsProfile.FanControlMode.Current = newValue;
 
 			//Update fan control mode interface
-			UpdateFanControlModeInterface(tuningFanSettingsProfile);
+			UpdateFanControlModeInterface(tuningFanSettingsProfile, true);
 		}
 		catch (...) {}
 	}
@@ -93,6 +95,9 @@ namespace winrt::RadeonTuner::implementation
 			//Update current value
 			tuningFanSettingsProfile.FanSpeedMin.Current = minValue;
 			tuningFanSettingsProfile.FanSpeedMax.Current = maxValue;
+
+			//Keep the editable number boxes aligned with the adapter values
+			UpdateFanInputFields();
 		}
 		catch (...) {}
 	}
@@ -128,6 +133,128 @@ namespace winrt::RadeonTuner::implementation
 			tuningFanSettingsProfile.FanTemp2.Current = (int)slider_Fan_Temp_2().Value();
 			tuningFanSettingsProfile.FanTemp3.Current = (int)slider_Fan_Temp_3().Value();
 			tuningFanSettingsProfile.FanTemp4.Current = (int)slider_Fan_Temp_4().Value();
+
+			//Keep the editable number boxes aligned with the adapter values after validation
+			UpdateFanInputFields();
+		}
+		catch (...) {}
+	}
+
+	void MainPage::textbox_FanInput_KeyDown(IInspectable const& sender, KeyRoutedEventArgs const& e)
+	{
+		try
+		{
+			if (e.Key() != winrt::Windows::System::VirtualKey::Enter) { return; }
+
+			auto textBox = sender.try_as<TextBox>();
+			if (!textBox) { return; }
+
+			ApplyFanInputValue(textBox);
+			e.Handled(true);
+		}
+		catch (...) {}
+	}
+
+	void MainPage::textbox_FanInput_LostFocus(IInspectable const& sender, RoutedEventArgs const& e)
+	{
+		try
+		{
+			auto textBox = sender.try_as<TextBox>();
+			if (!textBox) { return; }
+
+			ApplyFanInputValue(textBox);
+		}
+		catch (...) {}
+	}
+
+	void MainPage::ApplyFanInputValue(TextBox const& textBox)
+	{
+		try
+		{
+			//The hidden sliders remain the single adapter to the established fan handlers
+			Slider adapter = FanInputAdapter(textBox);
+			if (!adapter) { return; }
+
+			//Only a complete integer is accepted; invalid edits restore the current adapter value
+			int value = 0;
+			if (!::RadeonTuner::FanInputValue::TryParse(std::wstring(textBox.Text().c_str()), adapter.Minimum(), adapter.Maximum(), adapter.StepFrequency(), value))
+			{
+				UpdateFanInputFields();
+				return;
+			}
+
+			//Enter and LostFocus are both handled without applying the same value twice
+			int currentValue = (int)std::lround(adapter.Value());
+			if (value != currentValue)
+			{
+				adapter.Value((double)value);
+			}
+			UpdateFanInputFields();
+		}
+		catch (...) {}
+	}
+
+	Slider MainPage::FanInputAdapter(TextBox const& textBox)
+	{
+		try
+		{
+			std::wstring name(textBox.Name().c_str());
+			if (name == L"textbox_Fan_Speed_Min") { return slider_Fan_Speed_Min(); }
+			if (name == L"textbox_Fan_Speed_Max") { return slider_Fan_Speed_Max(); }
+			if (name == L"textbox_Fan_Temp_0") { return slider_Fan_Temp_0(); }
+			if (name == L"textbox_Fan_Temp_1") { return slider_Fan_Temp_1(); }
+			if (name == L"textbox_Fan_Temp_2") { return slider_Fan_Temp_2(); }
+			if (name == L"textbox_Fan_Temp_3") { return slider_Fan_Temp_3(); }
+			if (name == L"textbox_Fan_Temp_4") { return slider_Fan_Temp_4(); }
+			if (name == L"textbox_Fan_Speed_0") { return slider_Fan_Speed_0(); }
+			if (name == L"textbox_Fan_Speed_1") { return slider_Fan_Speed_1(); }
+			if (name == L"textbox_Fan_Speed_2") { return slider_Fan_Speed_2(); }
+			if (name == L"textbox_Fan_Speed_3") { return slider_Fan_Speed_3(); }
+			if (name == L"textbox_Fan_Speed_4") { return slider_Fan_Speed_4(); }
+		}
+		catch (...) {}
+		return Slider{ nullptr };
+	}
+
+	void MainPage::UpdateFanInputFields()
+	{
+		try
+		{
+			auto update = [](TextBox const& textBox, Slider const& slider)
+			{
+				textBox.Text(winrt::hstring(std::to_wstring((int)std::lround(slider.Value()))));
+			};
+			auto updateHint = [](TextBlock const& textBlock, Slider const& slider, std::wstring const& suffix)
+			{
+				textBlock.Text(winrt::hstring(std::to_wstring((int)std::lround(slider.Value())) + suffix));
+			};
+
+			update(textbox_Fan_Speed_Min(), slider_Fan_Speed_Min());
+			update(textbox_Fan_Speed_Max(), slider_Fan_Speed_Max());
+			update(textbox_Fan_Temp_0(), slider_Fan_Temp_0());
+			update(textbox_Fan_Temp_1(), slider_Fan_Temp_1());
+			update(textbox_Fan_Temp_2(), slider_Fan_Temp_2());
+			update(textbox_Fan_Temp_3(), slider_Fan_Temp_3());
+			update(textbox_Fan_Temp_4(), slider_Fan_Temp_4());
+			update(textbox_Fan_Speed_0(), slider_Fan_Speed_0());
+			update(textbox_Fan_Speed_1(), slider_Fan_Speed_1());
+			update(textbox_Fan_Speed_2(), slider_Fan_Speed_2());
+			update(textbox_Fan_Speed_3(), slider_Fan_Speed_3());
+			update(textbox_Fan_Speed_4(), slider_Fan_Speed_4());
+
+			//The named hint groups stay collapsed; their text is exposed through the input tooltips.
+			updateHint(textblock_Fan_Speed_Min_Value(), slider_Fan_Speed_Min(), L"%");
+			updateHint(textblock_Fan_Speed_Max_Value(), slider_Fan_Speed_Max(), L"%");
+			updateHint(textblock_Fan_Curve_0_Temp_Value(), slider_Fan_Temp_0(), L"°C");
+			updateHint(textblock_Fan_Curve_1_Temp_Value(), slider_Fan_Temp_1(), L"°C");
+			updateHint(textblock_Fan_Curve_2_Temp_Value(), slider_Fan_Temp_2(), L"°C");
+			updateHint(textblock_Fan_Curve_3_Temp_Value(), slider_Fan_Temp_3(), L"°C");
+			updateHint(textblock_Fan_Curve_4_Temp_Value(), slider_Fan_Temp_4(), L"°C");
+			updateHint(textblock_Fan_Curve_0_Speed_Value(), slider_Fan_Speed_0(), L"%");
+			updateHint(textblock_Fan_Curve_1_Speed_Value(), slider_Fan_Speed_1(), L"%");
+			updateHint(textblock_Fan_Curve_2_Speed_Value(), slider_Fan_Speed_2(), L"%");
+			updateHint(textblock_Fan_Curve_3_Speed_Value(), slider_Fan_Speed_3(), L"%");
+			updateHint(textblock_Fan_Curve_4_Speed_Value(), slider_Fan_Speed_4(), L"%");
 		}
 		catch (...) {}
 	}
@@ -234,38 +361,23 @@ namespace winrt::RadeonTuner::implementation
 		catch (...) {}
 	}
 
-	void MainPage::UpdateFanControlModeInterface(TuningFanSettings tuningFanSettings)
+	void MainPage::UpdateFanControlModeInterface(TuningFanSettings tuningFanSettings, bool animate)
 	{
 		try
 		{
 			//Get setting
 			FanControlModes valueObject = (FanControlModes)tuningFanSettings.FanControlMode.Current.value();
 
-			//Check used fan control mode
-			if (valueObject == FanControlModes::NoFanControl)
-			{
-				stackpanel_FanControl_RangedFanSpeed().Visibility(Visibility::Collapsed);
-				stackpanel_FanControl_Curve().Visibility(Visibility::Collapsed);
-				stackpanel_FanControl_FanZeroRpm().Visibility(Visibility::Collapsed);
-			}
-			else if (valueObject == FanControlModes::RangedFanSpeed)
-			{
-				stackpanel_FanControl_RangedFanSpeed().Visibility(Visibility::Visible);
-				stackpanel_FanControl_Curve().Visibility(Visibility::Collapsed);
-				stackpanel_FanControl_FanZeroRpm().Visibility(Visibility::Visible);
-			}
-			else if (valueObject == FanControlModes::CustomFanCurve)
-			{
-				stackpanel_FanControl_RangedFanSpeed().Visibility(Visibility::Collapsed);
-				stackpanel_FanControl_Curve().Visibility(Visibility::Visible);
-				stackpanel_FanControl_FanZeroRpm().Visibility(Visibility::Visible);
-			}
-			else if (valueObject == FanControlModes::FanZeroRpmOnly)
-			{
-				stackpanel_FanControl_RangedFanSpeed().Visibility(Visibility::Collapsed);
-				stackpanel_FanControl_Curve().Visibility(Visibility::Collapsed);
-				stackpanel_FanControl_FanZeroRpm().Visibility(Visibility::Visible);
-			}
+			//Keep the official modes mutually exclusive while revealing the relevant section
+			bool showRanged = valueObject == FanControlModes::RangedFanSpeed;
+			bool showCurve = valueObject == FanControlModes::CustomFanCurve;
+			bool showZeroRpm = valueObject == FanControlModes::RangedFanSpeed ||
+				valueObject == FanControlModes::CustomFanCurve ||
+				valueObject == FanControlModes::FanZeroRpmOnly;
+
+			ApplyDependentRow(stackpanel_FanControl_RangedFanSpeed(), showRanged, animate);
+			ApplyDependentRow(stackpanel_FanControl_Curve(), showCurve, animate);
+			ApplyDependentRow(stackpanel_FanControl_FanZeroRpm(), showZeroRpm, animate);
 		}
 		catch (...) {}
 	}
@@ -319,9 +431,9 @@ namespace winrt::RadeonTuner::implementation
 			if (tuningFanSettings.FanZeroTemp >= 0)
 			{
 				float fanZeroLinePosition = (double)tuningFanSettings.FanZeroTemp / 100 * graphWidth;
-				grid_Fan_Zero_Rpm_Line_Gpu().Margin(Thickness(fanZeroLinePosition, 0, 0, 0));
-				grid_Fan_Zero_Rpm_Line_Profile().Margin(Thickness(fanZeroLinePosition, 0, 0, 0));
-				border_Fan_Zero_Rpm_Range().Width(fanZeroLinePosition + 6);
+				Canvas::SetLeft(grid_Fan_Zero_Rpm_Line_Gpu(), fanZeroLinePosition);
+				Canvas::SetLeft(grid_Fan_Zero_Rpm_Line_Profile(), fanZeroLinePosition);
+				border_Fan_Zero_Rpm_Range().Width(fanZeroLinePosition);
 			}
 
 			//Set fan points to polyline
@@ -356,27 +468,27 @@ namespace winrt::RadeonTuner::implementation
 
 			float fanSpeed0 = fanSpeedMaximum - slider_Fan_Speed_0().Value();
 			float fanTemp0 = slider_Fan_Temp_0().Value() / 100 * graphWidth;
-			ellipse_Fan_Point_0().Margin(Thickness(fanTemp0 + 1, fanSpeed0 + 1, 0, 0));
+			ellipse_Fan_Point_0().Margin(Thickness(fanTemp0 + 3, fanSpeed0 + 3, 0, 0));
 			fanPoints.Append(Point{ fanTemp0, fanSpeed0 });
 
 			float fanSpeed1 = fanSpeedMaximum - slider_Fan_Speed_1().Value();
 			float fanTemp1 = slider_Fan_Temp_1().Value() / 100 * graphWidth;
-			ellipse_Fan_Point_1().Margin(Thickness(fanTemp1 + 1, fanSpeed1 + 1, 0, 0));
+			ellipse_Fan_Point_1().Margin(Thickness(fanTemp1 + 3, fanSpeed1 + 3, 0, 0));
 			fanPoints.Append(Point{ fanTemp1, fanSpeed1 });
 
 			float fanSpeed2 = fanSpeedMaximum - slider_Fan_Speed_2().Value();
 			float fanTemp2 = slider_Fan_Temp_2().Value() / 100 * graphWidth;
-			ellipse_Fan_Point_2().Margin(Thickness(fanTemp2 + 1, fanSpeed2 + 1, 0, 0));
+			ellipse_Fan_Point_2().Margin(Thickness(fanTemp2 + 3, fanSpeed2 + 3, 0, 0));
 			fanPoints.Append(Point{ fanTemp2, fanSpeed2 });
 
 			float fanSpeed3 = fanSpeedMaximum - slider_Fan_Speed_3().Value();
 			float fanTemp3 = slider_Fan_Temp_3().Value() / 100 * graphWidth;
-			ellipse_Fan_Point_3().Margin(Thickness(fanTemp3 + 1, fanSpeed3 + 1, 0, 0));
+			ellipse_Fan_Point_3().Margin(Thickness(fanTemp3 + 3, fanSpeed3 + 3, 0, 0));
 			fanPoints.Append(Point{ fanTemp3, fanSpeed3 });
 
 			float fanSpeed4 = fanSpeedMaximum - slider_Fan_Speed_4().Value();
 			float fanTemp4 = slider_Fan_Temp_4().Value() / 100 * graphWidth;
-			ellipse_Fan_Point_4().Margin(Thickness(fanTemp4 + 1, fanSpeed4 + 1, 0, 0));
+			ellipse_Fan_Point_4().Margin(Thickness(fanTemp4 + 3, fanSpeed4 + 3, 0, 0));
 			fanPoints.Append(Point{ fanTemp4, fanSpeed4 });
 
 			float fanSpeedEnd = fanSpeedMaximum - slider_Fan_Speed_4().Value();

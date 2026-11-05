@@ -127,6 +127,11 @@ namespace winrt::RadeonTuner::implementation
 
 	std::wstring MainPage::AdlInitialize()
 	{
+#ifdef RADEONTUNER_UI_VALIDATION
+		//Hard stop before any ADL DLL load or driver initialization in validation builds
+		AVDebugWriteLine("ADL initialization blocked in UI validation build.");
+		return L"UI 验证构建禁止初始化 ADL";
+#else
 		try
 		{
 			//Initialize ADL library
@@ -1147,5 +1152,6 @@ namespace winrt::RadeonTuner::implementation
 			AVDebugWriteLine("ADL failed initializing (Exception)");
 			return L"ADL 初始化失败（异常）";
 		}
+#endif
 	}
 }

@@ -143,6 +143,14 @@ namespace RadeonTunerUiValidation
 		}
 
 		AutoMode = CommandLineHasArgument(L"-ui-auto") || !CommandLineHasArgument(L"-ui-stay");
+		AnimationCheckMode = CommandLineHasArgument(L"-ui-animation-check");
+		AnimationCheckStay = AnimationCheckMode && CommandLineHasArgument(L"-ui-check-stay");
+		PreviewMode = CommandLineHasArgument(L"-ui-preview") || AnimationCheckMode;
+		if (PreviewMode)
+		{
+			//Preview is a visual-only stay mode; never run the automated stress scenario or watchdog
+			AutoMode = false;
+		}
 		PreflightOnly = CommandLineHasArgument(L"-ui-preflight");
 		ShowTrayMenuOnly = CommandLineHasArgument(L"-ui-show-tray-menu-only") || CommandLineHasArgument(L"-ui-menu");
 		bool delayWindow = CommandLineHasArgument(L"-ui-window-delay");
@@ -201,12 +209,15 @@ namespace RadeonTunerUiValidation
 		AppVariables::Settings.Set("ThemeIconMono", false);
 
 		//Run the Unicode path and pure system-integration checks before touching the UI
-		UnicodePathTestsPassed = UnicodePathTests::Run(TestDataPath);
-		SystemIntegrationTestsPassed = SystemIntegrationTests::Run(TestDataPath);
-		bool writeAccess = ProbeWriteAccess();
-		bool assetsPresent = FileExists(PathMerge(PathGetAppRoot(), L"Assets\\AppIconColor.ico")) && FileExists(PathMerge(PathGetAppRoot(), L"Assets\\LauncherSteam.png"));
-		bool resourcesPresent = FileExists(PathMerge(PathGetAppRoot(), L"Resources.pri")) && FileExists(PathMerge(PathGetAppRoot(), L"Microsoft.UI.Xaml.winmd"));
-		WritePreflightReport(writeAccess, assetsPresent, resourcesPresent);
+		if (!PreviewMode)
+		{
+			UnicodePathTestsPassed = UnicodePathTests::Run(TestDataPath);
+			SystemIntegrationTestsPassed = SystemIntegrationTests::Run(TestDataPath);
+			bool writeAccess = ProbeWriteAccess();
+			bool assetsPresent = FileExists(PathMerge(PathGetAppRoot(), L"Assets\\AppIconColor.ico")) && FileExists(PathMerge(PathGetAppRoot(), L"Assets\\LauncherSteam.png"));
+			bool resourcesPresent = FileExists(PathMerge(PathGetAppRoot(), L"Resources.pri")) && FileExists(PathMerge(PathGetAppRoot(), L"Microsoft.UI.Xaml.winmd"));
+			WritePreflightReport(writeAccess, assetsPresent, resourcesPresent);
+		}
 
 		if (AutoMode)
 		{
@@ -222,6 +233,11 @@ namespace RadeonTunerUiValidation
 		}
 		AVDebugWriteLine("Starting isolated UI validation window.");
 		AppVariables::App.CreateWindowXaml(hInstance, true, false);
+
+		if (PreviewMode)
+		{
+			return 0;
+		}
 
 		//Only reached in stay mode after the user closes the window, or when startup failed
 		WriteReturnedResult();

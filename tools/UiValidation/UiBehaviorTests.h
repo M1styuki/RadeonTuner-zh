@@ -51,6 +51,34 @@ namespace RadeonTunerUiValidation
 			Require(!page->slider_Display_GammaBase().IsEnabled(), L"Gamma base slider was not disabled by the event.");
 			Require(SomeText(page->textblock_Display_GammaControl_Value().Text()) == L"已禁用", L"Gamma disabled value is not localized.");
 
+			//Display dependent rows still fold when saving is disabled, as in the isolated preview.
+			bool previousPreviewSaving = disable_saving;
+			disable_saving = true;
+
+			page->toggleswitch_Display_GammaControl().IsOn(true);
+			page->UpdateDependentSettingsInterface(false);
+			Require(page->stackpanel_Display_Gamma_Dependent().Visibility() == Visibility::Visible, L"Gamma dependent rows did not fold in the preview path.");
+			page->toggleswitch_Display_GammaControl().IsOn(false);
+			page->UpdateDependentSettingsInterface(false);
+			Require(page->stackpanel_Display_Gamma_Dependent().Visibility() == Visibility::Collapsed, L"Gamma dependent rows did not collapse in the preview path.");
+			Require(NearlyEqual(page->slider_Display_GammaBase().Value(), 1.25F), L"Collapsing the gamma rows reset a value.");
+
+			page->toggleswitch_Display_ColorTemperature_Control().IsOn(true);
+			page->UpdateDependentSettingsInterface(false);
+			Require(page->stackpanel_Display_ColorTemperature_Kelvin_Dependent().Visibility() == Visibility::Visible, L"Color temperature row did not fold in the preview path.");
+			page->toggleswitch_Display_ColorTemperature_Control().IsOn(false);
+			page->UpdateDependentSettingsInterface(false);
+			Require(page->stackpanel_Display_ColorTemperature_Kelvin_Dependent().Visibility() == Visibility::Collapsed, L"Color temperature row did not collapse in the preview path.");
+
+			page->toggleswitch_Display_CVDC_Control().IsOn(true);
+			page->UpdateDependentSettingsInterface(false);
+			Require(page->stackpanel_Display_CVDC_Dependent().Visibility() == Visibility::Visible, L"CVDC dependent rows did not fold in the preview path.");
+			page->toggleswitch_Display_CVDC_Control().IsOn(false);
+			page->UpdateDependentSettingsInterface(false);
+			Require(page->stackpanel_Display_CVDC_Dependent().Visibility() == Visibility::Collapsed, L"CVDC dependent rows did not collapse in the preview path.");
+
+			disable_saving = previousPreviewSaving;
+
 			//Gamma ramp generation is deterministic and base/RGB changes affect different channels
 			AdlGammaRamp neutral = page->AdlGammaRampBuild(1.0F, 1.0F, 1.0F, 1.0F);
 			AdlGammaRamp neutralCopy = page->AdlGammaRampBuild(1.0F, 1.0F, 1.0F, 1.0F);
@@ -65,6 +93,8 @@ namespace RadeonTunerUiValidation
 			{
 				page->combobox_FanControl_Mode().SelectedIndex((int)mode);
 				page->combobox_FanControl_Mode_SelectionChanged(page->combobox_FanControl_Mode(), winrt::Windows::UI::Xaml::Controls::SelectionChangedEventArgs{ nullptr });
+				//Settle the reveal animation for deterministic state assertions; the event path above remains the production animation path.
+				page->UpdateFanControlModeInterface(tuningFanSettingsProfile, false);
 			};
 			selectFanMode(FanControlModes::NoFanControl);
 			Require(tuningFanSettingsProfile.FanControlMode.Current.value_or(-1) == (int)FanControlModes::NoFanControl, L"NoFanControl was not stored.");

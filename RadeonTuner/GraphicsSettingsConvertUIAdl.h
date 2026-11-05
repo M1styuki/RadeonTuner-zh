@@ -999,6 +999,9 @@ namespace winrt::RadeonTuner::implementation
 			button_Graphics_Import().IsEnabled(true);
 			button_Graphics_Export().IsEnabled(true);
 
+			//Reflect the loaded parent states without animation
+			UpdateDependentSettingsInterface(false);
+
 			//Return result
 			AVDebugWriteLine(L"Graphics settings applied to interface (ADL)");
 			return true;
