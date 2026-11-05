@@ -1578,7 +1578,8 @@ namespace winrt::RadeonTuner::implementation
 
 	winrt::Windows::Foundation::IInspectable MainPage::KeepAliveForUi()
 	{
-		return this->as<winrt::Windows::Foundation::IInspectable>();
+		winrt::RadeonTuner::MainPage projected = *this;
+		return projected;
 	}
 
 	void MainPage::StopNotificationTimer()

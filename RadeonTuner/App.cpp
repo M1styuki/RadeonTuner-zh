@@ -485,7 +485,8 @@ namespace winrt::RadeonTuner::implementation
 	void App::NotifyUiPageRegistered(MainPage const& page)
 	{
 		std::lock_guard<std::mutex> lock(_uiPageMutex);
-		winrt::Windows::Foundation::IInspectable inspectable = page.as<winrt::Windows::Foundation::IInspectable>();
+		winrt::RadeonTuner::MainPage projected = page;
+		winrt::Windows::Foundation::IInspectable inspectable = projected;
 		_uiPage = winrt::weak_ref<winrt::Windows::Foundation::IInspectable>(inspectable);
 		_uiSessionId++;
 		_uiSessionPublished.store(_uiSessionId);
@@ -531,11 +532,11 @@ namespace winrt::RadeonTuner::implementation
 		GetClientRect(_hWnd_MainWindow, &rectClient);
 		MoveWindow(_hWnd_XamlWindow, 0, 0, rectClient.right, rectClient.bottom, true);
 
-		MainPage page;
-		NotifyUiPageRegistered(page);
+		auto page = winrt::make_self<MainPage>();
+		NotifyUiPageRegistered(*page);
 		try
 		{
-			_desktopWindowXamlSource.Content(page);
+			_desktopWindowXamlSource.Content(page.as<FrameworkElement>());
 			ShowWindow(_hWnd_XamlWindow, SW_SHOWNORMAL);
 		}
 		catch (...)
@@ -671,7 +672,8 @@ namespace winrt::RadeonTuner::implementation
 			{
 				return false;
 			}
-			auto inspectable = page.as<winrt::Windows::Foundation::IInspectable>();
+			winrt::RadeonTuner::MainPage projected = page;
+			winrt::Windows::Foundation::IInspectable inspectable = projected;
 			return winrt::get_abi(current) == winrt::get_abi(inspectable);
 		}
 		catch (...)
