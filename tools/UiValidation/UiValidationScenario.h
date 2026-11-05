@@ -1349,7 +1349,7 @@ namespace RadeonTunerUiValidation
 
 			//Use the real page only for setup, then release every strong reference before closing.
 			winrt::IAsyncOperation<int> messageBoxOperation{ nullptr };
-			winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> pickerOperation{ nullptr };
+			winrt::IAsyncOperation<winrt::IVector<winrt::RadeonTuner::AppPickerIdl>> pickerOperation{ nullptr };
 			{
 				auto page = weakPage.get();
 				Require(!!page, L"Lifecycle check did not receive the initial page.");
