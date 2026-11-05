@@ -12,7 +12,7 @@ namespace RadeonTunerBackend
 		{
 			co_return;
 		}
-		auto* currentPage = winrt::get_self<winrt::RadeonTuner::implementation::MainPage>(page);
+		auto* currentPage = winrt::get_self<winrt::RadeonTuner::implementation::MainPage>(page.as<winrt::RadeonTuner::MainPage>());
 		if (!currentPage)
 		{
 			co_return;

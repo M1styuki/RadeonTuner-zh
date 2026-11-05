@@ -74,12 +74,6 @@ jobs:
           & $env:MSBUILD_PATH RadeonTuner.sln /m:2 /p:Configuration=Release /p:Platform=x64 /p:SignOutput=false /p:WindowsTargetPlatformVersion=10.0.26100.0
           if ($LASTEXITCODE -ne 0) { throw "Release build failed." }
 
-      - name: Build UiValidation x64
-        shell: pwsh
-        run: |
-          & $env:MSBUILD_PATH RadeonTuner.sln /m:2 /p:Configuration=Release /p:Platform=x64 /p:UiValidation=true /p:SignOutput=false /p:WindowsTargetPlatformVersion=10.0.26100.0
-          if ($LASTEXITCODE -ne 0) { throw "UiValidation build failed." }
-
       - name: Package production single EXE
         shell: pwsh
         run: |
@@ -87,6 +81,23 @@ jobs:
             -OutFile "$env:GITHUB_WORKSPACE\.build-work\artifacts\RadeonTuner-简体中文版.exe" `
             -LogPath "$env:GITHUB_WORKSPACE\.build-work\portable-build-production.log"
           if ($LASTEXITCODE -ne 0) { throw "Production packaging failed." }
+
+      - name: Upload production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadeonTuner-zh-CN-prod
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            .build-work/artifacts/RadeonTuner-简体中文版.exe
+            .build-work/portable-build-report-production.json
+            .build-work/portable-build-production.log
+
+      - name: Build UiValidation x64
+        shell: pwsh
+        run: |
+          & $env:MSBUILD_PATH RadeonTuner.sln /m:2 /p:Configuration=Release /p:Platform=x64 /p:UiValidation=true /p:SignOutput=false /p:WindowsTargetPlatformVersion=10.0.26100.0
+          if ($LASTEXITCODE -ne 0) { throw "UiValidation build failed." }
 
       - name: Package isolated UiValidation EXE
         shell: pwsh
@@ -112,17 +123,6 @@ jobs:
           - Production EXE: $($production.Length) bytes, SHA256 $productionHash
           - Validation EXE: $($validation.Length) bytes, SHA256 $validationHash
           "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-
-      - name: Upload production artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: RadeonTuner-zh-CN-prod
-          if-no-files-found: error
-          retention-days: 7
-          path: |
-            .build-work/artifacts/RadeonTuner-简体中文版.exe
-            .build-work/portable-build-report-production.json
-            .build-work/portable-build-production.log
 
       - name: Upload isolated validation artifacts
         uses: actions/upload-artifact@v4
