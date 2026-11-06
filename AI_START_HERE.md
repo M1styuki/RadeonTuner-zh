@@ -5,7 +5,7 @@
 - 2026-11-06 新要求：4K+150% DPI托盘图标模糊；后台约50MB仍过高。用户明确批准“轻量原生后台＋按需独立面板进程”，保留超频、降压、功耗、风扇及原功能。
 - 最新用户明确“不用实测，我自己能看”：禁止自动启动/操作应用、GUI/驱动/内存实测和模拟；只相关代码检查、云编译、下载覆盖，由用户验收。
 - 前轮关机指令已成功下达，现用户已恢复使用电脑，本轮不自动关机。源码/活跃DSH历史保留至用户明确满意并结束项目，不能依据旧收尾授权删除当前开发项目。
-- 当前交付仍是前轮EXE：3136000字节，SHA256 C1C12BE27E3A2FE29D8ECF0A8796492C9CCB4D4E080F2641729363C327923BBB。新候选尚未云编译，不得当作已交付。
+- 最新EXE已覆盖并校验：3183616字节，SHA256 B093E80771CCD445F561A790EF9B46EFB2CC0E00489C3DC787589D81762DCCE1；run42215572575的Release与UiValidation均编译/打包成功，未运行应用。
 - 运行根 C:\Users\78539\AppData\Local\RadeonTuner-zh-CN\App；Settings\Settings.json与Profiles保留，不读写用户配置做验证。
 
 ## 保留的产品行为
@@ -14,7 +14,7 @@
 - 条件项折叠和短过渡，44x32开关即时反向，保留原生键盘/拖动/双击。隐藏托盘设置保留；不添加驱动兼容修补、失败/迁移模拟或新功能。
 - 白色透明图标来自原图精确像素去底，三个ICO含256/64/48/32/24/16，未重绘。新托盘按任务栏GetDpiForWindow/GetSystemMetricsForDpi取尺寸，144DPI为24px；仅尺寸变化刷新，主题/显隐/TaskbarCreated仍显式刷新，HICON独立所有权。
 
-## 新进程架构（候选已完成，待编译）
+## 已交付的新进程架构
 - 同一core默认角色为原生host，保留RadeonTunerMainWindow控制入口，不创建MainPage/WindowsXamlManager/WinUI；独立-ui-worker角色使用RadeonTunerUiWorkerWindow，至多一个。外部仍交付一个EXE。
 - host headless ADL/配置初始化，默认registry/AdlAppSyncAll每host一次；worker各自建立ADL上下文，不能跨进程传ADL句柄，不重复全局默认写入/同步。性能采集仅worker有，后台保持/应用匹配/Gamma/Eyefinity保留。
 - 启worker前PauseProfileLoop等待host当前批次完成；worker期间host暂停，关闭worker前亦暂停其批次。后台与worker不会同时轮询写驱动；worker结束后host重读Settings/Profiles并恢复实际生效档，再恢复后台。
@@ -28,13 +28,18 @@
 - DSH同会话实施DPI、A headless接口、B进程/IPC及两轮定向修复。Codex补namespace/投影接口/host角色标志，以及最后3项暂停批次、等待Custom删除、建窗后重试退出。
 - 独立审查已确认headless路径无XAML激活、批次暂停无循环等待；已发现并修复模型元数据/cache flags陈旧、退出堵pipe/强杀回滚、跨副本召回、设置轮询、optional null和更新器退出问题。最后限定复核未发现残留或明显类型错误，可以云编译。
 - 实际静态：汉化12项、布局7页104行、diff--check通过。没有运行程序或采集本轮内存，不承诺具体降幅，也不把编译等同于真实超频/Gamma/Eyefinity验收。
-- UiValidation保留原隔离同进程检查入口，只构建不运行，不能证明正式跨进程生命周期。前轮run42065045829已核对success，本轮需新云工件。
+- UiValidation保留原隔离同进程检查入口，只构建不运行，不能证明正式跨进程生命周期。前轮run42065045829及本轮run42215572575均已核对success，本轮正式工件已覆盖交付。
 
 ## 开发/发布/清理
 - 活跃DSH session-c605187d-a18a-4ef4-8d4a-353f838e7a13，保留会话及源码直至明确项目结束；当前无DSH任务运行。
 - 入口 AppWinMain.cpp、App.cpp、MainPage.cpp；IPC RadeonTunerIpc.h；backend RadeonTunerBackend.h；构建 .github/workflows/build.yml/windows-2025-vs2026，正式包先上传，后编译UiValidation，不在runner运行应用。
 - 本轮开始本地3e516a8f77d7d81a1e3db648774e36b012556146、远端6a2b253b7d71fb6408969b435b211575ac994f61，同树5499310e7384c012268e5db184be3e5c4547a468。普通Git网络曾失败，API对象发布逐blob/tree核对，expected_sha非强制更新；不要盲推旧origin/main。
-- .build-work/Prepare-GitHubUpload.ps1及source-upload-manifest.json保存最新本地/远端基线与完整树，待本轮发布后记录映射。下载放本任务.build-work，校验ZIP和EXE报告，再覆盖指定交付；清理可再下载ZIP/解压副本，保留发布证据/恢复文件。
+- .build-work/Prepare-GitHubUpload.ps1可重新生成临时上传清单；最新本地/远端/树映射保存于.build-work/evidence/source-publication.json，已用完的base64上传清单清理。下载放本任务.build-work，校验ZIP和EXE报告，再覆盖指定交付；清理可再下载ZIP/解压副本，保留发布证据/恢复文件。
 - 本轮无本机编译工具安装。上轮VSBuildTools18.11.3实例98facc78/SDK26100/Installer已卸载；原.NET6/8/10、Desktop8/10、VC++v14 x64/x86及DOTNET_TieredCompilation=0保留。禁止重复跨会话outputs清理，禁止动其他项目/设置/共享运行库。
 - 候选源码已发布：本地9e4c6873c44d696c9f14d517a2696b611e4884be、远端fad10e5b2462640cfe67e0b234221ce9303890c5，同树2d38d09495f269a6ee95bc5fba6835c25ed16108，16文件逐blob/tree校验。下一次API增量使用该本地/远端基线。最后3项关闭残留已由Codex修复并获限定复核通过；已进入云编译。用户不允许本机实测。
 - 本轮云run42214476488 Release编译失败，唯一根因App::RefreshTrayIconForDpiChange漏头文件声明，引发11项连带成员解析错误。已补声明并核对全部App定义有对应头声明；不改实现/设计，需重编。首次候选本地9e4c687/远端fad10e5b树2d38d094。
+- 编译声明修正已发布：本地e6299374b1f4426cc2c7a6433bfd79804ce52d4a、远端7b7f817b26abb8596b569eaf10a98376599e370e，同树fa30db154b7976930d9cd9c0f427b20ed7e3308b。下一次API增量以此为基线，当前等待第二轮云编译。
+- 第二轮构建run42215572575（远端7b7f817b）正在Release编译；第一轮失败仅补了DPI方法声明，运行代码逻辑与已审候选一致。正式工件就绪后下载校验，严禁启动EXE。
+- 正式Release已编译/打包/上传，run42215572575，artifact13501373058。已下载校验ZIP digest83EEA3EF5BBA5DAA6BC0FDCAAD8DC92280243D49E1EF0E1529C94FD9EDCE26AE，并覆盖指定EXE：3183616字节，SHA256 B093E80771CCD445F561A790EF9B46EFB2CC0E00489C3DC787589D81762DCCE1。打包报告与外部交付哈希一致，未启动任何应用。receipt与report在.build-work/evidence/process-split-*；下载ZIP/解压副本已清理。UiValidation仍在云端编译，未运行。
+
+- 最终云run42215572575结论success：Release与UiValidation均编译/打包/上传成功，只做静态检查与编译打包，没有执行应用。代码交付对应本地e6299374/远端7b7f817b/树fa30db154；后续仅项目记录更新，不需要重编。正式EXE交付receipt及report保留，6.26MB下载ZIP/解压临时文件已删除；运行设置/源码/活跃DSH恢复资料保留待用户验收。
