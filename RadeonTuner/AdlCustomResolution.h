@@ -461,8 +461,9 @@ namespace winrt::RadeonTuner::implementation
 		catch (...) {}
 	}
 
-	void MainPage::DisplaySettings_Confirm_CustomResolution_Stop(bool removeResolution)
+	winrt::IAsyncAction MainPage::DisplaySettings_Confirm_CustomResolution_Stop(bool removeResolution)
 	{
+		auto strongThis = get_strong();
 		try
 		{
 			AVDebugWriteLine(L"Confirmed custom resolution, removing: " << removeResolution);
@@ -477,7 +478,7 @@ namespace winrt::RadeonTuner::implementation
 			if (removeResolution)
 			{
 				//Delete custom resolution
-				CustomResolution_Remove(adl_Display_AdapterIndex, adl_Display_DisplayIndex, displayCustomModeInfo);
+				co_await CustomResolution_Remove(adl_Display_AdapterIndex, adl_Display_DisplayIndex, displayCustomModeInfo);
 			}
 		}
 		catch (...) {}

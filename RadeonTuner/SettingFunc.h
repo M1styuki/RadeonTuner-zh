@@ -75,7 +75,8 @@ namespace winrt::RadeonTuner::implementation
 					//Launch updater and exit only when the official updater actually started
 					if (UpdateRestart())
 					{
-						exit(0);
+						AppVariables::App.Exit(true);
+						co_return;
 					}
 					co_await ShowMessageBox(L"无法启动更新", L"未能启动官方更新器 Updater.exe。请确认程序目录中的 Updater.exe 完整后重试。", { L"确定" });
 				}
@@ -102,7 +103,8 @@ namespace winrt::RadeonTuner::implementation
 				//Launch updater and exit only when the official updater actually started
 				if (UpdateRestart())
 				{
-					exit(0);
+					AppVariables::App.Exit(true);
+						co_return;
 				}
 				co_await ShowMessageBox(L"无法启动更新", L"未能启动官方更新器 Updater.exe。请确认程序目录中的 Updater.exe 完整后重试。", { L"确定" });
 			}

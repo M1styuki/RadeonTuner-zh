@@ -1,44 +1,38 @@
 # RadeonTuner 简体中文版：项目记录
 
-## 当前交付与授权
-- 私有源码仓库：https://github.com/M1styuki/RadeonTuner-zh 。用户明确授权上传源码、云端编译、下载覆盖 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe。
-- 2026-11-06 用户要求本轮完成后关机；若账户任一额度剩余1%则立即记录、停手关机。此授权覆盖旧记录中的“不再关机”。关机前不等待睡眠中的用户验收。
-- 当前EXE已覆盖并校验：0.70.0.0，3136000字节，SHA256 C1C12BE27E3A2FE29D8ECF0A8796492C9CCB4D4E080F2641729363C327923BBB。
-- 正式core位于 C:\Users\78539\AppData\Local\RadeonTuner-zh-CN\App\RadeonTuner.exe，SHA256 6C667F64BD03A734F124F62441AE4B645CD62689A6A818B7200ABEF7A07CA604。
-- 设置位于同目录 Settings\Settings.json，保留用户设置、运行文件和共享运行库。当前项目重新开启开发，源码/DSH历史保留至用户明确满意并结束项目；只清理本轮可再下载临时文件。
+## 当前目标与交付
+- 私有源仓库 https://github.com/M1styuki/RadeonTuner-zh ，用户授权源码上传、仅云端编译、下载覆盖 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe；最终仅此一个EXE，首次运行可释放必要运行文件与设置。
+- 2026-11-06 新要求：4K+150% DPI托盘图标模糊；后台约50MB仍过高。用户明确批准“轻量原生后台＋按需独立面板进程”，保留超频、降压、功耗、风扇及原功能。
+- 最新用户明确“不用实测，我自己能看”：禁止自动启动/操作应用、GUI/驱动/内存实测和模拟；只相关代码检查、云编译、下载覆盖，由用户验收。
+- 前轮关机指令已成功下达，现用户已恢复使用电脑，本轮不自动关机。源码/活跃DSH历史保留至用户明确满意并结束项目，不能依据旧收尾授权删除当前开发项目。
+- 当前交付仍是前轮EXE：3136000字节，SHA256 C1C12BE27E3A2FE29D8ECF0A8796492C9CCB4D4E080F2641729363C327923BBB。新候选尚未云编译，不得当作已交付。
+- 运行根 C:\Users\78539\AppData\Local\RadeonTuner-zh-CN\App；Settings\Settings.json与Profiles保留，不读写用户配置做验证。
 
-## 已确认行为与界面
-- 上游 dumbie/RadeonTuner 0.70，已合并 dfade6b（含c120f54a）；保留许可证，仅私用。
-- 仅简体中文、深色模式、原生中文深色右键菜单。保留原驱动功能/设置语义，隐藏托盘为新增设置。
-- 无卡片、小标题、分隔线；左说明及?/!，右控件共用右边缘。数值/下拉框160x32 DIP，数字居中，滑块等长。监控13项5列3行；风扇图完整外框/细网格，五点成对输入，最低最高转速同行滑块。
-- 真实条件项折叠、页面/下拉框短过渡，44x32开关从当前圆点位置即时反向，保留原生键盘/拖动/双击输入。不添加驱动失败、迁移或其他模拟。
-- 图标由原256PNG按像素提取白色主体与抗锯齿边缘，背景透明，原实心白色保持，心形内部alpha255；三个ICO均含256/64/48/32/24/16。两次生成图像质量失败未纳入交付。
+## 保留的产品行为
+- 基于 dumbie/RadeonTuner 0.70，已合并dfade6b（含c120f54a），保留许可证，仅私用。
+- 仅简体中文/深色界面/原生中文深色右键菜单。无卡片、小标题、分隔线；左说明与?/!，右控件对齐，160x32输入/下拉框、数值居中、等长滑块。监控13项5列3行，风扇图完整边框细网格，成对数值及最低最高滑块。
+- 条件项折叠和短过渡，44x32开关即时反向，保留原生键盘/拖动/双击。隐藏托盘设置保留；不添加驱动兼容修补、失败/迁移模拟或新功能。
+- 白色透明图标来自原图精确像素去底，三个ICO含256/64/48/32/24/16，未重绘。新托盘按任务栏GetDpiForWindow/GetSystemMetricsForDpi取尺寸，144DPI为24px；仅尺寸变化刷新，主题/显隐/TaskbarCreated仍显式刷新，HICON独立所有权。
 
-## 本轮内存结构
-- App持有后台配置任务，UI为弱会话；关闭到托盘120ms后停UI计时器/动画，快照草稿，断开Content并Close DesktopWindowXamlSource，释放MainPage。再次EXE创建页面恢复草稿，不重复驱动初始化/默认写入/后台任务。
-- WindowsXamlManager/Dispatcher保留到线程退出（微软不支持同线程Close后重建manager）。不能承诺框架全部卸载或零后台占用。
-- 面板不存在时暂停性能、图形状态及所选设备采集；配置保持/应用配置/Gamma/Eyefinity后台继续。后台不得持有页面裸this。
-- 独立审查发现并已修复：5处picker等待旧会话取消、暂态overlay不恢复、timer单次Tick注册并清理、采样保留后台并检查expectedSession、退休页不新建通知。构造采用make_self，所有8处get_self先转换投影接口。独立审查已复核这些修复。
+## 新进程架构（候选已完成，待编译）
+- 同一core默认角色为原生host，保留RadeonTunerMainWindow控制入口，不创建MainPage/WindowsXamlManager/WinUI；独立-ui-worker角色使用RadeonTunerUiWorkerWindow，至多一个。外部仍交付一个EXE。
+- host headless ADL/配置初始化，默认registry/AdlAppSyncAll每host一次；worker各自建立ADL上下文，不能跨进程传ADL句柄，不重复全局默认写入/同步。性能采集仅worker有，后台保持/应用匹配/Gamma/Eyefinity保留。
+- 启worker前PauseProfileLoop等待host当前批次完成；worker期间host暂停，关闭worker前亦暂停其批次。后台与worker不会同时轮询写驱动；worker结束后host重读Settings/Profiles并恢复实际生效档，再恢复后台。
+- AVSettingsJson构造缓存整文件，交接重新构造；HideTrayIcon/ThemeIconMono/ThemeStyle由worker通知所属host刷新，不再200ms整文件读盘。
+- 匿名继承双向pipe、固定长度头、8MB上限、STARTUPINFOEX handle-list，host内存保存模型/选择/草稿，无永久会话文件或公开配置格式变更。完整内部模型保留Current/Default/范围/Step/Support/UsingProfile等，optional字符串null保持。
+- 每次开worker在暂停后捕获最新runtime flags，合并到保留草稿，按DeviceId+Application对齐UI UsingProfile；后台实际生效cache标志与UI选中草稿分离，不能ReloadProfiles冒称Global已生效。设备身份失配不套错snapshot。
+- 正反消息使用所属host HWND/PID及worker PID校验；closing先通知，快召回排队。正常完整退出异步握手继续读pipe；worker等待UI工作及对应分辨率回滚后捕获/退出。Custom Stop已改IAsyncAction并await真实删除，无固定Sleep充当完成。
+- host在worker未建窗时记完整退出并在轮询重试，整套退出前不再恢复后台批次。Job kill-on-close仅防孤儿，SILENT_BREAKAWAY_OK保留Updater/外部工具；更新成功走整套退出且co_return；初始化失败有原错误UI入口，不启无效ADL循环。
 
-## 实际检查与限制
-- 云端只编译/打包，不运行应用或驱动测试。本机未重新安装VS/SDK。
-- run42060814225 的Release编译/正式打包/正式工件上传成功，artifact13432567578；ZIP SHA256 44F1D3CD7574A26A155FFE2F8AA09C2F4F2082716BFC6C11B9019C94F39CFD53，EXE与打包报告一致。
-- 同run的UiValidation编译失败：UiValidationScenario.h:1352少winrt限定，已一行修复，需后续云编译确认。正式版不编译该隔离检查代码。
-- 用户明确要求下载后本机实测，已覆盖此前“禁止普通启动core”的早期限制。实际正常退出旧版、启动新版，关闭/唤回两次均正常，同一PID1772，无重复进程，原设置页面恢复、白图标正常。未改动任何调校值，也未模拟驱动失败/迁移。
-- 专用工作集（MiB，WorkingSetPrivate）旧版PID8696打开89.84、关闭90.04；新版PID1772首次隐藏46.16、打开94.79、关闭54.41、再次打开98.77、再次关闭57.87。新版关闭确实回落，旧版关闭无回落。不同进程/运行时长，仅为此次本机样本，不能宣称全面性能/驱动功能验收或固定降幅。
-- 原始数据在 .build-work/evidence/*memory.json。进程WS/PrivateBytes也已记录，不能与专用工作集混用。
-- 本轮未执行隔离生命周期运行检查；正式开关面板结果不能证明所有后台驱动功能长期正常。前一轮开关动画/布局验收记录见Git历史。
+## 代码检查与限制
+- DSH同会话实施DPI、A headless接口、B进程/IPC及两轮定向修复。Codex补namespace/投影接口/host角色标志，以及最后3项暂停批次、等待Custom删除、建窗后重试退出。
+- 独立审查已确认headless路径无XAML激活、批次暂停无循环等待；已发现并修复模型元数据/cache flags陈旧、退出堵pipe/强杀回滚、跨副本召回、设置轮询、optional null和更新器退出问题。最后限定复核未发现残留或明显类型错误，可以云编译。
+- 实际静态：汉化12项、布局7页104行、diff--check通过。没有运行程序或采集本轮内存，不承诺具体降幅，也不把编译等同于真实超频/Gamma/Eyefinity验收。
+- UiValidation保留原隔离同进程检查入口，只构建不运行，不能证明正式跨进程生命周期。前轮run42065045829已核对success，本轮需新云工件。
 
-## 开发与恢复
-- 主入口 RadeonTuner/MainPage.xaml、MainPage.cpp、App.xaml、App.cpp；构建 .github/workflows/build.yml，windows-2025-vs2026；单EXE tools/Portable；静态 tools/verify-localization.ps1、tools/verify-ui-layout.ps1。
-- 活跃DSH session-c605187d-a18a-4ef4-8d4a-353f838e7a13，当前无任务运行。保留该会话及源码至明确项目结束；旧会话已在上轮明确收尾时删除，不得猜测续接。
-- 本地main a451d89、远端main a31d1c4abebdba9c67bba70d466422256370b50e，同树63dae5a3c7018ab39a1b9c140347ae65956a4fd8。普通Git到github.com失败，插件Git对象API可用；本地origin/main仍旧489fa50，勿盲推。
-- API发布逐个blob及最终tree核对本地Git，expected_sha非强制更新main。下一次增量以本地a451d89、远端a31d1c4a为基线；.build-work/Prepare-GitHubUpload.ps1辅助生成原始blob的base64清单。API提交元数据导致commitID不同，但文件树一致。
-- 上轮开发环境已官方卸载：VSBuildTools18.11.3实例98facc78/SDK26100/VSInstaller；本轮无本机编译工具安装。保留原.NET6/8/10、Desktop8/10、VC++v14 x64/x86共享运行库及原DOTNET_TieredCompilation=0。
-- 上轮清理所有会话outputs已完成，禁止重复跨项目清理。当前只允许清理可明确归属的下载ZIP、临时解压/图标预览，不删除设置或其他项目。
-
-## 2026-11-06 关机前交接
-- 最新本地3f52b830、远端4de9deacde3bbf43d7d5dd40614bd9e928709333，同树78c5afd68e36b1c5642330b795362833af087b84。该提交仅修复隔离检查类型限定并更新记录，未改正式版源码。
-- 新云编译run42065045829仍在执行，仅编译打包；关机不会停止GitHub任务。正式交付已完成本机检查和覆盖，不等待未交付的隔离检查版。未宣称该修复已编译通过。
-- 已清理本轮下载ZIP/解压正式工件及icon-review临时预览，保留正式EXE、运行文件/设置、源仓库/DSH恢复历史，以及evidence内存JSON和打包报告。本轮未安装本机开发环境。移除工件可从GitHub重新下载，图标预览可由原图重建。
-- 下一步按最新用户明确授权执行正常关机，不强制终止其他应用；若系统阻止关机，不能声称机器已经关闭。
+## 开发/发布/清理
+- 活跃DSH session-c605187d-a18a-4ef4-8d4a-353f838e7a13，保留会话及源码直至明确项目结束；当前无DSH任务运行。
+- 入口 AppWinMain.cpp、App.cpp、MainPage.cpp；IPC RadeonTunerIpc.h；backend RadeonTunerBackend.h；构建 .github/workflows/build.yml/windows-2025-vs2026，正式包先上传，后编译UiValidation，不在runner运行应用。
+- 本轮开始本地3e516a8f77d7d81a1e3db648774e36b012556146、远端6a2b253b7d71fb6408969b435b211575ac994f61，同树5499310e7384c012268e5db184be3e5c4547a468。普通Git网络曾失败，API对象发布逐blob/tree核对，expected_sha非强制更新；不要盲推旧origin/main。
+- .build-work/Prepare-GitHubUpload.ps1及source-upload-manifest.json保存最新本地/远端基线与完整树，待本轮发布后记录映射。下载放本任务.build-work，校验ZIP和EXE报告，再覆盖指定交付；清理可再下载ZIP/解压副本，保留发布证据/恢复文件。
+- 本轮无本机编译工具安装。上轮VSBuildTools18.11.3实例98facc78/SDK26100/Installer已卸载；原.NET6/8/10、Desktop8/10、VC++v14 x64/x86及DOTNET_TieredCompilation=0保留。禁止重复跨会话outputs清理，禁止动其他项目/设置/共享运行库。

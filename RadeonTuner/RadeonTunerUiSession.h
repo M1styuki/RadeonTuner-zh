@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace winrt::RadeonTuner::implementation
 {
 	struct MainPage;
@@ -15,4 +17,6 @@ namespace RadeonTunerUiSession
 	void Restore(winrt::RadeonTuner::implementation::MainPage& page);
 	bool HasSnapshot();
 	void ClearSnapshot();
+	std::string CaptureSnapshotJson();
+	bool RestoreSnapshotJson(std::string const& json);
 }

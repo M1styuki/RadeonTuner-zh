@@ -5,6 +5,9 @@
 #include <cmath>
 #include <limits>
 #include <utility>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 
 //Launchers
 #include "SteamFuncLibraryFolders.h"
@@ -1262,11 +1265,17 @@ namespace winrt::RadeonTuner::implementation
 				co_await AdlxValuesLoadSelectDisplay(displayList[0]);
 			}
 
-			//Sync graphics profile settings
-			AdlAppSyncAll();
+			//The host performed the one-time application sync; a worker must not repeat it.
+			if (!AppVariables::UiWorkerMode)
+			{
+				AdlAppSyncAll();
+			}
 
-			//Set default registry values, exactly once per process
-			AdlSetDefaultSettings();
+			//The host performed the one-time registry defaults; a worker must not repeat them.
+			if (!AppVariables::UiWorkerMode)
+			{
+				AdlSetDefaultSettings();
+			}
 
 			//Check admin setttings
 			SettingAdmin();
@@ -1280,12 +1289,28 @@ namespace winrt::RadeonTuner::implementation
 			//Select default indexes
 			SelectDefaultIndexes();
 
+			//Restore the host's full model/selection and UI draft before the update check.
+			if (AppVariables::UiWorkerMode)
+			{
+				disable_saving = true;
+				disable_saving_settings = true;
+				RadeonTunerBackend::ApplyStateJson(AppVariables::UiWorkerStateJson);
+				TuningFanSettings_Convert_ToUI_Profile(tuningFanSettingsProfile, AdlSettingGet::Current);
+				DisplaySettings_Convert_ToUI_Profile(displaySettingsProfile, AdlSettingGet::Current);
+				GraphicsSettings_Convert_ToUI_Profile(graphicsSettingsProfile, AdlSettingGet::Current);
+				MultimediaSettings_Convert_ToUI_Profile(multimediaSettingsProfile, AdlSettingGet::Current);
+				RadeonTunerUiSession::Restore(*this);
+				UpdateFanControlModeInterface(tuningFanSettingsProfile, false);
+				disable_saving = false;
+				disable_saving_settings = false;
+			}
+
 			//Backend stays alive when this page is released. Start it once.
 			AppVariables::App.EnsureBackendStarted();
 
 			//Check for application update, only on the first initialization
 			std::optional<bool> setStartCheckUpdate = AppVariables::Settings.Load<bool>("StartCheckUpdate");
-			if (setStartCheckUpdate.has_value() && setStartCheckUpdate.value())
+			if ((!AppVariables::UiWorkerMode || AppVariables::UiWorkerFirst) && setStartCheckUpdate.has_value() && setStartCheckUpdate.value())
 			{
 				UpdateCheckResult updateCheckResult = UpdateCheck(AppVariables::hInstance, "dumbie", "RadeonTuner");
 				if (updateCheckResult.UpdateFound)
@@ -1951,11 +1976,598 @@ namespace RadeonTunerUiSession
 	{
 		g_uiSnapshot.clear();
 	}
+
+	std::string CaptureSnapshotJson()
+	{
+		try
+		{
+			nlohmann::json snapshot = nlohmann::json::array();
+			for (auto const& pair : g_uiSnapshot)
+			{
+				const UiSnapshotEntry& state = pair.second;
+				nlohmann::json entry = nlohmann::json::object();
+				entry["name"] = wstring_to_string_utf8(pair.first);
+				entry["has_enabled"] = state.HasEnabled;
+				entry["enabled"] = state.Enabled;
+				entry["has_visibility"] = state.HasVisibility;
+				entry["visibility"] = state.Visibility;
+				entry["has_ison"] = state.HasIsOn;
+				entry["ison"] = state.IsOn;
+				entry["has_value"] = state.HasValue;
+				entry["value"] = state.Value;
+				entry["has_index"] = state.HasIndex;
+				entry["index"] = state.Index;
+				entry["has_text"] = state.HasText;
+				entry["text"] = wstring_to_string_utf8(state.Text);
+				snapshot.push_back(std::move(entry));
+			}
+			return snapshot.dump();
+		}
+		catch (...)
+		{
+			return "[]";
+		}
+	}
+
+	bool RestoreSnapshotJson(std::string const& json)
+	{
+		try
+		{
+			nlohmann::json snapshot = nlohmann::json::parse(json);
+			if (!snapshot.is_array())
+			{
+				return false;
+			}
+			g_uiSnapshot.clear();
+			for (auto const& item : snapshot)
+			{
+				try
+				{
+					UiSnapshotEntry state{};
+					state.HasEnabled = item.value("has_enabled", false);
+					state.Enabled = item.value("enabled", true);
+					state.HasVisibility = item.value("has_visibility", false);
+					state.Visibility = item.value("visibility", 0);
+					state.HasIsOn = item.value("has_ison", false);
+					state.IsOn = item.value("ison", false);
+					state.HasValue = item.value("has_value", false);
+					state.Value = item.value("value", 0.0);
+					state.HasIndex = item.value("has_index", false);
+					state.Index = item.value("index", -1);
+					state.HasText = item.value("has_text", false);
+					state.Text = string_to_wstring_utf8(item.value("text", std::string()));
+					g_uiSnapshot[string_to_wstring_utf8(item.value("name", std::string()))] = std::move(state);
+				}
+				catch (...) {}
+			}
+			return true;
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
 }
 
 
 namespace RadeonTunerBackend
 {
+	using winrt::RadeonTuner::implementation::MainPage;
+	namespace
+	{
+		std::mutex g_profileLoopMutex;
+		std::condition_variable g_profileLoopCv;
+		bool g_profileLoopPaused = false;
+		int g_profileLoopActiveBatches = 0;
+		std::atomic<bool> g_defaultsApplied{ false };
+		std::atomic<bool> g_syncApplied{ false };
+
+		void WaitForProfileLoopResume()
+		{
+			std::unique_lock<std::mutex> lock(g_profileLoopMutex);
+			g_profileLoopCv.wait(lock, []()
+				{
+					return !g_profileLoopPaused || AppVariables::ApplicationExiting;
+				});
+		}
+
+		bool BeginProfileBatch()
+		{
+			std::lock_guard<std::mutex> lock(g_profileLoopMutex);
+			if (g_profileLoopPaused)
+			{
+				return false;
+			}
+			++g_profileLoopActiveBatches;
+			return true;
+		}
+
+		void EndProfileBatch()
+		{
+			{
+				std::lock_guard<std::mutex> lock(g_profileLoopMutex);
+				if (g_profileLoopActiveBatches > 0)
+				{
+					--g_profileLoopActiveBatches;
+				}
+			}
+			g_profileLoopCv.notify_all();
+		}
+	}
+
+	void PauseProfileLoop()
+	{
+		std::unique_lock<std::mutex> lock(g_profileLoopMutex);
+		g_profileLoopPaused = true;
+		g_profileLoopCv.wait(lock, []()
+			{
+				return g_profileLoopActiveBatches == 0;
+			});
+	}
+
+	void ResumeProfileLoop()
+	{
+		{
+			std::lock_guard<std::mutex> lock(g_profileLoopMutex);
+			g_profileLoopPaused = false;
+		}
+		g_profileLoopCv.notify_all();
+	}
+
+	std::wstring InitializeHeadless(HeadlessOptions const& options)
+	{
+		try
+		{
+			if (options.InitializeAdl && adl_Context == NULL)
+			{
+				std::wstring initResult = MainPage::AdlInitialize();
+				if (!initResult.empty())
+				{
+					return initResult;
+				}
+			}
+			if (adl_Context == NULL)
+			{
+				return L"ADL 未初始化";
+			}
+
+			//Profiles are loaded before any default application sync, matching the UI startup order.
+			if (options.LoadProfiles)
+			{
+				ReloadProfiles();
+			}
+
+			if (options.SelectDefaults)
+			{
+				std::vector<AdapterInfo> gpuList = MainPage::AdlGetGpuAll(false);
+				if (gpuList.empty())
+				{
+					return L"未找到任何 GPU";
+				}
+				if (adl_Gpu_AdapterIndex < 0)
+				{
+					AdapterInfo& adapterInfo = gpuList[0];
+					adl_Gpu_AdapterIndex = adapterInfo.iAdapterIndex;
+					adl_Gpu_RegistryPath = string_to_wstring(adapterInfo.strDriverPathExt);
+					adl_Gpu_UniqueIdentifierHex = L"0x0001";
+					adl_Gpu_DeviceIdentifier = MainPage::AdlxGetGpuIdentifier(adl_Gpu_AdapterIndex);
+				}
+
+				std::vector<ADLDisplayInfo> displayList = MainPage::AdlGetDisplayAll();
+				if (!displayList.empty() && adl_Display_AdapterIndex < 0)
+				{
+					ADLDisplayInfo& displayInfo = displayList[0];
+					adl_Display_AdapterIndex = displayInfo.displayID.iDisplayLogicalAdapterIndex;
+					adl_Display_DisplayIndex = displayInfo.displayID.iDisplayLogicalIndex;
+					adl_Display_DeviceIdentifier = MainPage::AdlxGetDisplayIdentifier(adl_Display_AdapterIndex, adl_Display_DisplayIndex);
+				}
+			}
+
+			if ((options.SyncApplications || options.WriteDefaults) && adl_Gpu_AdapterIndex < 0)
+			{
+				return L"未选择 GPU";
+			}
+
+			//The original one-time operations are guarded per process. A later worker
+			//passes false for both flags and never repeats global registry defaults.
+			if (options.SyncApplications && !g_syncApplied.exchange(true))
+			{
+				MainPage::AdlAppSyncAll();
+			}
+			if (options.WriteDefaults && !g_defaultsApplied.exchange(true))
+			{
+				MainPage::AdlSetDefaultSettings();
+			}
+
+			BackendInitialized = true;
+			return L"";
+		}
+		catch (...)
+		{
+			return L"后台初始化失败（异常）";
+		}
+	}
+
+	bool ReloadProfiles()
+	{
+		try
+		{
+			MainPage::TuningFanSettings_Profiles_LoadFromFile();
+			MainPage::GraphicsSettings_Profiles_LoadFromFile();
+			MainPage::DisplaySettings_Profiles_LoadFromFile();
+			MainPage::MultimediaSettings_Profiles_LoadFromFile();
+			return true;
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
+	void ReloadSettings()
+	{
+		try
+		{
+			if (!AppVariables::SaveDataPath.empty())
+			{
+				//AVSettingsJson caches the whole file at construction; rebuild the object
+				//instead of calling Load and assuming it re-reads the disk.
+				AppVariables::Settings = AVSettingsJson(PathMerge(AppVariables::SaveDataPath, L"Settings\\Settings.json"));
+			}
+		}
+		catch (...) {}
+	}
+
+	namespace
+	{
+		nlohmann::json IntJson(AdlSettingInt const& value)
+		{
+			nlohmann::json j = nlohmann::json::object();
+			j["c"] = value.Current; j["d"] = value.Default; j["n"] = value.Minimum; j["x"] = value.Maximum; j["s"] = value.Step; j["u"] = value.Support;
+			return j;
+		}
+		void IntLoad(nlohmann::json const& j, AdlSettingInt& value)
+		{
+			try { if (j.contains("c")) value.Current = j["c"].is_null() ? std::optional<int>() : std::optional<int>(j["c"].get<int>()); } catch (...) {}
+			try { if (j.contains("d")) value.Default = j["d"].is_null() ? std::optional<int>() : std::optional<int>(j["d"].get<int>()); } catch (...) {}
+			try { if (j.contains("n")) value.Minimum = j["n"].is_null() ? std::optional<int>() : std::optional<int>(j["n"].get<int>()); } catch (...) {}
+			try { if (j.contains("x")) value.Maximum = j["x"].is_null() ? std::optional<int>() : std::optional<int>(j["x"].get<int>()); } catch (...) {}
+			try { if (j.contains("s")) value.Step = j["s"].is_null() ? std::optional<int>() : std::optional<int>(j["s"].get<int>()); } catch (...) {}
+			try { if (j.contains("u")) value.Support = j["u"].get<bool>(); } catch (...) {}
+		}
+		nlohmann::json FloatJson(AdlSettingFloat const& value)
+		{
+			nlohmann::json j = nlohmann::json::object();
+			j["c"] = value.Current; j["d"] = value.Default; j["n"] = value.Minimum; j["x"] = value.Maximum; j["s"] = value.Step; j["u"] = value.Support;
+			return j;
+		}
+		void FloatLoad(nlohmann::json const& j, AdlSettingFloat& value)
+		{
+			try { if (j.contains("c")) value.Current = j["c"].is_null() ? std::optional<float>() : std::optional<float>(j["c"].get<float>()); } catch (...) {}
+			try { if (j.contains("d")) value.Default = j["d"].is_null() ? std::optional<float>() : std::optional<float>(j["d"].get<float>()); } catch (...) {}
+			try { if (j.contains("n")) value.Minimum = j["n"].is_null() ? std::optional<float>() : std::optional<float>(j["n"].get<float>()); } catch (...) {}
+			try { if (j.contains("x")) value.Maximum = j["x"].is_null() ? std::optional<float>() : std::optional<float>(j["x"].get<float>()); } catch (...) {}
+			try { if (j.contains("s")) value.Step = j["s"].is_null() ? std::optional<float>() : std::optional<float>(j["s"].get<float>()); } catch (...) {}
+			try { if (j.contains("u")) value.Support = j["u"].get<bool>(); } catch (...) {}
+		}
+		nlohmann::json StringJson(AdlSettingString const& value)
+		{
+			nlohmann::json j = nlohmann::json::object();
+			j["c"] = value.Current.has_value() ? nlohmann::json(wstring_to_string_utf8(value.Current.value())) : nlohmann::json(nullptr);
+			j["d"] = value.Default.has_value() ? nlohmann::json(wstring_to_string_utf8(value.Default.value())) : nlohmann::json(nullptr);
+			j["u"] = value.Support;
+			return j;
+		}
+		void StringLoad(nlohmann::json const& j, AdlSettingString& value)
+		{
+			try { if (j.contains("c")) { value.Current = j["c"].is_null() ? std::optional<std::wstring>() : std::optional<std::wstring>(string_to_wstring_utf8(j["c"].get<std::string>())); } } catch (...) {}
+			try { if (j.contains("d")) { value.Default = j["d"].is_null() ? std::optional<std::wstring>() : std::optional<std::wstring>(string_to_wstring_utf8(j["d"].get<std::string>())); } } catch (...) {}
+			try { if (j.contains("u")) value.Support = j["u"].get<bool>(); } catch (...) {}
+		}
+	}
+
+	static nlohmann::json TuningToJson(TuningFanSettings const& v)
+	{
+		nlohmann::json j = nlohmann::json::object();
+		j["DeviceId"] = v.DeviceId.has_value() ? wstring_to_string_utf8(v.DeviceId.value()) : std::string();
+		j["Application"] = v.Application.has_value() ? wstring_to_string_utf8(v.Application.value()) : std::string();
+#define RT_T_INT(name) j[#name] = IntJson(v.name);
+		RT_T_INT(CoreMin) RT_T_INT(CoreMax) RT_T_INT(MemoryTiming) RT_T_INT(MemoryEcc) RT_T_INT(MemoryMax)
+		RT_T_INT(PowerLimit) RT_T_INT(PowerVoltage) RT_T_INT(PowerTDC) RT_T_INT(FanSpeedMin) RT_T_INT(FanSpeedMax)
+		RT_T_INT(FanZeroRpm) RT_T_INT(FanSpeed0) RT_T_INT(FanTemp0) RT_T_INT(FanSpeed1) RT_T_INT(FanTemp1)
+		RT_T_INT(FanSpeed2) RT_T_INT(FanTemp2) RT_T_INT(FanSpeed3) RT_T_INT(FanTemp3) RT_T_INT(FanSpeed4) RT_T_INT(FanTemp4)
+		RT_T_INT(KeepActive) RT_T_INT(FanControlMode)
+#undef RT_T_INT
+		j["FanZeroTemp"] = v.FanZeroTemp; j["FanSupport"] = v.FanSupport; j["TuningSupport"] = v.TuningSupport; j["UsingProfile"] = v.UsingProfile;
+		return j;
+	}
+	static TuningFanSettings TuningFromJson(nlohmann::json const& j)
+	{
+		TuningFanSettings v{};
+		try { v.DeviceId = string_to_wstring_utf8(j.value("DeviceId", std::string())); } catch (...) {}
+		try { v.Application = string_to_wstring_utf8(j.value("Application", std::string())); } catch (...) {}
+#define RT_T_LOAD(name) if (j.contains(#name)) { IntLoad(j[#name], v.name); }
+		RT_T_LOAD(CoreMin) RT_T_LOAD(CoreMax) RT_T_LOAD(MemoryTiming) RT_T_LOAD(MemoryEcc) RT_T_LOAD(MemoryMax)
+		RT_T_LOAD(PowerLimit) RT_T_LOAD(PowerVoltage) RT_T_LOAD(PowerTDC) RT_T_LOAD(FanSpeedMin) RT_T_LOAD(FanSpeedMax)
+		RT_T_LOAD(FanZeroRpm) RT_T_LOAD(FanSpeed0) RT_T_LOAD(FanTemp0) RT_T_LOAD(FanSpeed1) RT_T_LOAD(FanTemp1)
+		RT_T_LOAD(FanSpeed2) RT_T_LOAD(FanTemp2) RT_T_LOAD(FanSpeed3) RT_T_LOAD(FanTemp3) RT_T_LOAD(FanSpeed4) RT_T_LOAD(FanTemp4)
+		RT_T_LOAD(KeepActive) RT_T_LOAD(FanControlMode)
+#undef RT_T_LOAD
+		try { v.FanZeroTemp = j.value("FanZeroTemp", -1); } catch (...) {}
+		try { v.FanSupport = j.value("FanSupport", false); } catch (...) {}
+		try { v.TuningSupport = j.value("TuningSupport", false); } catch (...) {}
+		try { v.UsingProfile = j.value("UsingProfile", false); } catch (...) {}
+		return v;
+	}
+
+	static nlohmann::json DisplayToJson(DisplaySettings const& v)
+	{
+		nlohmann::json j = nlohmann::json::object();
+		j["DeviceId"] = v.DeviceId.has_value() ? wstring_to_string_utf8(v.DeviceId.value()) : std::string();
+		j["Application"] = v.Application.has_value() ? wstring_to_string_utf8(v.Application.value()) : std::string();
+#define RT_D_INT(name) j[#name] = IntJson(v.name);
+		RT_D_INT(HdrEnabled) RT_D_INT(FreeSyncMode) RT_D_INT(VsrEnabled) RT_D_INT(GpuScalingEnabled) RT_D_INT(IntegerScalingEnabled)
+		RT_D_INT(ScalingMode) RT_D_INT(VariBrightEnabled) RT_D_INT(VariBrightLevel) RT_D_INT(ColorDepth) RT_D_INT(PixelFormat)
+		RT_D_INT(ColorEnhancement) RT_D_INT(Brightness) RT_D_INT(Contrast) RT_D_INT(Saturation) RT_D_INT(Hue)
+		RT_D_INT(ColorTemperatureControl) RT_D_INT(ColorTemperatureKelvin) RT_D_INT(CVDCControl) RT_D_INT(CVDCProtanopia)
+		RT_D_INT(CVDCDeuteranopia) RT_D_INT(CVDCTritanopia) RT_D_INT(HDCPEnabled) RT_D_INT(GammaControl) RT_D_INT(EyefinityAutomatic)
+#undef RT_D_INT
+		j["GammaBase"] = FloatJson(v.GammaBase); j["GammaRed"] = FloatJson(v.GammaRed); j["GammaGreen"] = FloatJson(v.GammaGreen); j["GammaBlue"] = FloatJson(v.GammaBlue);
+		j["UsingProfile"] = v.UsingProfile;
+		return j;
+	}
+	static DisplaySettings DisplayFromJson(nlohmann::json const& j)
+	{
+		DisplaySettings v{};
+		try { v.DeviceId = string_to_wstring_utf8(j.value("DeviceId", std::string())); } catch (...) {}
+		try { v.Application = string_to_wstring_utf8(j.value("Application", std::string())); } catch (...) {}
+#define RT_D_LOAD(name) if (j.contains(#name)) { IntLoad(j[#name], v.name); }
+		RT_D_LOAD(HdrEnabled) RT_D_LOAD(FreeSyncMode) RT_D_LOAD(VsrEnabled) RT_D_LOAD(GpuScalingEnabled) RT_D_LOAD(IntegerScalingEnabled)
+		RT_D_LOAD(ScalingMode) RT_D_LOAD(VariBrightEnabled) RT_D_LOAD(VariBrightLevel) RT_D_LOAD(ColorDepth) RT_D_LOAD(PixelFormat)
+		RT_D_LOAD(ColorEnhancement) RT_D_LOAD(Brightness) RT_D_LOAD(Contrast) RT_D_LOAD(Saturation) RT_D_LOAD(Hue)
+		RT_D_LOAD(ColorTemperatureControl) RT_D_LOAD(ColorTemperatureKelvin) RT_D_LOAD(CVDCControl) RT_D_LOAD(CVDCProtanopia)
+		RT_D_LOAD(CVDCDeuteranopia) RT_D_LOAD(CVDCTritanopia) RT_D_LOAD(HDCPEnabled) RT_D_LOAD(GammaControl) RT_D_LOAD(EyefinityAutomatic)
+#undef RT_D_LOAD
+		if (j.contains("GammaBase")) { FloatLoad(j["GammaBase"], v.GammaBase); } if (j.contains("GammaRed")) { FloatLoad(j["GammaRed"], v.GammaRed); } if (j.contains("GammaGreen")) { FloatLoad(j["GammaGreen"], v.GammaGreen); } if (j.contains("GammaBlue")) { FloatLoad(j["GammaBlue"], v.GammaBlue); }
+		try { v.UsingProfile = j.value("UsingProfile", false); } catch (...) {}
+		return v;
+	}
+
+	static nlohmann::json GraphicsToJson(GraphicsSettings const& v)
+	{
+		nlohmann::json j = nlohmann::json::object();
+		j["DeviceId"] = v.DeviceId.has_value() ? wstring_to_string_utf8(v.DeviceId.value()) : std::string();
+		j["Application"] = v.Application.has_value() ? wstring_to_string_utf8(v.Application.value()) : std::string();
+#define RT_G_INT(name) j[#name] = IntJson(v.name);
+		RT_G_INT(DeLagEnabled) RT_G_INT(MfgRatio) RT_G_INT(FsrOverride) RT_G_INT(MlfiOverride) RT_G_INT(MfgOverride) RT_G_INT(MldOverride) RT_G_INT(NrcOverride)
+		RT_G_INT(ChillEnabled) RT_G_INT(ChillMinFps) RT_G_INT(ChillMaxFps) RT_G_INT(FrtcEnabled) RT_G_INT(FrtcFrameRateTarget) RT_G_INT(BoostMode) RT_G_INT(BoostMinResolution)
+		RT_G_INT(RisEnabled) RT_G_INT(RisDesktopEnabled) RT_G_INT(RisSharpeningDegree) RT_G_INT(VerticalSync) RT_G_INT(EnhancedSync) RT_G_INT(OpenGLTripleBuffering)
+		RT_G_INT(AntiAliasingOverride) RT_G_INT(AntiAliasingMethod) RT_G_INT(AntiAliasingLevel) RT_G_INT(AntiAliasingEnhancedQuality) RT_G_INT(AntiAliasingMorphological)
+		RT_G_INT(AnisotropicOverride) RT_G_INT(TextureFilteringQuality) RT_G_INT(SurfaceFormatOptimization) RT_G_INT(OpenGL10BitPixelFormat) RT_G_INT(TessellationMode) RT_G_INT(TessellationLevel) RT_G_INT(FrameGenEnabled) RT_G_INT(FrameGenAlgorithm)
+		RT_G_INT(FsrShowInformation) RT_G_INT(FsrDisableMLSwapchain)
+#undef RT_G_INT
+		j["FsrOvrDLLPath"] = StringJson(v.FsrOvrDLLPath); j["RisVersion"] = v.RisVersion.Version;
+		return j;
+	}
+	static GraphicsSettings GraphicsFromJson(nlohmann::json const& j)
+	{
+		GraphicsSettings v{};
+		try { v.DeviceId = string_to_wstring_utf8(j.value("DeviceId", std::string())); } catch (...) {}
+		try { v.Application = string_to_wstring_utf8(j.value("Application", std::string())); } catch (...) {}
+#define RT_G_LOAD(name) if (j.contains(#name)) { IntLoad(j[#name], v.name); }
+		RT_G_LOAD(DeLagEnabled) RT_G_LOAD(MfgRatio) RT_G_LOAD(FsrOverride) RT_G_LOAD(MlfiOverride) RT_G_LOAD(MfgOverride) RT_G_LOAD(MldOverride) RT_G_LOAD(NrcOverride)
+		RT_G_LOAD(ChillEnabled) RT_G_LOAD(ChillMinFps) RT_G_LOAD(ChillMaxFps) RT_G_LOAD(FrtcEnabled) RT_G_LOAD(FrtcFrameRateTarget) RT_G_LOAD(BoostMode) RT_G_LOAD(BoostMinResolution)
+		RT_G_LOAD(RisEnabled) RT_G_LOAD(RisDesktopEnabled) RT_G_LOAD(RisSharpeningDegree) RT_G_LOAD(VerticalSync) RT_G_LOAD(EnhancedSync) RT_G_LOAD(OpenGLTripleBuffering)
+		RT_G_LOAD(AntiAliasingOverride) RT_G_LOAD(AntiAliasingMethod) RT_G_LOAD(AntiAliasingLevel) RT_G_LOAD(AntiAliasingEnhancedQuality) RT_G_LOAD(AntiAliasingMorphological)
+		RT_G_LOAD(AnisotropicOverride) RT_G_LOAD(TextureFilteringQuality) RT_G_LOAD(SurfaceFormatOptimization) RT_G_LOAD(OpenGL10BitPixelFormat) RT_G_LOAD(TessellationMode) RT_G_LOAD(TessellationLevel) RT_G_LOAD(FrameGenEnabled) RT_G_LOAD(FrameGenAlgorithm)
+		RT_G_LOAD(FsrShowInformation) RT_G_LOAD(FsrDisableMLSwapchain)
+#undef RT_G_LOAD
+		if (j.contains("FsrOvrDLLPath")) { StringLoad(j["FsrOvrDLLPath"], v.FsrOvrDLLPath); } try { v.RisVersion.Version = j.value("RisVersion", 0); } catch (...) {}
+		return v;
+	}
+
+	static nlohmann::json MultimediaToJson(MultimediaSettings const& v) { nlohmann::json j = nlohmann::json::object(); j["DeviceId"] = v.DeviceId.has_value() ? wstring_to_string_utf8(v.DeviceId.value()) : std::string(); j["Application"] = v.Application.has_value() ? wstring_to_string_utf8(v.Application.value()) : std::string(); j["VideoUpscaling"] = IntJson(v.VideoUpscaling); j["VideoSharpening"] = IntJson(v.VideoSharpening); j["VideoBrightness"] = IntJson(v.VideoBrightness); j["UsingProfile"] = v.UsingProfile; return j; }
+	static MultimediaSettings MultimediaFromJson(nlohmann::json const& j) { MultimediaSettings v{}; try { v.DeviceId = string_to_wstring_utf8(j.value("DeviceId", std::string())); } catch (...) {} try { v.Application = string_to_wstring_utf8(j.value("Application", std::string())); } catch (...) {} if (j.contains("VideoUpscaling")) { IntLoad(j["VideoUpscaling"], v.VideoUpscaling); } if (j.contains("VideoSharpening")) { IntLoad(j["VideoSharpening"], v.VideoSharpening); } if (j.contains("VideoBrightness")) { IntLoad(j["VideoBrightness"], v.VideoBrightness); } try { v.UsingProfile = j.value("UsingProfile", false); } catch (...) {} return v; }
+
+	static void RestoreCacheFlags(nlohmann::json const& state)
+	{
+		auto restore = [](nlohmann::json const& array, auto& cache)
+		{
+			for (auto const& item : array)
+			{
+				try
+				{
+					std::wstring deviceId = string_to_wstring_utf8(item.value("DeviceId", std::string()));
+					std::wstring application = string_to_wstring_utf8(item.value("Application", std::string()));
+					bool usingProfile = item.value("UsingProfile", false);
+					for (auto& model : cache)
+					{
+						if (model.DeviceId.has_value() && model.DeviceId.value() == deviceId && model.Application.has_value() && model.Application.value() == application)
+						{
+							model.UsingProfile = usingProfile;
+							break;
+						}
+					}
+				}
+				catch (...) {}
+			}
+		};
+		if (state.contains("tuning_cache")) { restore(state["tuning_cache"], tuningFanSettingsCache); }
+		if (state.contains("display_cache")) { restore(state["display_cache"], displaySettingsCache); }
+		if (state.contains("multimedia_cache")) { restore(state["multimedia_cache"], multimediaSettingsCache); }
+	}
+
+	std::string MergeRuntimeStateJson(std::string const& draftJson, std::string const& runtimeJson)
+	{
+		try
+		{
+			if (draftJson.empty()) { return runtimeJson; }
+			if (runtimeJson.empty()) { return draftJson; }
+			nlohmann::json draft = nlohmann::json::parse(draftJson);
+			nlohmann::json runtime = nlohmann::json::parse(runtimeJson);
+
+			for (const char* key : { "tuning_cache", "display_cache", "multimedia_cache" })
+			{
+				if (runtime.contains(key)) { draft[key] = runtime[key]; }
+			}
+
+			auto alignUsing = [&](const char* modelKey, const char* cacheKey)
+			{
+				try
+				{
+					if (!draft.contains(modelKey) || !draft[modelKey].is_object()) { return; }
+					std::wstring deviceId = string_to_wstring_utf8(draft[modelKey].value("DeviceId", std::string()));
+					std::wstring application = string_to_wstring_utf8(draft[modelKey].value("Application", std::string()));
+					bool usingProfile = false;
+					if (runtime.contains(cacheKey) && runtime[cacheKey].is_array())
+					{
+						for (auto const& item : runtime[cacheKey])
+						{
+							if (string_to_wstring_utf8(item.value("DeviceId", std::string())) == deviceId && string_to_wstring_utf8(item.value("Application", std::string())) == application)
+							{
+								usingProfile = item.value("UsingProfile", false);
+								break;
+							}
+						}
+					}
+					draft[modelKey]["UsingProfile"] = usingProfile;
+				}
+				catch (...) {}
+			};
+			alignUsing("tuning", "tuning_cache");
+			alignUsing("display", "display_cache");
+			alignUsing("multimedia", "multimedia_cache");
+			return draft.dump();
+		}
+		catch (...) { return draftJson; }
+	}
+
+	bool ApplyRuntimeStateJson(std::string const& json)
+	{
+		try
+		{
+			if (json.empty()) { return false; }
+			RestoreCacheFlags(nlohmann::json::parse(json));
+			return true;
+		}
+		catch (...) { return false; }
+	}
+
+	std::string CaptureStateJson()
+	{
+		try
+		{
+			nlohmann::json state = nlohmann::json::object();
+			state["gpu_device"] = wstring_to_string_utf8(adl_Gpu_DeviceIdentifier);
+			state["display_device"] = wstring_to_string_utf8(adl_Display_DeviceIdentifier);
+			state["gpu_index"] = adl_Gpu_AdapterIndex;
+			state["display_adapter_index"] = adl_Display_AdapterIndex;
+			state["display_index"] = adl_Display_DisplayIndex;
+			state["tuning_app"] = wstring_to_string_utf8(tuningFanSettingsProfile.Application.has_value() ? tuningFanSettingsProfile.Application.value() : std::wstring(L"Global"));
+			state["display_app"] = wstring_to_string_utf8(displaySettingsProfile.Application.has_value() ? displaySettingsProfile.Application.value() : std::wstring(L"Global"));
+			state["graphics_app"] = wstring_to_string_utf8(graphicsSettingsProfile.Application.has_value() ? graphicsSettingsProfile.Application.value() : std::wstring(L"Global"));
+			state["multimedia_app"] = wstring_to_string_utf8(multimediaSettingsProfile.Application.has_value() ? multimediaSettingsProfile.Application.value() : std::wstring(L"Global"));
+			state["tuning"] = TuningToJson(tuningFanSettingsProfile);
+			state["display"] = DisplayToJson(displaySettingsProfile);
+			state["graphics"] = GraphicsToJson(graphicsSettingsProfile);
+			state["multimedia"] = MultimediaToJson(multimediaSettingsProfile);
+
+			auto appendCache = [](nlohmann::json& array, auto const& cache)
+			{
+				for (auto const& model : cache)
+				{
+					nlohmann::json item = nlohmann::json::object();
+					item["DeviceId"] = model.DeviceId.has_value() ? wstring_to_string_utf8(model.DeviceId.value()) : std::string();
+					item["Application"] = model.Application.has_value() ? wstring_to_string_utf8(model.Application.value()) : std::string();
+					item["UsingProfile"] = model.UsingProfile;
+					array.push_back(std::move(item));
+				}
+			};
+			state["tuning_cache"] = nlohmann::json::array(); appendCache(state["tuning_cache"], tuningFanSettingsCache);
+			state["display_cache"] = nlohmann::json::array(); appendCache(state["display_cache"], displaySettingsCache);
+			state["multimedia_cache"] = nlohmann::json::array(); appendCache(state["multimedia_cache"], multimediaSettingsCache);
+			state["snapshot"] = nlohmann::json::parse(RadeonTunerUiSession::CaptureSnapshotJson());
+			return state.dump();
+		}
+		catch (...)
+		{
+			return std::string();
+		}
+	}
+
+	bool ApplyStateJson(std::string const& json)
+	{
+		try
+		{
+			if (json.empty())
+			{
+				return false;
+			}
+			nlohmann::json state = nlohmann::json::parse(json);
+
+			//Resolve the stable device identity against the current enumeration first.
+			bool stateMatchesDevices = true;
+			std::wstring gpuDevice = string_to_wstring_utf8(state.value("gpu_device", std::string()));
+			if (!gpuDevice.empty())
+			{
+				auto gpuInfo = MainPage::AdlGetGpuByDeviceId(gpuDevice);
+				if (gpuInfo.has_value())
+				{
+					adl_Gpu_AdapterIndex = gpuInfo.value().iAdapterIndex;
+					adl_Gpu_RegistryPath = string_to_wstring(gpuInfo.value().strDriverPathExt);
+					adl_Gpu_UniqueIdentifierHex = L"0x0001";
+					adl_Gpu_DeviceIdentifier = gpuDevice;
+				}
+				else
+				{
+					stateMatchesDevices = false;
+				}
+			}
+			std::wstring displayDevice = string_to_wstring_utf8(state.value("display_device", std::string()));
+			if (!displayDevice.empty())
+			{
+				std::vector<ADLDisplayInfo> displayList = MainPage::AdlGetDisplayAll();
+				bool displayFound = false;
+				for (ADLDisplayInfo& displayInfo : displayList)
+				{
+					int adapterIndex = displayInfo.displayID.iDisplayLogicalAdapterIndex;
+					int displayIndex = displayInfo.displayID.iDisplayLogicalIndex;
+					if (MainPage::AdlxGetDisplayIdentifier(adapterIndex, displayIndex) == displayDevice)
+					{
+						adl_Display_AdapterIndex = adapterIndex;
+						adl_Display_DisplayIndex = displayIndex;
+						adl_Display_DeviceIdentifier = displayDevice;
+						displayFound = true;
+						break;
+					}
+				}
+				if (!displayFound)
+				{
+					stateMatchesDevices = false;
+				}
+			}
+
+			if (stateMatchesDevices)
+			{
+			if (state.contains("tuning")) { auto value = TuningFromJson(state["tuning"]); if (value.DeviceId.has_value() && !value.DeviceId.value().empty()) { tuningFanSettingsProfile = value; } }
+			if (state.contains("display")) { auto value = DisplayFromJson(state["display"]); if (value.DeviceId.has_value() && !value.DeviceId.value().empty()) { displaySettingsProfile = value; } }
+			if (state.contains("graphics")) { auto value = GraphicsFromJson(state["graphics"]); if (value.DeviceId.has_value() && !value.DeviceId.value().empty()) { graphicsSettingsProfile = value; } }
+			if (state.contains("multimedia")) { auto value = MultimediaFromJson(state["multimedia"]); if (value.DeviceId.has_value() && !value.DeviceId.value().empty()) { multimediaSettingsProfile = value; } }
+			}
+
+			if (stateMatchesDevices && state.contains("snapshot"))
+			{
+				RadeonTunerUiSession::RestoreSnapshotJson(state["snapshot"].dump());
+			}
+			RestoreCacheFlags(state);
+			return true;
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
 	void MetricsLoop()
 	{
 		using winrt::RadeonTuner::implementation::MainPage;
@@ -1992,8 +2604,15 @@ namespace RadeonTunerBackend
 
 		while (true)
 		{
+			bool batchActive = false;
 			try
 			{
+				if (AppVariables::ApplicationExiting)
+				{
+					return;
+				}
+
+				//Delay outside the batch so PauseProfileLoop does not wait for a sleep.
 				if (!AppVariables::LaunchLoopProfile)
 				{
 					Sleep(10000);
@@ -2004,10 +2623,16 @@ namespace RadeonTunerBackend
 					AppVariables::LaunchLoopProfile = false;
 				}
 
+				WaitForProfileLoopResume();
 				if (AppVariables::ApplicationExiting)
 				{
 					return;
 				}
+				if (!BeginProfileBatch())
+				{
+					continue;
+				}
+				batchActive = true;
 
 				std::vector<std::wstring> processExeRunning{};
 				std::vector<AVProcess> processAll = Get_ProcessAll();
@@ -2023,6 +2648,10 @@ namespace RadeonTunerBackend
 				MainPage::AdlxLoopTuningApplicationProfile(processExeRunning);
 			}
 			catch (...) {}
+			if (batchActive)
+			{
+				EndProfileBatch();
+			}
 		}
 	}
 }

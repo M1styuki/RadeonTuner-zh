@@ -23,10 +23,10 @@ namespace winrt::RadeonTuner::implementation
 		void button_Website_Project_Click(IInspectable const& sender, RoutedEventArgs const& e);
 		void button_Website_Donation_Click(IInspectable const& sender, RoutedEventArgs const& e);
 
-		std::wstring AdlInitialize();
-		void ADL_MemoryFree_Customizations(CUSTOMISATIONS* pCustomisations);
-		void AdlSetDefaultSettings();
-		bool AdlCheckDriverOnlySoftware();
+		static std::wstring AdlInitialize();
+		static void ADL_MemoryFree_Customizations(CUSTOMISATIONS* pCustomisations);
+		static void AdlSetDefaultSettings();
+		static bool AdlCheckDriverOnlySoftware();
 
 		static std::vector<AdapterInfo> AdlGetGpuAll(bool ignoreDuplicate);
 		static std::optional<AdapterInfo> AdlGetGpuByDeviceId(std::wstring deviceId);
@@ -43,25 +43,25 @@ namespace winrt::RadeonTuner::implementation
 		winrt::IAsyncOperation<winrt::IVector<RadeonTuner::AppPickerIdl>> AdlAppPickerRemoveAppDisplay();
 		winrt::IVector<RadeonTuner::AppPickerIdl> AdlAppPickerAddFile();
 
-		std::vector<AdlApplication> AdlAppLoadAll(std::wstring driverArea, bool loadProperties);
-		std::optional<AdlApplication> AdlAppLoadSearch(std::wstring driverArea, std::wstring fileName, std::wstring filePath);
+		static std::vector<AdlApplication> AdlAppLoadAll(std::wstring driverArea, bool loadProperties);
+		static std::optional<AdlApplication> AdlAppLoadSearch(std::wstring driverArea, std::wstring fileName, std::wstring filePath);
 		std::wstring AdlAppAdd(std::wstring filePath, std::wstring driverArea);
-		std::wstring AdlAppRemove(AdlApplication adlApp);
-		bool AdlAppRemoveAll();
-		bool AdlAppSyncAll();
+		static std::wstring AdlAppRemove(AdlApplication adlApp);
+		static bool AdlAppRemoveAll();
+		static bool AdlAppSyncAll();
 		bool AdlAppUnlock(AdlApplication& adlApp, bool unlock);
 		bool AdlAppSetDefaults(AdlApplication& adlApp, bool clearProperties, bool addOnly);
-		std::wstring AdlAppProfileGenerateName(std::wstring profileHeader);
-		bool AdlAppExists(std::wstring fileName, std::wstring filePath, std::wstring driverArea);
-		bool AdlAppPropertyValid(std::wstring propertyName, std::wstring driverArea);
-		DATATYPES AdlAppPropertyDataTypeGet(std::wstring propertyName, std::wstring driverArea);
-		ADLProfilePropertyType AdlAppConvertDataTypeToPropertyType(DATATYPES dataType);
-		std::vector<ADLPropertyRecordCreate> AdlAppPropertyRecordCreateGet(std::vector<AdlAppProperty> adlAppProperties);
-		std::optional<AdlAppProperty> AdlAppPropertyGet(AdlApplication adlApp, std::wstring propertyName);
-		bool AdlAppPropertySave(AdlApplication& adlApp);
-		bool AdlAppPropertyLoad(AdlApplication& adlApplication);
-		bool AdlAppPropertyUpdate(AdlApplication& adlApp, std::vector<AdlAppProperty> properties, bool addOnly);
-		bool AdlAppPropertyUpdate(AdlApplication& adlApp, std::wstring propertyGpuId, std::wstring propertyName, std::wstring propertyValue);
+		static std::wstring AdlAppProfileGenerateName(std::wstring profileHeader);
+		static bool AdlAppExists(std::wstring fileName, std::wstring filePath, std::wstring driverArea);
+		static bool AdlAppPropertyValid(std::wstring propertyName, std::wstring driverArea);
+		static DATATYPES AdlAppPropertyDataTypeGet(std::wstring propertyName, std::wstring driverArea);
+		static ADLProfilePropertyType AdlAppConvertDataTypeToPropertyType(DATATYPES dataType);
+		static std::vector<ADLPropertyRecordCreate> AdlAppPropertyRecordCreateGet(std::vector<AdlAppProperty> adlAppProperties);
+		static std::optional<AdlAppProperty> AdlAppPropertyGet(AdlApplication adlApp, std::wstring propertyName);
+		static bool AdlAppPropertySave(AdlApplication& adlApp);
+		static bool AdlAppPropertyLoad(AdlApplication& adlApplication);
+		static bool AdlAppPropertyUpdate(AdlApplication& adlApp, std::vector<AdlAppProperty> properties, bool addOnly);
+		static bool AdlAppPropertyUpdate(AdlApplication& adlApp, std::wstring propertyGpuId, std::wstring propertyName, std::wstring propertyValue);
 
 		static bool Adl_Overdrive8_Values_Reset(int gpuAdapterIndex);
 		static bool Adl_Overdrive8_Values_Set(int gpuAdapterIndex, std::vector<std::tuple<ADLOD8SettingId, int, bool>> saveSettings);
@@ -90,10 +90,10 @@ namespace winrt::RadeonTuner::implementation
 		static AdlGammaRamp AdlGammaRampBuild(float baseGamma, float redGamma, float greenGamma, float blueGamma);
 		static bool AdlGammaApply(int gpuAdapterIndex, float baseGamma, float redGamma, float greenGamma, float blueGamma);
 
-		bool AdlRegistrySettingSet(int gpuAdapterIndex, std::string subKey, std::string keyName, std::wstring keyValue);
-		bool AdlRegistrySettingSet(int gpuAdapterIndex, std::string subKey, std::string keyName, int keyValue);
-		std::optional<std::wstring> AdlRegistrySettingGetString(int gpuAdapterIndex, std::string subKey, std::string keyName, bool decodeBinary);
-		std::optional<INT> AdlRegistrySettingGetInt(int gpuAdapterIndex, std::string subKey, std::string keyName);
+		static bool AdlRegistrySettingSet(int gpuAdapterIndex, std::string subKey, std::string keyName, std::wstring keyValue);
+		static bool AdlRegistrySettingSet(int gpuAdapterIndex, std::string subKey, std::string keyName, int keyValue);
+		static std::optional<std::wstring> AdlRegistrySettingGetString(int gpuAdapterIndex, std::string subKey, std::string keyName, bool decodeBinary);
+		static std::optional<INT> AdlRegistrySettingGetInt(int gpuAdapterIndex, std::string subKey, std::string keyName);
 
 		static std::wstring AdlxGetGpuIdentifier(int adapterIndex);
 		static std::wstring AdlxGetDisplayIdentifier(int adapterIndex, int displayIndex);
@@ -106,51 +106,51 @@ namespace winrt::RadeonTuner::implementation
 		static std::vector<GraphicsStatus> GraphicsStatus_Get();
 		static void GraphicsStatus_Update(uint64_t expectedSession);
 
-		bool GraphicsSettings_Profiles_SaveToFile();
-		bool GraphicsSettings_Profiles_LoadFromFile();
-		bool GraphicsSettings_Profile_SaveToFile(GraphicsSettings graphicsSettings, std::wstring savePath);
-		std::optional<GraphicsSettings> GraphicsSettings_Profile_LoadFromFile(std::wstring loadPath);
-		bool GraphicsSettings_Profile_Add(GraphicsSettings graphicsSettingsAdd);
-		bool GraphicsSettings_Profile_Replace(GraphicsSettings graphicsSettingsReplace);
-		bool GraphicsSettings_Profile_Remove(std::wstring deviceId, std::wstring application);
-		std::optional<std::reference_wrapper<GraphicsSettings>> GraphicsSettings_Profile_Get(std::wstring deviceId, std::wstring application);
-		std::vector<std::wstring> GraphicsSettings_Profile_GetAllApps(std::wstring deviceId);
+		static bool GraphicsSettings_Profiles_SaveToFile();
+		static bool GraphicsSettings_Profiles_LoadFromFile();
+		static bool GraphicsSettings_Profile_SaveToFile(GraphicsSettings graphicsSettings, std::wstring savePath);
+		static std::optional<GraphicsSettings> GraphicsSettings_Profile_LoadFromFile(std::wstring loadPath);
+		static bool GraphicsSettings_Profile_Add(GraphicsSettings graphicsSettingsAdd);
+		static bool GraphicsSettings_Profile_Replace(GraphicsSettings graphicsSettingsReplace);
+		static bool GraphicsSettings_Profile_Remove(std::wstring deviceId, std::wstring application);
+		static std::optional<std::reference_wrapper<GraphicsSettings>> GraphicsSettings_Profile_Get(std::wstring deviceId, std::wstring application);
+		static std::vector<std::wstring> GraphicsSettings_Profile_GetAllApps(std::wstring deviceId);
 		bool GraphicsSettings_Match(GraphicsSettings settingsProfile, GraphicsSettings settingsAdl);
 
 		bool DisplaySettings_Convert_ToUI_Adl(DisplaySettings displaySettings, AdlSettingGet settingType);
 		bool DisplaySettings_Convert_ToUI_Profile(DisplaySettings displaySettings, AdlSettingGet settingType);
 		static std::optional<DisplaySettings> DisplaySettings_Generate_FromADL(int adapterIndex, int displayIndex, std::wstring application, bool loadDefault);
 
-		bool DisplaySettings_Profiles_SaveToFile();
-		bool DisplaySettings_Profiles_LoadFromFile();
-		bool DisplaySettings_Profile_SaveToFile(DisplaySettings displaySettings, std::wstring savePath);
-		std::optional<DisplaySettings> DisplaySettings_Profile_LoadFromFile(std::wstring loadPath);
-		bool DisplaySettings_Profile_Add(DisplaySettings displaySettingsAdd);
-		bool DisplaySettings_Profile_Replace(DisplaySettings displaySettingsReplace);
-		bool DisplaySettings_Profile_Remove(std::wstring deviceId, std::wstring application);
-		std::optional<std::reference_wrapper<DisplaySettings>> DisplaySettings_Profile_Get(std::wstring deviceId, std::wstring application);
-		std::vector<std::wstring> DisplaySettings_Profile_GetAllApps(std::wstring deviceId);
-		bool DisplaySettings_Profile_Set_UsingGlobal();
+		static bool DisplaySettings_Profiles_SaveToFile();
+		static bool DisplaySettings_Profiles_LoadFromFile();
+		static bool DisplaySettings_Profile_SaveToFile(DisplaySettings displaySettings, std::wstring savePath);
+		static std::optional<DisplaySettings> DisplaySettings_Profile_LoadFromFile(std::wstring loadPath);
+		static bool DisplaySettings_Profile_Add(DisplaySettings displaySettingsAdd);
+		static bool DisplaySettings_Profile_Replace(DisplaySettings displaySettingsReplace);
+		static bool DisplaySettings_Profile_Remove(std::wstring deviceId, std::wstring application);
+		static std::optional<std::reference_wrapper<DisplaySettings>> DisplaySettings_Profile_Get(std::wstring deviceId, std::wstring application);
+		static std::vector<std::wstring> DisplaySettings_Profile_GetAllApps(std::wstring deviceId);
+		static bool DisplaySettings_Profile_Set_UsingGlobal();
 		static bool DisplaySettings_Profile_Set_Using(std::wstring deviceId, std::wstring application);
-		bool DisplaySettings_Profile_Any_Using(std::wstring deviceId);
+		static bool DisplaySettings_Profile_Any_Using(std::wstring deviceId);
 		static bool DisplaySettings_Match(DisplaySettings settingsProfile, DisplaySettings settingsAdl, bool appProfileOnly);
 
 		bool MultimediaSettings_Convert_ToUI_Adl(MultimediaSettings multimediaSettings, AdlSettingGet settingType);
 		bool MultimediaSettings_Convert_ToUI_Profile(MultimediaSettings multimediaSettings, AdlSettingGet settingType);
 		std::optional<MultimediaSettings> MultimediaSettings_Generate_FromADL(int gpuAdapterIndex, std::wstring application, bool loadDefault);
 
-		bool MultimediaSettings_Profiles_SaveToFile();
-		bool MultimediaSettings_Profiles_LoadFromFile();
-		bool MultimediaSettings_Profile_SaveToFile(MultimediaSettings multimediaSettings, std::wstring savePath);
-		std::optional<MultimediaSettings> MultimediaSettings_Profile_LoadFromFile(std::wstring loadPath);
-		bool MultimediaSettings_Profile_Add(MultimediaSettings multimediaSettingsAdd);
-		bool MultimediaSettings_Profile_Replace(MultimediaSettings multimediaSettingsReplace);
-		bool MultimediaSettings_Profile_Remove(std::wstring deviceId, std::wstring application);
-		std::optional<std::reference_wrapper<MultimediaSettings>> MultimediaSettings_Profile_Get(std::wstring deviceId, std::wstring application);
-		std::vector<std::wstring> MultimediaSettings_Profile_GetAllApps(std::wstring deviceId);
-		bool MultimediaSettings_Profile_Set_UsingGlobal();
-		bool MultimediaSettings_Profile_Set_Using(std::wstring deviceId, std::wstring application);
-		bool MultimediaSettings_Profile_Any_Using(std::wstring deviceId);
+		static bool MultimediaSettings_Profiles_SaveToFile();
+		static bool MultimediaSettings_Profiles_LoadFromFile();
+		static bool MultimediaSettings_Profile_SaveToFile(MultimediaSettings multimediaSettings, std::wstring savePath);
+		static std::optional<MultimediaSettings> MultimediaSettings_Profile_LoadFromFile(std::wstring loadPath);
+		static bool MultimediaSettings_Profile_Add(MultimediaSettings multimediaSettingsAdd);
+		static bool MultimediaSettings_Profile_Replace(MultimediaSettings multimediaSettingsReplace);
+		static bool MultimediaSettings_Profile_Remove(std::wstring deviceId, std::wstring application);
+		static std::optional<std::reference_wrapper<MultimediaSettings>> MultimediaSettings_Profile_Get(std::wstring deviceId, std::wstring application);
+		static std::vector<std::wstring> MultimediaSettings_Profile_GetAllApps(std::wstring deviceId);
+		static bool MultimediaSettings_Profile_Set_UsingGlobal();
+		static bool MultimediaSettings_Profile_Set_Using(std::wstring deviceId, std::wstring application);
+		static bool MultimediaSettings_Profile_Any_Using(std::wstring deviceId);
 		bool MultimediaSettings_Match(MultimediaSettings settingsProfile, MultimediaSettings settingsAdl);
 
 		bool TuningFanSettings_Convert_ToUI_Adl(TuningFanSettings tuningFanSettings, AdlSettingGet settingType);
@@ -159,18 +159,18 @@ namespace winrt::RadeonTuner::implementation
 		static bool TuningFanSettings_Match(TuningFanSettings settingsProfile, TuningFanSettings settingsAdl);
 		static void TuningMetrics_Update(uint64_t expectedSession);
 
-		bool TuningFanSettings_Profiles_SaveToFile();
-		bool TuningFanSettings_Profiles_LoadFromFile();
-		bool TuningFanSettings_Profile_SaveToFile(TuningFanSettings tuningFanSettings, std::wstring savePath);
-		std::optional<TuningFanSettings> TuningFanSettings_Profile_LoadFromFile(std::wstring loadPath);
-		bool TuningFanSettings_Profile_Add(TuningFanSettings tuningFanSettingsAdd);
-		bool TuningFanSettings_Profile_Replace(TuningFanSettings tuningFanSettingsReplace);
-		bool TuningFanSettings_Profile_Remove(std::wstring deviceId, std::wstring application);
-		std::optional<std::reference_wrapper<TuningFanSettings>> TuningFanSettings_Profile_Get(std::wstring deviceId, std::wstring application);
-		std::vector<std::wstring> TuningFanSettings_Profile_GetAllApps(std::wstring deviceId);
-		bool TuningFanSettings_Profile_Set_UsingGlobal();
+		static bool TuningFanSettings_Profiles_SaveToFile();
+		static bool TuningFanSettings_Profiles_LoadFromFile();
+		static bool TuningFanSettings_Profile_SaveToFile(TuningFanSettings tuningFanSettings, std::wstring savePath);
+		static std::optional<TuningFanSettings> TuningFanSettings_Profile_LoadFromFile(std::wstring loadPath);
+		static bool TuningFanSettings_Profile_Add(TuningFanSettings tuningFanSettingsAdd);
+		static bool TuningFanSettings_Profile_Replace(TuningFanSettings tuningFanSettingsReplace);
+		static bool TuningFanSettings_Profile_Remove(std::wstring deviceId, std::wstring application);
+		static std::optional<std::reference_wrapper<TuningFanSettings>> TuningFanSettings_Profile_Get(std::wstring deviceId, std::wstring application);
+		static std::vector<std::wstring> TuningFanSettings_Profile_GetAllApps(std::wstring deviceId);
+		static bool TuningFanSettings_Profile_Set_UsingGlobal();
 		static bool TuningFanSettings_Profile_Set_Using(std::wstring deviceId, std::wstring application);
-		bool TuningFanSettings_Profile_Any_Using(std::wstring deviceId);
+		static bool TuningFanSettings_Profile_Any_Using(std::wstring deviceId);
 
 		void AdlxValuesExportDisplay();
 		winrt::IAsyncAction AdlxValuesImportDisplay();
@@ -180,7 +180,7 @@ namespace winrt::RadeonTuner::implementation
 		winrt::IAsyncAction AdlxValuesImportTuning();
 		bool AdlxResetShaderCache();
 
-		bool AdlGraphicsSettingsApply(int gpuAdapterIndex, std::wstring gpuUniqueIdentifierHex, AdlApplication& adlApp, GraphicsSettings graphicsSettings, AdlSettingGet settingGet);
+		static bool AdlGraphicsSettingsApply(int gpuAdapterIndex, std::wstring gpuUniqueIdentifierHex, AdlApplication& adlApp, GraphicsSettings graphicsSettings, AdlSettingGet settingGet);
 		bool AdlMultimediaSettingsApply(int gpuAdapterIndex, MultimediaSettings multimediaSettings, AdlSettingGet settingGet);
 		static bool AdlTuningFanSettingsApply(int gpuAdapterIndex, TuningFanSettings tuningFanSettings, AdlSettingGet settingGet);
 		static bool AdlDisplaySettingsApply(int displayAdapterIndex, int displayDisplayIndex, DisplaySettings targetSettings, DisplaySettings adlSettings, AdlSettingGet settingGet, bool appProfileOnly);
@@ -342,9 +342,9 @@ namespace winrt::RadeonTuner::implementation
 		std::wstring FsrOverrideDllGetPathDefault();
 		std::wstring FsrOverrideDllGetPathSet(bool globalPath);
 
-		bool EnvironmentSettingGet(std::wstring settingName);
-		bool EnvironmentSettingRemove(std::wstring settingName);
-		bool EnvironmentSettingSet(std::wstring settingName, bool enabled);
+		static bool EnvironmentSettingGet(std::wstring settingName);
+		static bool EnvironmentSettingRemove(std::wstring settingName);
+		static bool EnvironmentSettingSet(std::wstring settingName, bool enabled);
 
 		void DisplaySettings_Resolution_Revert();
 		void DisplaySettings_Confirm_Resolution_Start();
@@ -353,7 +353,7 @@ namespace winrt::RadeonTuner::implementation
 		void button_Overlay_RevertResolution_Click(IInspectable const& sender, RoutedEventArgs const& e);
 
 		void DisplaySettings_Confirm_CustomResolution_Start();
-		void DisplaySettings_Confirm_CustomResolution_Stop(bool revertResolution);
+		winrt::IAsyncAction DisplaySettings_Confirm_CustomResolution_Stop(bool revertResolution);
 		winrt::IAsyncAction combobox_CustomResolution_TimingStandard_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 		winrt::IAsyncAction textbox_CustomResolution_Resolution_TextChanged(IInspectable const& sender, TextChangedEventArgs const& e);
 		winrt::IAsyncAction textbox_CustomResolution_RefreshRate_TextChanged(IInspectable const& sender, TextChangedEventArgs const& e);

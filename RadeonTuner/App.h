@@ -21,6 +21,14 @@ namespace winrt::RadeonTuner::implementation
 		void SetTopMost(bool topMost);
 		void SetContent(FrameworkElement const& content);
 		void CreateWindowXaml(HINSTANCE hInstance, bool winVisible, bool winOnTop);
+		void CreateHostWindow(HINSTANCE hInstance, bool showUi, bool winOnTop);
+		void LaunchUiWorker();
+		void CompleteUiWorkerIfExited();
+		void StopUiWorker();
+		void NotifyWorkerClosing(DWORD processId);
+		void NotifyHostSettingsChanged();
+		void NotifyWorkerSettings(DWORD processId);
+		winrt::fire_and_forget CloseUiWorkerAsync();
 		void DispatcherInvoke(std::function<void()> const& action);
 		void Exit(bool forceExit);
 		void TrayIconCreate(HINSTANCE hInstance);
@@ -69,6 +77,8 @@ namespace winrt::RadeonTuner::implementation
 		DesktopWindowXamlSource _desktopWindowXamlSource = NULL;
 		HICON _trayIconHandle = NULL;
 		bool _trayIconAdded = false;
+		UINT _trayIconWidth = 0;
+		UINT _trayIconHeight = 0;
 		HRESULT _trayIconLastHresult = S_OK;
 		bool _nativeThemeRefreshing = false;
 		bool _nativeThemeApplied = false;
@@ -86,6 +96,24 @@ namespace winrt::RadeonTuner::implementation
 		int _uiWorkCount = 0;
 		bool _uiReleasePending = false;
 		bool _uiEnsureInProgress = false;
+		HANDLE _uiWorkerProcess = NULL;
+		HANDLE _uiWorkerThread = NULL;
+		HANDLE _uiWorkerInWrite = NULL;
+		HANDLE _uiWorkerOutRead = NULL;
+		HANDLE _uiWorkerJob = NULL;
+		bool _uiWorkerRunning = false;
+		bool _uiWorkerPending = false;
+		bool _uiWorkerClosing = false;
+		bool _exitAllPending = false;
+		bool _workerExitStarted = false;
+		bool _workerExitAll = false;
+		bool _uiWorkerFirst = true;
+		bool _hostSettingsInitialized = false;
+		bool _hostHideTray = false;
+		bool _hostThemeMono = false;
+		std::string _uiWorkerStateJson;
+		std::string _uiWorkerPayload;
+		bool _uiWorkerPayloadReady = false;
 
 		//Backend loops are started once, independently of the page lifetime.
 		std::atomic<bool> _backendStarted{ false };

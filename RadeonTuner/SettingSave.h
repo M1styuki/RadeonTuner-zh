@@ -136,6 +136,7 @@ namespace winrt::RadeonTuner::implementation
 			ToggleSwitch senderElement = sender.as<ToggleSwitch>();
 			bool hideTrayIcon = senderElement.IsOn();
 			AppVariables::Settings.Set("HideTrayIcon", hideTrayIcon);
+			AppVariables::App.NotifyHostSettingsChanged();
 
 			//Apply the tray visibility immediately
 			HRESULT refreshResult = AppVariables::App.RefreshTrayIcon();
@@ -227,6 +228,7 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update settings
 			AppVariables::Settings.Set("ThemeStyle", newValue);
+			AppVariables::App.NotifyHostSettingsChanged();
 
 			//Adjust theme style
 			ThemeAdjustStyle();
@@ -245,10 +247,12 @@ namespace winrt::RadeonTuner::implementation
 			if (senderElement.IsOn())
 			{
 				AppVariables::Settings.Set("ThemeIconMono", true);
+				AppVariables::App.NotifyHostSettingsChanged();
 			}
 			else
 			{
 				AppVariables::Settings.Set("ThemeIconMono", false);
+				AppVariables::App.NotifyHostSettingsChanged();
 			}
 
 			//Refresh the tray icon with the selected theme icon, while still respecting the hide setting

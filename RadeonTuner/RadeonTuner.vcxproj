@@ -175,6 +175,7 @@
     <ClInclude Include="ADL\adl_structures.h" />
     <ClInclude Include="AppVariables.h" />
     <ClInclude Include="RadeonTunerBackend.h" />
+    <ClInclude Include="RadeonTunerIpc.h" />
     <ClInclude Include="RadeonTunerUiSession.h" />
     <ClInclude Include="MainPage.h">
       <DependentUpon>MainPage.xaml</DependentUpon>

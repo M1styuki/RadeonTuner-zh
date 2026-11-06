@@ -1,8 +1,12 @@
 #pragma once
 #include "pch.h"
+#include <cstdlib>
+#include <shellapi.h>
 #include "AppVariables.h"
 #include "SettingCheck.h"
 #include "SingleInstanceRecall.h"
+#include "RadeonTunerBackend.h"
+#include "RadeonTunerIpc.h"
 #ifdef RADEONTUNER_UI_VALIDATION
 #if __has_include("..\tools\UiValidation\UiValidationEntry.h")
 #include "..\tools\UiValidation\UiValidationEntry.h"
@@ -33,6 +37,47 @@ void CheckFileAttributes()
 	catch (...) {}
 }
 
+bool ParseUiWorkerArguments(std::wstring const& commandLine, HANDLE& inputPipe, HANDLE& outputPipe, bool& firstWorker)
+{
+	try
+	{
+		int argumentCount = 0;
+		LPWSTR* arguments = CommandLineToArgvW(GetCommandLineW(), &argumentCount);
+		if (arguments == NULL)
+		{
+			return false;
+		}
+		bool worker = false;
+		for (int index = 1; index < argumentCount; index++)
+		{
+			if (_wcsicmp(arguments[index], L"-ui-worker") == 0)
+			{
+				worker = true;
+				if (index + 2 < argumentCount)
+				{
+					inputPipe = (HANDLE)(UINT_PTR)_wcstoui64(arguments[index + 1], NULL, 10);
+					outputPipe = (HANDLE)(uintptr_t)_wcstoui64(arguments[index + 2], NULL, 10);
+				}
+			}
+			else if (_wcsicmp(arguments[index], L"-ui-first") == 0)
+			{
+				firstWorker = true;
+			}
+			else if (_wcsicmp(arguments[index], L"-ui-host") == 0 && index + 2 < argumentCount)
+			{
+				AppVariables::UiWorkerHostWindow = (HWND)(UINT_PTR)_wcstoui64(arguments[index + 1], NULL, 10);
+				AppVariables::UiWorkerHostPid = (DWORD)_wcstoui64(arguments[index + 2], NULL, 10);
+			}
+		}
+		LocalFree(arguments);
+		return worker && inputPipe != NULL && outputPipe != NULL;
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
 int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
 {
 #ifdef RADEONTUNER_UI_VALIDATION
@@ -42,6 +87,15 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	{
 		//Convert command line to string
 		std::wstring commandLineString = pCmdLine;
+		HANDLE workerInput = NULL;
+		HANDLE workerOutput = NULL;
+		AppVariables::UiWorkerMode = ParseUiWorkerArguments(commandLineString, workerInput, workerOutput, AppVariables::UiWorkerFirst);
+		AppVariables::NativeHostMode = !AppVariables::UiWorkerMode;
+		if (AppVariables::UiWorkerMode)
+		{
+			AppVariables::UiWorkerInput = workerInput;
+			AppVariables::UiWorkerOutput = workerOutput;
+		}
 
 		//Get application root path
 		std::wstring applicationRootPath = PathGetAppRoot();
@@ -70,8 +124,11 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			AppVariables::SaveDataPath = applicationRootPath;
 		}
 
-		//Check file attributes
-		CheckFileAttributes();
+		//Check file attributes once in the host.
+		if (!AppVariables::UiWorkerMode)
+		{
+			CheckFileAttributes();
+		}
 
 		//Enable debug logging
 		if (commandLineString.find(L"-debug") != std::wstring::npos)
@@ -86,7 +143,7 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 		//Check if this executable is already running
 		//Note: only match the full executable path, another RadeonTuner.exe from a different folder is not this application
-		std::wstring currentExecutablePath = PathGetAppExecutable();
+		std::wstring currentExecutablePath = AppVariables::UiWorkerMode ? std::wstring() : PathGetAppExecutable();
 		if (!currentExecutablePath.empty())
 		{
 			if (RadeonTunerSingleInstance::RecallExistingInstance(currentExecutablePath))
@@ -110,11 +167,12 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		//Initialize settings
 		AppVariables::Settings = AVSettingsJson(PathMerge(AppVariables::SaveDataPath, L"Settings\\Settings.json"));
 
-		//Replace updater executable
-		UpdateCleanup();
-
-		//Check settings
-		SettingCheck();
+		//One-time host initialization; a worker must not repeat global defaults or updater cleanup.
+		if (!AppVariables::UiWorkerMode)
+		{
+			UpdateCleanup();
+			SettingCheck();
+		}
 
 		//Load window settings
 		bool setFirstLaunchBool = false;
@@ -138,9 +196,40 @@ int CALLBACK wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			setTopMostBool = setTopMostSetting.value();
 		}
 
-		//Create application window
 		AVDebugWriteLine("Creating application window.");
-		AppVariables::App.CreateWindowXaml(hInstance, setFirstLaunchBool || setStartWindowVisibleBool, setTopMostBool);
+		if (AppVariables::UiWorkerMode)
+		{
+			std::string state;
+			if (AppVariables::UiWorkerInput != NULL)
+			{
+				RadeonTunerIpc::ReadFrame(AppVariables::UiWorkerInput, state);
+				CloseHandle(AppVariables::UiWorkerInput);
+				AppVariables::UiWorkerInput = NULL;
+			}
+			AppVariables::UiWorkerStateJson = state;
+			AppVariables::App.CreateWindowXaml(hInstance, true, setTopMostBool);
+		}
+		else
+		{
+			//The host never initializes XAML. It owns the native tray window, the
+			//one-time driver defaults/sync and the profile backend.
+			RadeonTunerBackend::HeadlessOptions options{};
+			options.InitializeAdl = true;
+			options.LoadProfiles = true;
+			options.SelectDefaults = true;
+			options.WriteDefaults = true;
+			options.SyncApplications = true;
+			std::wstring initError = RadeonTunerBackend::InitializeHeadless(options);
+			if (!initError.empty())
+			{
+				AVDebugWriteLine(L"Headless backend initialization failed: " << initError.c_str());
+				//Open the original worker error UI, but do not start invalid host polling.
+				AppVariables::App.CreateHostWindow(hInstance, true, false);
+				return 0;
+			}
+			AppVariables::App.EnsureBackendStarted();
+			AppVariables::App.CreateHostWindow(hInstance, setFirstLaunchBool || setStartWindowVisibleBool, setTopMostBool);
+		}
 
 		//Return result
 		return 0;

@@ -65,7 +65,13 @@ namespace RadeonTunerSingleInstance
 					HWND windowHandle = process.WindowHandleMain(false);
 					if (windowHandle != NULL)
 					{
-						Show_ProcessByWindowHandle(windowHandle);
+						//Only the native host is the recall control window; never show a UI worker.
+						wchar_t className[64] = {};
+						GetClassNameW(windowHandle, className, _countof(className));
+						if (wcscmp(className, L"RadeonTunerMainWindow") == 0)
+						{
+							Show_ProcessByWindowHandle(windowHandle);
+						}
 					}
 				}
 				catch (...) {}

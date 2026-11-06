@@ -7,9 +7,11 @@
 #include "App.g.cpp"
 #endif
 #include "AppVariables.h"
+#include "MainVariables.h"
 #include "MainPage.h"
 #include "RadeonTunerBackend.h"
 #include "RadeonTunerUiSession.h"
+#include "RadeonTunerIpc.h"
 #ifdef RADEONTUNER_UI_VALIDATION
 #if __has_include("..\tools\UiValidation\UiValidationCommon.h")
 #include "..\tools\UiValidation\UiValidationCommon.h"
@@ -31,6 +33,9 @@ namespace winrt::RadeonTuner::implementation
 	const UINT TM_WEBSITE = 0x8003;
 	const UINT TM_EXIT = 0x8004;
 	const UINT_PTR TIMER_RELEASE_UI = 0x8101;
+	const UINT_PTR TIMER_WORKER_POLL = 0x8102;
+	const UINT WM_WORKER_CLOSING = WM_APP + 0x51;
+	const UINT WM_WORKER_SETTINGS = WM_APP + 0x52;
 
 	//Application tray callback
 	void AppTrayCallback(LPARAM lParam)
@@ -90,9 +95,77 @@ namespace winrt::RadeonTuner::implementation
 		catch (...) {}
 	}
 
+	namespace
+	{
+		//The notification area follows the taskbar DPI. GetSystemMetricsForDpi
+		//returns the exact small-icon size (for example 24x24 at 144 DPI).
+		UINT TrayIconDpi(HWND mainWindow)
+		{
+			HWND taskbarWindow = FindWindowW(L"Shell_TrayWnd", nullptr);
+			if (taskbarWindow != NULL)
+			{
+				UINT taskbarDpi = GetDpiForWindow(taskbarWindow);
+				if (taskbarDpi != 0)
+				{
+					return taskbarDpi;
+				}
+			}
+			if (mainWindow != NULL)
+			{
+				UINT windowDpi = GetDpiForWindow(mainWindow);
+				if (windowDpi != 0)
+				{
+					return windowDpi;
+				}
+			}
+			UINT systemDpi = GetDpiForSystem();
+			return systemDpi != 0 ? systemDpi : 96;
+		}
+
+		void TrayIconSize(HWND mainWindow, UINT& width, UINT& height)
+		{
+			UINT dpi = TrayIconDpi(mainWindow);
+			width = (UINT)GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+			height = (UINT)GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+			if (width == 0 || height == 0)
+			{
+				width = (UINT)GetSystemMetrics(SM_CXSMICON);
+				height = (UINT)GetSystemMetrics(SM_CYSMICON);
+			}
+		}
+	}
+
+	namespace
+	{
+		HWND FindUiWorkerWindow(DWORD processId)
+		{
+			struct FindState { DWORD ProcessId; HWND Window; } state{ processId, NULL };
+			EnumWindows([](HWND window, LPARAM parameter) -> BOOL
+				{
+					auto* state = reinterpret_cast<FindState*>(parameter);
+					DWORD windowProcessId = 0;
+					GetWindowThreadProcessId(window, &windowProcessId);
+					if (windowProcessId != state->ProcessId || !IsWindowVisible(window)) { return TRUE; }
+					wchar_t className[64] = {};
+					GetClassNameW(window, className, _countof(className));
+					if (wcscmp(className, L"RadeonTunerUiWorkerWindow") == 0)
+					{
+						state->Window = window;
+						return FALSE;
+					}
+					return TRUE;
+				}, reinterpret_cast<LPARAM>(&state));
+			return state.Window;
+		}
+	}
+
 	//Application tray icon create
 	void App::TrayIconCreate(HINSTANCE hInstance)
 	{
+		if (AppVariables::UiWorkerMode)
+		{
+			return;
+		}
 		//Remove the previous notification icon and destroy the icon handle owned by this class
 		TrayIconDelete();
 		_trayIconLastHresult = S_OK;
@@ -113,7 +186,10 @@ namespace winrt::RadeonTuner::implementation
 			{
 				iconPath = L"Assets\\AppIconMono.ico";
 			}
-			HICON iconHandle = (HICON)LoadImageW(nullptr, iconPath.c_str(), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
+			UINT iconWidth = 0;
+			UINT iconHeight = 0;
+			TrayIconSize(_hWnd_MainWindow, iconWidth, iconHeight);
+			HICON iconHandle = (HICON)LoadImageW(nullptr, iconPath.c_str(), IMAGE_ICON, (int)iconWidth, (int)iconHeight, LR_LOADFROMFILE);
 			if (iconHandle == NULL)
 			{
 				_trayIconLastHresult = HRESULT_FROM_WIN32(GetLastError());
@@ -142,6 +218,8 @@ namespace winrt::RadeonTuner::implementation
 				return;
 			}
 			_trayIconAdded = true;
+			_trayIconWidth = iconWidth;
+			_trayIconHeight = iconHeight;
 		}
 		catch (...)
 		{
@@ -169,6 +247,8 @@ namespace winrt::RadeonTuner::implementation
 		catch (...) {}
 
 		_trayIconAdded = false;
+		_trayIconWidth = 0;
+		_trayIconHeight = 0;
 
 		//Destroy only the HICON loaded for the tray, never the window class icon
 		if (_trayIconHandle != NULL)
@@ -182,6 +262,38 @@ namespace winrt::RadeonTuner::implementation
 	{
 		TrayIconCreate(AppVariables::hInstance);
 		return _trayIconLastHresult;
+	}
+
+	HRESULT App::RefreshTrayIconForDpiChange()
+	{
+		try
+		{
+			//Hidden or missing icon is handled by the explicit hide/theme refresh paths.
+			if (!_trayIconAdded)
+			{
+				return _trayIconLastHresult;
+			}
+			std::optional<bool> hideTrayIcon = AppVariables::Settings.Load<bool>("HideTrayIcon");
+			if (hideTrayIcon.value_or(false))
+			{
+				return _trayIconLastHresult;
+			}
+
+			UINT iconWidth = 0;
+			UINT iconHeight = 0;
+			TrayIconSize(_hWnd_MainWindow, iconWidth, iconHeight);
+			if (iconWidth == _trayIconWidth && iconHeight == _trayIconHeight)
+			{
+				return _trayIconLastHresult;
+			}
+
+			//Rebuild only when the requested taskbar icon size actually changed.
+			return RefreshTrayIcon();
+		}
+		catch (...)
+		{
+			return E_FAIL;
+		}
 	}
 
 	void App::RefreshNativeTheme()
@@ -297,6 +409,17 @@ namespace winrt::RadeonTuner::implementation
 			}
 			case WM_SHOWWINDOW:
 			{
+				if (AppVariables::NativeHostMode)
+				{
+					//The host is a recall control window only; never show it blank.
+					if (wParam)
+					{
+						AppVariables::App.LaunchUiWorker();
+						ShowWindow(hWnd, SW_HIDE);
+					}
+					return 0;
+				}
+
 				//Portable launcher, single-instance recall and tray all end up here.
 				//Create the released XAML island before Windows actually shows the window.
 				if (wParam)
@@ -307,6 +430,11 @@ namespace winrt::RadeonTuner::implementation
 			}
 			case WM_TIMER:
 			{
+				if ((UINT_PTR)wParam == TIMER_WORKER_POLL)
+				{
+					AppVariables::App.CompleteUiWorkerIfExited();
+					return 0;
+				}
 				//Deferred UI release after pending UI work and safety timers finished
 				AppVariables::App.HandleUiReleaseTimer((UINT_PTR)wParam);
 				return 0;
@@ -322,15 +450,34 @@ namespace winrt::RadeonTuner::implementation
 				}
 				return 0;
 			}
+			case WM_WORKER_SETTINGS:
+			{
+				AppVariables::App.NotifyWorkerSettings((DWORD)wParam);
+				return 0;
+			}
+			case WM_WORKER_CLOSING:
+			{
+				AppVariables::App.NotifyWorkerClosing((DWORD)wParam);
+				return 0;
+			}
+			case WM_DPICHANGED:
+			case WM_DISPLAYCHANGE:
+			{
+				//Taskbar DPI or monitor layout changed; only rebuild when the requested icon size differs.
+				AppVariables::App.RefreshTrayIconForDpiChange();
+				return DefWindowProcW(hWnd, messageCode, wParam, lParam);
+			}
 			case WM_SETTINGCHANGE:
 			{
 				//System settings changed, including high contrast; change detection suppresses unrelated repeats
+				AppVariables::App.RefreshTrayIconForDpiChange();
 				AppVariables::App.RefreshNativeTheme();
 				return DefWindowProcW(hWnd, messageCode, wParam, lParam);
 			}
 			case WM_THEMECHANGED:
 			{
 				//System theme changed; refresh with change detection and the reentry guard above
+				AppVariables::App.RefreshTrayIconForDpiChange();
 				AppVariables::App.RefreshNativeTheme();
 				return DefWindowProcW(hWnd, messageCode, wParam, lParam);
 			}
@@ -352,23 +499,415 @@ namespace winrt::RadeonTuner::implementation
 		try
 		{
 			std::optional<bool> CloseTray = AppVariables::Settings.Load<bool>("CloseTray");
-			if (!forceExit && CloseTray.has_value() && CloseTray.value())
+			if (AppVariables::UiWorkerMode)
 			{
-				//Hide now, release the whole UI after pending interactions finish
+				if (_workerExitStarted)
+				{
+					if (forceExit) { _workerExitAll = true; }
+					return;
+				}
+				_workerExitStarted = true;
+				_workerExitAll = forceExit || !CloseTray.value_or(false);
+				CloseUiWorkerAsync();
+				return;
+			}
+
+			if (AppVariables::NativeHostMode)
+			{
+				if (!forceExit && CloseTray.value_or(false))
+				{
+					ShowWindow(_hWnd_MainWindow, SW_HIDE);
+				}
+				else
+				{
+					if (_uiWorkerRunning && _uiWorkerProcess != NULL)
+					{
+						//Async close: return to the host message loop so the pipe is polled.
+						_exitAllPending = true;
+						_uiWorkerPending = false;
+						HWND workerWindow = FindUiWorkerWindow(GetProcessId(_uiWorkerProcess));
+						if (workerWindow != NULL) { PostMessageW(workerWindow, WM_CLOSE, 0, 0); }
+						return;
+					}
+					TrayIconDelete();
+					AppVariables::ApplicationExiting = true;
+					exit(0);
+				}
+			}
+			else if (!forceExit && CloseTray.value_or(false))
+			{
 				HideToTray();
 			}
 			else
 			{
 				AVDebugWriteLine("Exiting application.");
-
-				//Delete tray icon
+				StopUiWorker();
 				TrayIconDelete();
-
-				//Update variables
 				AppVariables::ApplicationExiting = true;
-
-				//Exit application
 				exit(0);
+			}
+		}
+		catch (...) {}
+	}
+	void App::LaunchUiWorker()
+	{
+		try
+		{
+			if (_hWnd_MainWindow == NULL)
+			{
+				return;
+			}
+			if (_uiWorkerRunning)
+			{
+				if (_uiWorkerClosing)
+				{
+					_uiWorkerPending = true;
+					return;
+				}
+				HWND workerWindow = FindUiWorkerWindow(_uiWorkerProcess != NULL ? GetProcessId(_uiWorkerProcess) : 0);
+				if (workerWindow != NULL)
+				{
+					ShowWindow(workerWindow, SW_SHOWNORMAL);
+					SetForegroundWindow(workerWindow);
+				}
+				else
+				{
+					_uiWorkerPending = true;
+				}
+				return;
+			}
+
+			RadeonTunerBackend::PauseProfileLoop();
+
+			SECURITY_ATTRIBUTES security = { sizeof(security), NULL, TRUE };
+			HANDLE inRead = NULL;
+			HANDLE inWrite = NULL;
+			HANDLE outRead = NULL;
+			HANDLE outWrite = NULL;
+			if (!CreatePipe(&inRead, &inWrite, &security, 0) || !CreatePipe(&outRead, &outWrite, &security, 0))
+			{
+				if (inRead) CloseHandle(inRead);
+				if (inWrite) CloseHandle(inWrite);
+				if (outRead) CloseHandle(outRead);
+				if (outWrite) CloseHandle(outWrite);
+				RadeonTunerBackend::ResumeProfileLoop();
+				return;
+			}
+			SetHandleInformation(inWrite, HANDLE_FLAG_INHERIT, 0);
+			SetHandleInformation(outRead, HANDLE_FLAG_INHERIT, 0);
+
+			std::wstring executablePath(32768, L'\0');
+			DWORD executableLength = GetModuleFileNameW(NULL, executablePath.data(), (DWORD)executablePath.size());
+			executablePath.resize(executableLength);
+			std::wstring commandLine = L"\"" + executablePath + L"\" -ui-worker " +
+				std::to_wstring((UINT_PTR)inRead) + L" " + std::to_wstring((UINT_PTR)outWrite) +
+				(_uiWorkerFirst ? L" -ui-first" : L"") +
+				L" -ui-host " + std::to_wstring((UINT_PTR)_hWnd_MainWindow) + L" " + std::to_wstring((DWORD)GetCurrentProcessId());
+			std::vector<wchar_t> commandLineBuffer(commandLine.begin(), commandLine.end());
+			commandLineBuffer.push_back(L'\0');
+
+			STARTUPINFOEXW startupInfo = { };
+			startupInfo.StartupInfo.cb = sizeof(startupInfo);
+			SIZE_T attributeSize = 0;
+			InitializeProcThreadAttributeList(NULL, 1, 0, &attributeSize);
+			std::vector<BYTE> attributeBuffer(attributeSize);
+			startupInfo.lpAttributeList = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(attributeBuffer.data());
+			bool attributesReady = InitializeProcThreadAttributeList(startupInfo.lpAttributeList, 1, 0, &attributeSize) != FALSE;
+			HANDLE inheritedHandles[2] = { inRead, outWrite };
+			if (attributesReady)
+			{
+				attributesReady = UpdateProcThreadAttribute(startupInfo.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+					inheritedHandles, sizeof(inheritedHandles), NULL, NULL) != FALSE;
+			}
+			PROCESS_INFORMATION processInfo = { };
+			std::wstring applicationRoot = PathGetAppRoot();
+			BOOL created = attributesReady && CreateProcessW(executablePath.c_str(), commandLineBuffer.data(), NULL, NULL, TRUE,
+				EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT, NULL, applicationRoot.c_str(),
+				&startupInfo.StartupInfo, &processInfo);
+			if (attributesReady)
+			{
+				DeleteProcThreadAttributeList(startupInfo.lpAttributeList);
+			}
+			if (!created)
+			{
+				CloseHandle(inRead);
+				CloseHandle(inWrite);
+				CloseHandle(outRead);
+				CloseHandle(outWrite);
+				RadeonTunerBackend::ResumeProfileLoop();
+				return;
+			}
+
+			CloseHandle(inRead);
+			CloseHandle(outWrite);
+			//A kill-on-close job ensures host death never leaves an orphan worker.
+			if (_uiWorkerJob == NULL)
+			{
+				_uiWorkerJob = CreateJobObjectW(NULL, NULL);
+				if (_uiWorkerJob != NULL)
+				{
+					JOBOBJECT_EXTENDED_LIMIT_INFORMATION jobInfo = { };
+					jobInfo.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK;
+					SetInformationJobObject(_uiWorkerJob, JobObjectExtendedLimitInformation, &jobInfo, sizeof(jobInfo));
+				}
+			}
+			if (_uiWorkerJob != NULL)
+			{
+				AssignProcessToJobObject(_uiWorkerJob, processInfo.hProcess);
+			}
+			_uiWorkerProcess = processInfo.hProcess;
+			_uiWorkerThread = processInfo.hThread;
+			_uiWorkerInWrite = inWrite;
+			_uiWorkerOutRead = outRead;
+			_uiWorkerRunning = true;
+			_uiWorkerPending = false;
+
+			//Refresh runtime using-profile facts after the host batch pause; keep the
+			//saved draft model/snapshot but never let stale runtime flags decorate it.
+			std::string runtimeState = RadeonTunerBackend::CaptureStateJson();
+			std::string state = RadeonTunerBackend::MergeRuntimeStateJson(_uiWorkerStateJson, runtimeState);
+			RadeonTunerIpc::WriteFrame(_uiWorkerInWrite, state);
+			CloseHandle(_uiWorkerInWrite);
+			_uiWorkerInWrite = NULL;
+			_uiWorkerFirst = false;
+			SetTimer(_hWnd_MainWindow, TIMER_WORKER_POLL, 200, NULL);
+		}
+		catch (...)
+		{
+			RadeonTunerBackend::ResumeProfileLoop();
+		}
+	}
+
+	void App::CompleteUiWorkerIfExited()
+	{
+		if (!_uiWorkerRunning || _uiWorkerProcess == NULL)
+		{
+			return;
+		}
+		DWORD waitResult = WaitForSingleObject(_uiWorkerProcess, 0);
+		if (waitResult == WAIT_TIMEOUT)
+		{
+			//A full-exit request can arrive before the worker has created its window.
+			if (_exitAllPending && !_uiWorkerClosing)
+			{
+				HWND workerWindow = FindUiWorkerWindow(GetProcessId(_uiWorkerProcess));
+				if (workerWindow != NULL) { PostMessageW(workerWindow, WM_CLOSE, 0, 0); }
+			}
+			//Read the exit frame while the worker may still be blocked on a full pipe.
+			if (!_uiWorkerPayloadReady && _uiWorkerOutRead != NULL)
+			{
+				DWORD available = 0;
+				if (PeekNamedPipe(_uiWorkerOutRead, NULL, 0, NULL, &available, NULL) && available >= sizeof(uint32_t))
+				{
+					_uiWorkerPayloadReady = RadeonTunerIpc::ReadFrame(_uiWorkerOutRead, _uiWorkerPayload);
+				}
+			}
+			if (_uiWorkerPending)
+			{
+				HWND workerWindow = _uiWorkerClosing ? NULL : FindUiWorkerWindow(_uiWorkerProcess != NULL ? GetProcessId(_uiWorkerProcess) : 0);
+				if (workerWindow != NULL)
+				{
+					ShowWindow(workerWindow, SW_SHOWNORMAL);
+					SetForegroundWindow(workerWindow);
+					_uiWorkerPending = false;
+				}
+			}
+			return;
+		}
+
+		std::string payload;
+		bool hadState = _uiWorkerPayloadReady;
+		if (hadState) { payload = _uiWorkerPayload; }
+		else { hadState = RadeonTunerIpc::ReadFrame(_uiWorkerOutRead, payload); }
+		_uiWorkerPayloadReady = false;
+		_uiWorkerPayload.clear();
+		CloseHandle(_uiWorkerOutRead);
+		_uiWorkerOutRead = NULL;
+		CloseHandle(_uiWorkerProcess);
+		_uiWorkerProcess = NULL;
+		if (_uiWorkerThread != NULL)
+		{
+			CloseHandle(_uiWorkerThread);
+			_uiWorkerThread = NULL;
+		}
+		_uiWorkerRunning = false;
+		_uiWorkerClosing = false;
+		if (_uiWorkerJob != NULL) { CloseHandle(_uiWorkerJob); _uiWorkerJob = NULL; }
+		KillTimer(_hWnd_MainWindow, TIMER_WORKER_POLL);
+
+		bool exitAll = false;
+		if (hadState && !payload.empty())
+		{
+			try
+			{
+				nlohmann::json state = nlohmann::json::parse(payload);
+				exitAll = state.value("exit_all", false);
+				_uiWorkerStateJson = payload;
+			}
+			catch (...) {}
+		}
+
+		RadeonTunerBackend::ReloadSettings();
+		RadeonTunerBackend::ReloadProfiles();
+		RadeonTunerBackend::ApplyRuntimeStateJson(payload);
+		RefreshTrayIcon();
+		RefreshNativeTheme();
+		if (exitAll || _exitAllPending)
+		{
+			TrayIconDelete();
+			AppVariables::ApplicationExiting = true;
+			exit(0);
+		}
+		RadeonTunerBackend::ResumeProfileLoop();
+		if (_uiWorkerPending)
+		{
+			LaunchUiWorker();
+		}
+	}
+
+	void App::NotifyWorkerClosing(DWORD processId)
+	{
+		try
+		{
+			if (AppVariables::NativeHostMode && _uiWorkerProcess != NULL && processId == GetProcessId(_uiWorkerProcess))
+			{
+				_uiWorkerClosing = true;
+			}
+		}
+		catch (...) {}
+	}
+
+	winrt::fire_and_forget App::CloseUiWorkerAsync()
+	{
+		try
+		{
+			ShowWindow(_hWnd_MainWindow, SW_HIDE);
+
+			//Synchronous host acknowledgment ensures closing is recorded before this
+			//worker is allowed to end; the host verifies our PID.
+			HWND hostWindow = AppVariables::UiWorkerHostWindow;
+			DWORD hostProcessId = 0;
+			if (hostWindow != NULL) { GetWindowThreadProcessId(hostWindow, &hostProcessId); }
+			if (hostWindow != NULL && hostProcessId == AppVariables::UiWorkerHostPid)
+			{
+				SendMessageTimeoutW(hostWindow, WM_WORKER_CLOSING, (WPARAM)GetCurrentProcessId(), 0, SMTO_ABORTIFHUNG, 2000, NULL);
+			}
+
+			//Finish the current backend batch before quiescing UI and capturing state.
+			RadeonTunerBackend::PauseProfileLoop();
+
+			//Release user-input waiters; they return empty/-1 and cannot block shutdown.
+			messageBoxComplete = true;
+			appPickerCancel = true;
+
+			while (_uiWorkCount > 0)
+			{
+				co_await AsyncTaskDelay(50, _dispatcher);
+			}
+
+			MainPage* page = nullptr;
+			winrt::Windows::Foundation::IInspectable pageReference = CurrentPageForInternal();
+			if (pageReference)
+			{
+				page = winrt::get_self<MainPage>(pageReference.as<winrt::RadeonTuner::MainPage>());
+			}
+
+			if (page != nullptr && TimerResolutionSwitch != NULL && TimerResolutionSwitch.IsEnabled())
+			{
+				co_await page->DisplaySettings_Confirm_Resolution_Stop(true);
+			}
+			if (page != nullptr && TimerResolutionCustom != NULL && TimerResolutionCustom.IsEnabled())
+			{
+				co_await page->DisplaySettings_Confirm_CustomResolution_Stop(true);
+			}
+
+			if (AppVariables::UiWorkerOutput != NULL)
+			{
+				if (page != nullptr) { RadeonTunerUiSession::Capture(*page); }
+				std::string state = RadeonTunerBackend::CaptureStateJson();
+				nlohmann::json payload = state.empty() ? nlohmann::json::object() : nlohmann::json::parse(state);
+				payload["exit_all"] = _workerExitAll;
+				RadeonTunerIpc::WriteFrame(AppVariables::UiWorkerOutput, payload.dump());
+			}
+		}
+		catch (...) {}
+		exit(0);
+	}
+
+	void App::NotifyHostSettingsChanged()
+	{
+		try
+		{
+			if (!AppVariables::UiWorkerMode) { return; }
+			HWND hostWindow = AppVariables::UiWorkerHostWindow;
+			DWORD hostProcessId = 0;
+			if (hostWindow != NULL) { GetWindowThreadProcessId(hostWindow, &hostProcessId); }
+			if (hostWindow != NULL && hostProcessId == AppVariables::UiWorkerHostPid) { PostMessageW(hostWindow, WM_WORKER_SETTINGS, (WPARAM)GetCurrentProcessId(), 0); }
+		}
+		catch (...) {}
+	}
+
+	void App::NotifyWorkerSettings(DWORD processId)
+	{
+		try
+		{
+			if (!AppVariables::NativeHostMode || _uiWorkerProcess == NULL || processId != GetProcessId(_uiWorkerProcess)) { return; }
+			RadeonTunerBackend::ReloadSettings();
+			RefreshTrayIcon();
+			RefreshNativeTheme();
+		}
+		catch (...) {}
+	}
+
+	void App::StopUiWorker()
+	{
+		if (_uiWorkerProcess != NULL)
+		{
+			TerminateProcess(_uiWorkerProcess, 0);
+			WaitForSingleObject(_uiWorkerProcess, 1000);
+			CloseHandle(_uiWorkerProcess);
+			_uiWorkerProcess = NULL;
+		}
+		if (_uiWorkerThread != NULL)
+		{
+			CloseHandle(_uiWorkerThread);
+			_uiWorkerThread = NULL;
+		}
+		if (_uiWorkerInWrite != NULL) { CloseHandle(_uiWorkerInWrite); _uiWorkerInWrite = NULL; }
+		if (_uiWorkerOutRead != NULL) { CloseHandle(_uiWorkerOutRead); _uiWorkerOutRead = NULL; }
+		if (_uiWorkerJob != NULL) { CloseHandle(_uiWorkerJob); _uiWorkerJob = NULL; }
+		_uiWorkerRunning = false;
+		KillTimer(_hWnd_MainWindow, TIMER_WORKER_POLL);
+	}
+
+	void App::CreateHostWindow(HINSTANCE hInstance, bool showUi, bool winOnTop)
+	{
+		try
+		{
+			winrt::init_apartment(apartment_type::single_threaded);
+			const LPCWSTR windowTitle = L"RadeonTuner";
+			const LPCWSTR windowClass = L"RadeonTunerMainWindow";
+			WNDCLASSEX windowClassEx = { };
+			windowClassEx.cbSize = sizeof(windowClassEx);
+			windowClassEx.lpfnWndProc = WindowProc;
+			windowClassEx.hInstance = hInstance;
+			windowClassEx.lpszClassName = windowClass;
+			windowClassEx.hbrBackground = (HBRUSH)(COLOR_WINDOWFRAME);
+			RegisterClassExW(&windowClassEx);
+			_hWnd_MainWindow = CreateWindowW(windowClass, windowTitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+				1340, 960, NULL, NULL, hInstance, NULL);
+			if (_hWnd_MainWindow == NULL)
+			{
+				return;
+			}
+			RefreshNativeTheme();
+			TrayIconCreate(hInstance);
+			if (winOnTop) { SetTopMost(true); }
+			if (showUi) { LaunchUiWorker(); }
+			MSG message;
+			while (GetMessageW(&message, NULL, 0, 0))
+			{
+				try { TranslateMessage(&message); DispatchMessageW(&message); } catch (...) {}
 			}
 		}
 		catch (...) {}
@@ -594,6 +1133,11 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
+			if (AppVariables::NativeHostMode)
+			{
+				LaunchUiWorker();
+				return;
+			}
 			if (_uiEnsureInProgress)
 			{
 				return;
@@ -929,7 +1473,7 @@ namespace winrt::RadeonTuner::implementation
 #else
 			const LPCWSTR szWindowTitle = L"RadeonTuner";
 #endif
-			const LPCWSTR szWindowClass = L"RadeonTunerMainWindow";
+			const LPCWSTR szWindowClass = AppVariables::UiWorkerMode ? L"RadeonTunerUiWorkerWindow" : L"RadeonTunerMainWindow";
 
 			//Load application icon
 			std::wstring iconPath = L"Assets\\AppIconColor.ico";
@@ -998,8 +1542,11 @@ namespace winrt::RadeonTuner::implementation
 				SetTopMost(true);
 			}
 
-			//Create application tray icon unless the setting hides it
-			TrayIconCreate(hInstance);
+			//Only the host owns the notification icon.
+			if (!AppVariables::UiWorkerMode)
+			{
+				TrayIconCreate(hInstance);
+			}
 
 			//Window message loop; the window and message queue outlive every UI page
 			MSG lpMsg;
