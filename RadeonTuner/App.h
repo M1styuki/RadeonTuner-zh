@@ -34,6 +34,7 @@ namespace winrt::RadeonTuner::implementation
 		void TrayIconCreate(HINSTANCE hInstance);
 		void TrayIconDelete();
 		HRESULT RefreshTrayIcon();
+		HRESULT RefreshTrayIconForDpiChange();
 		void RefreshNativeTheme();
 		void ShowTrayMenu(POINT point, int autoCloseMilliseconds);
 

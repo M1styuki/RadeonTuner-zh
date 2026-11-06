@@ -36,3 +36,5 @@
 - 本轮开始本地3e516a8f77d7d81a1e3db648774e36b012556146、远端6a2b253b7d71fb6408969b435b211575ac994f61，同树5499310e7384c012268e5db184be3e5c4547a468。普通Git网络曾失败，API对象发布逐blob/tree核对，expected_sha非强制更新；不要盲推旧origin/main。
 - .build-work/Prepare-GitHubUpload.ps1及source-upload-manifest.json保存最新本地/远端基线与完整树，待本轮发布后记录映射。下载放本任务.build-work，校验ZIP和EXE报告，再覆盖指定交付；清理可再下载ZIP/解压副本，保留发布证据/恢复文件。
 - 本轮无本机编译工具安装。上轮VSBuildTools18.11.3实例98facc78/SDK26100/Installer已卸载；原.NET6/8/10、Desktop8/10、VC++v14 x64/x86及DOTNET_TieredCompilation=0保留。禁止重复跨会话outputs清理，禁止动其他项目/设置/共享运行库。
+- 候选源码已发布：本地9e4c6873c44d696c9f14d517a2696b611e4884be、远端fad10e5b2462640cfe67e0b234221ce9303890c5，同树2d38d09495f269a6ee95bc5fba6835c25ed16108，16文件逐blob/tree校验。下一次API增量使用该本地/远端基线。最后3项关闭残留已由Codex修复并获限定复核通过；已进入云编译。用户不允许本机实测。
+- 本轮云run42214476488 Release编译失败，唯一根因App::RefreshTrayIconForDpiChange漏头文件声明，引发11项连带成员解析错误。已补声明并核对全部App定义有对应头声明；不改实现/设计，需重编。首次候选本地9e4c687/远端fad10e5b树2d38d094。
