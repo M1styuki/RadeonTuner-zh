@@ -50,3 +50,5 @@
 - 同DSH session-c605187d-a18a-4ef4-8d4a-353f838e7a13正在实施；本轮基线本地4616d1306bb8e7da954b566f8ce2afda13d56a17、远端13124116e49acc7da3535d40aa88eb0c1ef7c214，同树e434163b695d0f59a700b2352900fe945ea2117a，source-publication.json为准。保留原进程架构、DPI、界面几何/风扇算法/公开配置格式。
 - DSH本轮启动失败，headless tools插件拒绝mode=ptc，sessionPersistence未激活；未恢复或更换会话、未改DSH配置。Codex已直接完成本轮实现：28个NoHit滑块读数改原生可编辑TextBox，GotFocus记录初值，Enter/失焦只在实际编辑后提交到原Slider.Value，Esc恢复实时OneWay绑定。完整有限数字校验、原范围/步进归一化、disabled与IsReadOnly不解禁，未编辑聚焦不改变原值。既有12个风扇输入保持不变，无新增驱动/IPC/配置语义改动。
 - 真实检查：28项Tag/Value/IsEnabled/事件关联静态核对、汉化12项、布局7页104行、diff--check通过。源改动为App.xaml/MainPage.xaml/MainPage.h/.cpp及原布局检查预期，尚未云编译、没有运行软件。
+- 数字输入修复已发布：本地f16c6883c...（完整值见Git HEAD）、远端388fd78d9b88e82a56554c032919a4a0efa0f2ae，同树6b0e91a64555153eff68a2b21dfb89d21f1333b3；下一API增量以本地f16c6883cb492435e3b0d7bf38b4842534a29a01、该远端为基线。当前等待云编译，交付EXE未替换。
+- 追加同路径修复：UI snapshot Restore直接写Text/IsEnabled会替换Binding，已对Tag关联Slider的新数字框在快照恢复后重建值与能力OneWay绑定，避免重开/切换设备后失去同步。只改UI恢复层，IPC/公开配置不变。依据微软Dependency properties overview确认本地值覆盖绑定；当前首轮构建候选作废，需发布该追加后重编。

@@ -180,6 +180,11 @@ namespace winrt::RadeonTuner::implementation
 			binding.Path(PropertyPath(L"Value"));
 			binding.Mode(BindingMode::OneWay);
 			textBox.SetBinding(TextBox::TextProperty(), binding);
+			Binding enabledBinding;
+			enabledBinding.Source(slider);
+			enabledBinding.Path(PropertyPath(L"IsEnabled"));
+			enabledBinding.Mode(BindingMode::OneWay);
+			textBox.SetBinding(Control::IsEnabledProperty(), enabledBinding);
 			if (numericInputFocusedBox.get() == textBox) { numericInputOriginalText = textBox.Text(); }
 		}
 		catch (...) {}
@@ -1985,7 +1990,7 @@ namespace RadeonTunerUiSession
 		}
 		try
 		{
-			VisitUiElements(page, [](FrameworkElement const& element)
+			VisitUiElements(page, [&page](FrameworkElement const& element)
 				{
 					try
 					{
@@ -2049,6 +2054,12 @@ namespace RadeonTunerUiSession
 						if (state.HasVisibility)
 						{
 							element.Visibility((winrt::Windows::UI::Xaml::Visibility)state.Visibility);
+						}
+						//Local snapshot values replace Binding objects. Restore the live
+						//value/capability bindings of the editable slider number boxes.
+						if (auto textBox = element.try_as<TextBox>())
+						{
+							if (textBox.Tag().try_as<Slider>()) { page.RestoreNumericInputValue(textBox); }
 						}
 					}
 					catch (...) {}
