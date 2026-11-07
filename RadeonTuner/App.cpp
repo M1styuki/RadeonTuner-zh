@@ -439,6 +439,12 @@ namespace winrt::RadeonTuner::implementation
 				AppVariables::App.HandleUiReleaseTimer((UINT_PTR)wParam);
 				return 0;
 			}
+			case WM_SETFOCUS:
+			{
+				//The native frame owns no controls; return keyboard focus to the island.
+				AppVariables::App.RestoreXamlFocus();
+				return 0;
+			}
 			case WM_SIZE:
 			{
 				//Resize xaml window only while the island exists
@@ -1184,6 +1190,16 @@ namespace winrt::RadeonTuner::implementation
 			}
 			catch (...) {}
 			AVDebugWriteLine("Failed ensuring application UI (Exception).");
+		}
+	}
+
+	void App::RestoreXamlFocus()
+	{
+		if (_desktopWindowXamlSource != nullptr && _hWnd_XamlWindow != NULL)
+		{
+			SetFocus(_hWnd_XamlWindow);
+			_desktopWindowXamlSource.NavigateFocus(
+				XamlSourceFocusNavigationRequest(XamlSourceFocusNavigationReason::Restore));
 		}
 	}
 

@@ -58,3 +58,5 @@
 - 用户明确新授权使用COMPUTER USE，覆盖此前不实测限制，仅复现/验证数字编辑，不点击应用，不改驱动设置。已用Sky复现风扇Temp0：点击后焦点在textbox_Fan_Temp_0，Ctrl+A/BackSpace未改变30；没有点击Apply，也未改变数值。首次召回另观察到native host空白窗，随后实际worker正常出现；此为已观察相关宿主问题。
 - 新定位：CreateWindowXaml消息循环只有TranslateMessage/DispatchMessage，没有IDesktopWindowXamlSourceNative2::PreTranslateMessage，也无WM_SETFOCUS/NavigateFocus处理。微软UWP XAML Islands文档明确需要前置键盘消息路由。下一步补宿主输入管线，云编译后用Computer Use在原值/撤销范围验证真实键盘编辑，不能仅凭编译宣称解决。
 - 本轮直接补UI工作进程消息循环PreTranslateMessage：仅XAML已处理消息跳过后续分发，未处理/失败走原Translate/Dispatch；每条消息临时解析当前source，避免持有已释放island。原生后台循环不初始化XAML、不改驱动/配置。待云编译后Computer Use验证实键Ctrl+A/删除/输入/撤销；未改动当前运行数值30。
+- 键盘宿主修复已发布：本地f3fc267a191f9c3d8da984003b11dd9272adc2ec、远端905a5ec3ef603f27374331b4a1509c541856e4bd，同树c2e57c7be49a6a1c22693422d8ed597b8888ecc8；后续API增量以此为准。当前云编译，交付仍是已确认存在键盘问题的0BF54F22版，待新版真实验证。
+- PreTranslate单独修复run42355167410正式包已覆盖并核验运行core=B480AC7D...；Sky实测Temp0依旧无法Ctrl+A/BackSpace/输入1，值仍30。不能宣称已修复。新增WM_SETFOCUS将native frame键盘焦点交还XAML子窗口，并NavigateFocus(Restore)保留当前编辑目标，待第二次云编译及实测。

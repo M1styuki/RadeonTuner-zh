@@ -40,6 +40,7 @@ namespace winrt::RadeonTuner::implementation
 
 		//UI session lifecycle. EnsureUI and ReleaseUI run on the UI thread.
 		void EnsureUI(bool showWindow);
+		void RestoreXamlFocus();
 		void ReleaseUI();
 		void HandleUiReleaseTimer(UINT_PTR timerId);
 		void HideToTray();
