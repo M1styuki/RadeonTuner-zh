@@ -52,3 +52,5 @@
 - 真实检查：28项Tag/Value/IsEnabled/事件关联静态核对、汉化12项、布局7页104行、diff--check通过。源改动为App.xaml/MainPage.xaml/MainPage.h/.cpp及原布局检查预期，尚未云编译、没有运行软件。
 - 数字输入修复已发布：本地f16c6883c...（完整值见Git HEAD）、远端388fd78d9b88e82a56554c032919a4a0efa0f2ae，同树6b0e91a64555153eff68a2b21dfb89d21f1333b3；下一API增量以本地f16c6883cb492435e3b0d7bf38b4842534a29a01、该远端为基线。当前等待云编译，交付EXE未替换。
 - 追加同路径修复：UI snapshot Restore直接写Text/IsEnabled会替换Binding，已对Tag关联Slider的新数字框在快照恢复后重建值与能力OneWay绑定，避免重开/切换设备后失去同步。只改UI恢复层，IPC/公开配置不变。依据微软Dependency properties overview确认本地值覆盖绑定；当前首轮构建候选作废，需发布该追加后重编。
+- 最终输入候选：本地01c730ea8402c96c22a5249a06b6c831f4f0bcd9、远端5c10ed71bf7c633218ef9086e6a4321648de1fb1，同树98f4b53b4cb736448474433f9f8a79c9e28a6528。后续API增量用该本地/远端基线。补丁已读最终diff，原28项绑定与汉化布局检查有效，追加仅UI恢复绑定，需本轮云编译确认。
+- 最终候选run42353046177 Release编译失败：Binding/BindingMode命名空间未导入（pch仅include Data，无using），均已改winrt::Windows::UI::Xaml::Data全限定名；日志未见其他根因。绑定行为不变，需重新云编译。

@@ -175,15 +175,15 @@ namespace winrt::RadeonTuner::implementation
 			auto slider = textBox.Tag().try_as<Slider>();
 			if (!slider) { return; }
 			//Restore the live one-way binding after either a committed edit or Escape.
-			Binding binding;
+			winrt::Windows::UI::Xaml::Data::Binding binding;
 			binding.Source(slider);
 			binding.Path(PropertyPath(L"Value"));
-			binding.Mode(BindingMode::OneWay);
+			binding.Mode(winrt::Windows::UI::Xaml::Data::BindingMode::OneWay);
 			textBox.SetBinding(TextBox::TextProperty(), binding);
-			Binding enabledBinding;
+			winrt::Windows::UI::Xaml::Data::Binding enabledBinding;
 			enabledBinding.Source(slider);
 			enabledBinding.Path(PropertyPath(L"IsEnabled"));
-			enabledBinding.Mode(BindingMode::OneWay);
+			enabledBinding.Mode(winrt::Windows::UI::Xaml::Data::BindingMode::OneWay);
 			textBox.SetBinding(Control::IsEnabledProperty(), enabledBinding);
 			if (numericInputFocusedBox.get() == textBox) { numericInputOriginalText = textBox.Text(); }
 		}
