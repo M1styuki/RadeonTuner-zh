@@ -1908,12 +1908,14 @@ namespace RadeonTunerUiSession
 		try
 		{
 			g_uiSnapshot.clear();
-			VisitUiElements(page, [](FrameworkElement const& element)
+			VisitUiElements(page, [&page](FrameworkElement const& element)
 				{
 					try
 					{
 						std::wstring name(element.Name().c_str());
-						if (name.empty())
+						//Template parts have their own namescopes and repeat across controls.
+						//Only page-owned elements can be restored by a page-level name.
+						if (name.empty() || page.FindName(element.Name()) != element)
 						{
 							return;
 						}
@@ -1995,7 +1997,7 @@ namespace RadeonTunerUiSession
 					try
 					{
 						std::wstring name(element.Name().c_str());
-						if (name.empty())
+						if (name.empty() || page.FindName(element.Name()) != element)
 						{
 							return;
 						}
