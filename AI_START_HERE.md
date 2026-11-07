@@ -5,7 +5,7 @@
 - 2026-11-06 新要求：4K+150% DPI托盘图标模糊；后台约50MB仍过高。用户明确批准“轻量原生后台＋按需独立面板进程”，保留超频、降压、功耗、风扇及原功能。
 - 最新用户明确“不用实测，我自己能看”：禁止自动启动/操作应用、GUI/驱动/内存实测和模拟；只相关代码检查、云编译、下载覆盖，由用户验收。
 - 前轮关机指令已成功下达，现用户已恢复使用电脑，本轮不自动关机。源码/活跃DSH历史保留至用户明确满意并结束项目，不能依据旧收尾授权删除当前开发项目。
-- 最新EXE已覆盖并校验：3183616字节，SHA256 B093E80771CCD445F561A790EF9B46EFB2CC0E00489C3DC787589D81762DCCE1；run42215572575的Release与UiValidation均编译/打包成功，未运行应用。
+- 最新EXE已覆盖并校验：3201536字节，SHA256 0BF54F22AAABDE10B9C08FD09D97300784FC57FC481913A2142C6918573A616E；2026-11-07数字输入修复，run42353651555的Release编译/打包成功，未启动应用。
 - 运行根 C:\Users\78539\AppData\Local\RadeonTuner-zh-CN\App；Settings\Settings.json与Profiles保留，不读写用户配置做验证。
 
 ## 保留的产品行为
@@ -44,13 +44,12 @@
 
 - 最终云run42215572575结论success：Release与UiValidation均编译/打包/上传成功，只做静态检查与编译打包，没有执行应用。代码交付对应本地e6299374/远端7b7f817b/树fa30db154；后续仅项目记录更新，不需要重编。正式EXE交付receipt及report保留，6.26MB下载ZIP/解压临时文件已删除；运行设置/源码/活跃DSH恢复资料保留待用户验收。
 
-## 2026-11-07 数字输入交互修复
-- 用户反馈数字框无法编辑，已确认滑块绑定TextBox使用ApplicationTextBoxNoHit（禁用hit test/Tab），仅作单向读数。本轮改可调数字为实际输入，Enter/失焦提交、Esc恢复；保留原Slider范围/步进及ValueChanged/Apply/save语义，真正只读和不支持字段不解禁。
-- 继续云端编译并覆盖指定EXE，源码推私有仓库；依旧禁止启动软件实测。当前交付仍B093E807...3183616字节，未替换。
-- 同DSH session-c605187d-a18a-4ef4-8d4a-353f838e7a13正在实施；本轮基线本地4616d1306bb8e7da954b566f8ce2afda13d56a17、远端13124116e49acc7da3535d40aa88eb0c1ef7c214，同树e434163b695d0f59a700b2352900fe945ea2117a，source-publication.json为准。保留原进程架构、DPI、界面几何/风扇算法/公开配置格式。
-- DSH本轮启动失败，headless tools插件拒绝mode=ptc，sessionPersistence未激活；未恢复或更换会话、未改DSH配置。Codex已直接完成本轮实现：28个NoHit滑块读数改原生可编辑TextBox，GotFocus记录初值，Enter/失焦只在实际编辑后提交到原Slider.Value，Esc恢复实时OneWay绑定。完整有限数字校验、原范围/步进归一化、disabled与IsReadOnly不解禁，未编辑聚焦不改变原值。既有12个风扇输入保持不变，无新增驱动/IPC/配置语义改动。
-- 真实检查：28项Tag/Value/IsEnabled/事件关联静态核对、汉化12项、布局7页104行、diff--check通过。源改动为App.xaml/MainPage.xaml/MainPage.h/.cpp及原布局检查预期，尚未云编译、没有运行软件。
-- 数字输入修复已发布：本地f16c6883c...（完整值见Git HEAD）、远端388fd78d9b88e82a56554c032919a4a0efa0f2ae，同树6b0e91a64555153eff68a2b21dfb89d21f1333b3；下一API增量以本地f16c6883cb492435e3b0d7bf38b4842534a29a01、该远端为基线。当前等待云编译，交付EXE未替换。
-- 追加同路径修复：UI snapshot Restore直接写Text/IsEnabled会替换Binding，已对Tag关联Slider的新数字框在快照恢复后重建值与能力OneWay绑定，避免重开/切换设备后失去同步。只改UI恢复层，IPC/公开配置不变。依据微软Dependency properties overview确认本地值覆盖绑定；当前首轮构建候选作废，需发布该追加后重编。
-- 最终输入候选：本地01c730ea8402c96c22a5249a06b6c831f4f0bcd9、远端5c10ed71bf7c633218ef9086e6a4321648de1fb1，同树98f4b53b4cb736448474433f9f8a79c9e28a6528。后续API增量用该本地/远端基线。补丁已读最终diff，原28项绑定与汉化布局检查有效，追加仅UI恢复绑定，需本轮云编译确认。
-- 最终候选run42353046177 Release编译失败：Binding/BindingMode命名空间未导入（pch仅include Data，无using），均已改winrt::Windows::UI::Xaml::Data全限定名；日志未见其他根因。绑定行为不变，需重新云编译。
+## 2026-11-07 数字输入交互修复：已交付
+- 用户反馈数字框无法编辑，确认28个滑块绑定TextBox用了禁用hit test/Tab及隐藏ContentElement的ApplicationTextBoxNoHit。已改原生可编辑模板，保留160x32/数值居中等视觉与布局。
+- 支持点击/选择/粘贴/Tab，Enter或失焦提交，Esc恢复当前值；编辑中允许空白/负号/小数，不逐键重置。只提交完整有限数字，按原Slider范围/步进归一化，再走原ValueChanged路径，不改变原应用按钮/保存/驱动语义。未编辑聚焦不改值，Enter后失焦不重复应用。真正只读/不支持字段保持，既有12个风扇输入未变。
+- 提交/取消及UI快照恢复后重建Text/IsEnabled实时OneWay绑定，避免重开或换设备后失去同步。仅UI恢复层改动，后台/IPC协议/公开配置格式未变。
+- DSH本轮因tools配置mode=ptc不兼容、sessionPersistence未激活启动失败；未修改DSH配置或重新建会话，Codex直接实现。活跃session-c605187d-a18a-4ef4-8d4a-353f838e7a13及其历史保留。
+- 实际检查：28项Tag/Value/IsEnabled/事件关联静态核对，汉化12项、布局7页104行、最终diff检查通过。修正过Data::Binding/BindingMode命名空间后，云run42353651555正式Release编译/打包/上传成功。隔离版在正式交付时仍在云端构建；未运行任何应用、驱动、内存或UI测试。
+- 交付 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe，3201536字节，SHA256 0BF54F22AAABDE10B9C08FD09D97300784FC57FC481913A2142C6918573A616E。ZIP digest59F1F050A05DBFAAC956B7A2C8C086F66DF9B0F258FD62E5556F46355FAE3B66，artifact13566568061；与打包报告及外部副本一致。
+- 应用代码本地612e41de124813e858f79b24d311afd652ccbefb、远端051e60f0cc0610849bdc9dc66457406c24304361，同树5c616a68267500bab3f5c4e0491259735a22cf02。最终项目记录为单独skip-ci提交，最新映射见.build-work/evidence/source-publication.json，后续API增量以该映射为准。
+- 4个临时下载/解压文件已清理；numeric-input-delivery.json及numeric-input-build-report.json保留。源码/设置/活跃会话等待用户验收，禁止自动启动软件或继续套用旧关机指令。后续若需更多修改，复用现库与会话；DSH仍不可用时明确fallback，不擅自修改全局DSH链路。
