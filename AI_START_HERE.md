@@ -27,19 +27,22 @@
 - 28个滑块数值框已从假只读模板改原生可编辑ContentElement；Tag绑定原Slider，Text/IsEnabled实时绑定。Enter或失焦提交完整有限数值，按原范围/步进归一化；Esc恢复原值，未编辑聚焦不改值。仍走原ValueChanged/Apply逻辑，既有12个风扇整数输入保留。
 - UI循环已补IDesktopWindowXamlSourceNative2::PreTranslateMessage，native frame获得WM_SETFOCUS时SetFocus到XAML并NavigateFocus(Restore)。快照Capture/Restore限定page.FindName对应对象，排除跨控件同名模板部件，重建后恢复数值绑定。
 - 已实际观察：运行core F6B7EDFBA833A55D6164C80C7ACFB56E4B8BE4424B6FA1E0E22B6B0DE4422B85，风扇Temp0可删除为空再输入30；调校Core_Max输入1时Slider仍0，Esc后均0，未点Apply。Sky立即抓取可能早于消息处理，必须稳定后再判断；此前仅立即返回旧文本的失败观察不能证明修复无效。
-- 实测关闭worker后只剩host，但旧召回用ShowWindow显示host白色空窗，已可见时不再触发WM_SHOWWINDOW，阻塞再次打开。源码已将启动器和core两条召回改为注册消息RadeonTuner.ShowSettings，host走EnsureUI/LaunchUiWorker。该修复已云构建，待与新界面合并后实测召回。
-- 当前交付目录仍为58AF0B6D160BE3A1C8688A9CABE0A8E267C00BD2AA32F5D7E17F4EAF343D03D1/3203072字节版。后续正式包已下载在.build-work/cloud-recall，SHA256 2E9C1901A7ABE8FC81DA388F7565700F95228C42755278E600C343092BE0F255/3201024字节，尚未覆盖，不能把待交付包描述为运行中。
-- DSH首轮视觉包仅改App.xaml和verify-ui-layout.ps1；diff/汉化12项/7页104行等静态检查通过，无GUI/本地编译。Codex针对报告未决项发现Indicator三态空及PanningRoot状态不完整，已给同会话定向修复，参考微软release/2.8的ScrollBar_themeresources.xaml；当前等待修复结果，不重复已有效检查。
+- 实测关闭worker后只剩host，但旧召回用ShowWindow显示host白色空窗，已可见时不再触发WM_SHOWWINDOW，阻塞再次打开。源码已将启动器和core两条召回改为注册消息RadeonTuner.ShowSettings，host走EnsureUI/LaunchUiWorker。该修复已合并最终界面EXE，最终包重开实测未完成，待用户验收。
+- 最终交付D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe已覆盖并校验：SHA256 0A80FFE12AB25EC53FF3144684844A44CFF0E181DBCCB038EC924B0A470B25C1，3204096字节，run42359458442正式Release和UiValidation均构建成功；云端未运行应用。工件13568619951，ZIP digest f165ebb129d5215cd4510b901a78d6fe08d11538cb23f021bfd18e3f5c22aea0，证据interface-delivery.json/interface-build-report.json。
+- DSH首轮视觉包仅改App.xaml和verify-ui-layout.ps1；diff/汉化12项/7页104行等静态检查通过，无GUI/本地编译。Codex针对报告未决项发现Indicator三态空及PanningRoot状态不完整，已给同会话定向修复，参考微软release/2.8的ScrollBar_themeresources.xaml；修复已完成并通过静态检查，不重复已有效检查。
 
 ## 开发、发布与恢复
 - 活跃DSH session-c605187d-a18a-4ef4-8d4a-353f838e7a13，同一cwd复用。本轮视觉包已成功返回，旧启动配置错误未复现；不能据此宣称PTC节省已验证。保留活跃历史，不动全局DSH链路。
 - 代码入口AppWinMain.cpp/App.cpp/MainPage.cpp；IPC RadeonTunerIpc.h；后台RadeonTunerBackend.h。云构建.github/workflows/build.yml，windows-2025-vs2026，正式Release工件先上传，再编译UiValidation；云端不运行程序或驱动。
-- 最新已发布代码：本地afe69011f746ddf361d815eac6a3d2107e9736da、远端7d139ca1d7891b4d5c7692411df423bc2cb2a74d、同树b68360d68f1ffa36271f0ef8d5ccccb075d55498，run42357578668正式产物已核验。下一次API增量以此本地/远端为基线；origin/main陈旧，勿盲推。
-- .build-work/Prepare-GitHubUpload.ps1基于已提交Git原始blob生成临时base64清单；发布逐blob/tree校验，expected_sha非强制更新。最终本地/远端/树映射写入.build-work/evidence/source-publication.json（当前其中旧映射尚待更新）。项目记录更新用skip-ci提交。
+- 最终应用代码：本地2e7232432836eb6d804a01d95f48527faad900c8、远端5b74baf1babf42b8950bdd2253daa0748a533b79、同树1fc9402de8beba825bfca4c5a37d014f0e026efb，run42359458442 success。后续只有项目记录skip-ci提交，最新完整本地/远端基线见source-publication.json；origin/main陈旧，勿盲推。
+- .build-work/Prepare-GitHubUpload.ps1基于已提交Git原始blob生成临时base64清单；发布逐blob/tree校验，expected_sha非强制更新。最终本地/远端/树映射写入.build-work/evidence/source-publication.json。项目记录更新用skip-ci提交。
 - 验证入口tools/verify-localization.ps1、tools/verify-ui-layout.ps1、git diff --check；只做受影响检查。不要把构建、静态或一次编辑等同于全部驱动/内存/生命周期验收。
 
 ## 清理边界与环境
-- 前两轮cloud-keyboard/cloud-panel-input共8个临时下载/解压文件约12.6MB已删除，build-report等证据保留；cloud-recall留待最终交付后删。只清理本任务验证过的临时文件，不跨会话批量清理outputs。
+- 前两轮cloud-keyboard/cloud-panel-input共8个临时下载/解压文件约12.6MB已删除，build-report等证据保留；cloud-recall和cloud-interface共8个临时文件已在本次收尾删除，EXE已在外部指定目录；构建报告与交付receipt保留。只清理本任务验证过的临时文件，不跨会话批量清理outputs。
 - 本轮无本机编译环境安装。上轮VSBuildTools18.11.3实例98facc78/SDK26100/Installer已卸载；原.NET6/8/10、Desktop8/10、VC++v14 x64/x86及DOTNET_TieredCompilation=0保留。不可误删共享环境、其他项目、凭据、用户设置或活跃DSH历史。
 - 收尾前必须先验证指定EXE及用户要求的GitHub源码已成功保存；项目只有用户明确满意结束后才删除本地源码/Git/项目记录及本项目独有环境。当前不满足关闭项目条件。
-- DSH定向修复已完成：按微软WinUI2.8核对Grid/Panning Border部件、命名轨道与Thumb Transform，补齐Indicator三态及ConsciousStates，实际使用hover/pressed色，保留ScrollBarStyle/DefaultScrollBarStyle/隐式入口。XML解析、汉化12项、原7页104行等布局断言和新增原生部件/状态断言、diff检查均通过。未编译或跑GUI；下一步Codex云构建并覆盖，约20秒验证数值编辑与重开，外观由用户验收。
+- DSH定向修复已完成：按微软WinUI2.8核对Grid/Panning Border部件、命名轨道与Thumb Transform，补齐Indicator三态及ConsciousStates，实际使用hover/pressed色，保留ScrollBarStyle/DefaultScrollBarStyle/隐式入口。XML解析、汉化12项、原7页104行等布局断言和新增原生部件/状态断言、diff检查均通过。其后Codex云构建已成功并覆盖EXE；最终GUI检查未完成，外观由用户验收。
+- 当前视觉代码已发布：本地2e7232432836eb6d804a01d95f48527faad900c8、远端5b74baf1babf42b8950bdd2253daa0748a533b79、同树1fc9402de8beba825bfca4c5a37d014f0e026efb；云run42359458442已success。后续API增量以这组为基线；source-publication.json已更新，交付及限制已记录，完整最终基线见source-publication.json。
+
+- 最终GUI验证限制：准备退出旧版期间Sky检测到用户正在操作，Codex停止Computer Use；未强杀当前host/worker、未修改运行目录/用户设置。外部EXE已覆盖，但当前仍运行旧core。用户需从应用内选择退出后再打开EXE完成升级；不能宣称最终重开、滚动条或触摸交互实测通过。先前相同数值输入代码的删除/键入/Esc实测有效。
