@@ -53,3 +53,8 @@
 - 交付 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe，3201536字节，SHA256 0BF54F22AAABDE10B9C08FD09D97300784FC57FC481913A2142C6918573A616E。ZIP digest59F1F050A05DBFAAC956B7A2C8C086F66DF9B0F258FD62E5556F46355FAE3B66，artifact13566568061；与打包报告及外部副本一致。
 - 应用代码本地612e41de124813e858f79b24d311afd652ccbefb、远端051e60f0cc0610849bdc9dc66457406c24304361，同树5c616a68267500bab3f5c4e0491259735a22cf02。最终项目记录为单独skip-ci提交，最新映射见.build-work/evidence/source-publication.json，后续API增量以该映射为准。
 - 4个临时下载/解压文件已清理；numeric-input-delivery.json及numeric-input-build-report.json保留。源码/设置/活跃会话等待用户验收，禁止自动启动软件或继续套用旧关机指令。后续若需更多修改，复用现库与会话；DSH仍不可用时明确fallback，不擅自修改全局DSH链路。
+## 2026-11-07 用户再次反馈：只能选中，不能输入
+- 已只读核验外部EXE SHA256=0BF54F22...，运行App目录core=DFFDADECF90A1A96E86859ACF156189DAEC162A8EC7E9A9858F99E3E1EC960DB、Resources.pri=58E0BB550E87D67F3252C87D5C621A3EC4070F8B3BE268F5065E53BBB9D1B1DF，均与numeric-input-build-report一致，确实已更新，不归因为用户没重启。
+- 用户明确新授权使用COMPUTER USE，覆盖此前不实测限制，仅复现/验证数字编辑，不点击应用，不改驱动设置。已用Sky复现风扇Temp0：点击后焦点在textbox_Fan_Temp_0，Ctrl+A/BackSpace未改变30；没有点击Apply，也未改变数值。首次召回另观察到native host空白窗，随后实际worker正常出现；此为已观察相关宿主问题。
+- 新定位：CreateWindowXaml消息循环只有TranslateMessage/DispatchMessage，没有IDesktopWindowXamlSourceNative2::PreTranslateMessage，也无WM_SETFOCUS/NavigateFocus处理。微软UWP XAML Islands文档明确需要前置键盘消息路由。下一步补宿主输入管线，云编译后用Computer Use在原值/撤销范围验证真实键盘编辑，不能仅凭编译宣称解决。
+- 本轮直接补UI工作进程消息循环PreTranslateMessage：仅XAML已处理消息跳过后续分发，未处理/失败走原Translate/Dispatch；每条消息临时解析当前source，避免持有已释放island。原生后台循环不初始化XAML、不改驱动/配置。待云编译后Computer Use验证实键Ctrl+A/删除/输入/撤销；未改动当前运行数值30。

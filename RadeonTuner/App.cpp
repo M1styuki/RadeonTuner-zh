@@ -1554,6 +1554,17 @@ namespace winrt::RadeonTuner::implementation
 			{
 				try
 				{
+					//XAML Islands must process keyboard messages before Win32 dispatch.
+					//Resolve the current island here so a released island is never retained.
+					if (_desktopWindowXamlSource != nullptr)
+					{
+						auto nativeSource = _desktopWindowXamlSource.try_as<IDesktopWindowXamlSourceNative2>();
+						BOOL handled = FALSE;
+						if (nativeSource && SUCCEEDED(nativeSource->PreTranslateMessage(&lpMsg, &handled)) && handled)
+						{
+							continue;
+						}
+					}
 					TranslateMessage(&lpMsg);
 					DispatchMessageW(&lpMsg);
 				}
