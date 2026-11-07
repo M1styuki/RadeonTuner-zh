@@ -70,7 +70,8 @@ namespace RadeonTunerSingleInstance
 						GetClassNameW(windowHandle, className, _countof(className));
 						if (wcscmp(className, L"RadeonTunerMainWindow") == 0)
 						{
-							Show_ProcessByWindowHandle(windowHandle);
+							AllowSetForegroundWindow((DWORD)process.Identifier());
+							PostMessageW(windowHandle, RegisterWindowMessageW(L"RadeonTuner.ShowSettings"), 0, 0);
 						}
 					}
 				}

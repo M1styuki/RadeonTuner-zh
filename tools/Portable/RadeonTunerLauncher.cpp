@@ -1428,9 +1428,8 @@ namespace
 		{
 			return TRUE;
 		}
-		ShowWindow(window, SW_SHOWNORMAL);
-		SetForegroundWindow(window);
-		search->found = true;
+		AllowSetForegroundWindow(processId);
+		search->found = PostMessageW(window, RegisterWindowMessageW(L"RadeonTuner.ShowSettings"), 0, 0) != FALSE;
 		return FALSE;
 	}
 

@@ -28,6 +28,7 @@ namespace winrt::RadeonTuner::implementation
 
 	//Constants
 	const UINT WM_TASKBARCREATED = RegisterWindowMessageW(L"TaskbarCreated");
+	const UINT WM_SHOWSETTINGS = RegisterWindowMessageW(L"RadeonTuner.ShowSettings");
 	const UINT WM_TRAYICON_CALL = 0x8001;
 	const UINT TM_SETTINGS = 0x8002;
 	const UINT TM_WEBSITE = 0x8003;
@@ -380,6 +381,11 @@ namespace winrt::RadeonTuner::implementation
 	{
 		try
 		{
+			if (messageCode == WM_SHOWSETTINGS)
+			{
+				AppVariables::App.EnsureUI(true);
+				return 0;
+			}
 			if (messageCode == WM_TASKBARCREATED)
 			{
 				//Handle taskbar created message, the hide tray icon setting still applies

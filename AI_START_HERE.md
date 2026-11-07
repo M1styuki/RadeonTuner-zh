@@ -61,3 +61,5 @@
 - 键盘宿主修复已发布：本地f3fc267a191f9c3d8da984003b11dd9272adc2ec、远端905a5ec3ef603f27374331b4a1509c541856e4bd，同树c2e57c7be49a6a1c22693422d8ed597b8888ecc8；后续API增量以此为准。当前云编译，交付仍是已确认存在键盘问题的0BF54F22版，待新版真实验证。
 - PreTranslate单独修复run42355167410正式包已覆盖并核验运行core=B480AC7D...；Sky实测Temp0依旧无法Ctrl+A/BackSpace/输入1，值仍30。不能宣称已修复。新增WM_SETFOCUS将native frame键盘焦点交还XAML子窗口，并NavigateFocus(Restore)保留当前编辑目标，待第二次云编译及实测。
 - 用户指出重建面板前输入正常。已对比489fa50与当前：风扇模板未改，窗口由预先可见改为延迟显示；另发现快照递归视觉树按Name单键保存，包含跨控件重名模板部件（ContentElement等）。Capture/Restore现限定page.FindName同一对象，避免内部模板状态串写；需验首次与重开后的键盘输入，不能把该缺陷直接当作已证实的唯一原因。
+- run42356488405正式包已覆盖：外EXE58AF0B6D.../3203072，运行core F6B7EDFB...。Sky实测首次面板：风扇Temp0删除为空并输入30还原；调校Core_Max从0输入1但Slider仍0，Esc恢复0，未点Apply。注意Sky立即抓取可能早于消息处理，应等待后再观测最终值。
+- 关闭worker后已确认只剩host，但再运行EXE仅显示host白色空窗、未创建worker，阻塞重开验收。根因启动器及core召回用ShowWindow显示无界面的host，且已经可见时不再触发WM_SHOWWINDOW。现两条召回改发注册消息RadeonTuner.ShowSettings，host接收走EnsureUI/LaunchUiWorker，无值载荷，不改后台设置。待云构建与重开复核。
