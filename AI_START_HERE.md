@@ -1,65 +1,45 @@
 # RadeonTuner 简体中文版：项目记录
 
-## 当前目标与交付
-- 私有源仓库 https://github.com/M1styuki/RadeonTuner-zh ，用户授权源码上传、仅云端编译、下载覆盖 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe；最终仅此一个EXE，首次运行可释放必要运行文件与设置。
-- 2026-11-06 新要求：4K+150% DPI托盘图标模糊；后台约50MB仍过高。用户明确批准“轻量原生后台＋按需独立面板进程”，保留超频、降压、功耗、风扇及原功能。
-- 最新用户明确“不用实测，我自己能看”：禁止自动启动/操作应用、GUI/驱动/内存实测和模拟；只相关代码检查、云编译、下载覆盖，由用户验收。
-- 前轮关机指令已成功下达，现用户已恢复使用电脑，本轮不自动关机。源码/活跃DSH历史保留至用户明确满意并结束项目，不能依据旧收尾授权删除当前开发项目。
-- 最新EXE已覆盖并校验：3201536字节，SHA256 0BF54F22AAABDE10B9C08FD09D97300784FC57FC481913A2142C6918573A616E；2026-11-07数字输入修复，run42353651555的Release编译/打包成功，未启动应用。
-- 运行根 C:\Users\78539\AppData\Local\RadeonTuner-zh-CN\App；Settings\Settings.json与Profiles保留，不读写用户配置做验证。
+## 用户目标与边界
+- 基于 dumbie/RadeonTuner 0.70，已合并 dfade6b/c120f54a；仅简体中文，深色界面，保留原驱动调节、配置与响应行为。
+- 私有源码仓库 https://github.com/M1styuki/RadeonTuner-zh 。用户明确授权上传源码、仅云端编译、下载覆盖 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe。最初只交付一个EXE，允许首次运行释放必要运行文件和设置。
+- 运行根 C:\Users\78539\AppData\Local\RadeonTuner-zh-CN\App；Settings\Settings.json、Profiles及用户数据必须保留。不得用迁移/驱动失败模拟扩大验证。
+- 用户现授权Computer Use复现/验证数字编辑及面板关闭后重开，替代此前不实测限制；只操作本应用，在原值/撤销范围内，不点Apply，不改驱动设置，不测性能。用户同意新版就绪后约20秒操作；其他工作不用Computer Use。外观最终由用户验收。
+- 旧关机指令已于前轮执行，用户现在清醒使用电脑，不能再次自动关机。源码/测试/会话仅在用户明确满意并结束项目后清理；当前仍在开发。
 
-## 保留的产品行为
-- 基于 dumbie/RadeonTuner 0.70，已合并dfade6b（含c120f54a），保留许可证，仅私用。
-- 仅简体中文/深色界面/原生中文深色右键菜单。无卡片、小标题、分隔线；左说明与?/!，右控件对齐，160x32输入/下拉框、数值居中、等长滑块。监控13项5列3行，风扇图完整边框细网格，成对数值及最低最高滑块。
-- 条件项折叠和短过渡，44x32开关即时反向，保留原生键盘/拖动/双击。隐藏托盘设置保留；不添加驱动兼容修补、失败/迁移模拟或新功能。
-- 白色透明图标来自原图精确像素去底，三个ICO含256/64/48/32/24/16，未重绘。新托盘按任务栏GetDpiForWindow/GetSystemMetricsForDpi取尺寸，144DPI为24px；仅尺寸变化刷新，主题/显隐/TaskbarCreated仍显式刷新，HICON独立所有权。
+## 已确认的界面要求
+- 无卡片、无重复大小标题、无行分隔线；左侧正式简洁说明及问号/叹号，右侧控件共用右边界。输入/下拉160x32、数值正中、等长滑块、等行距；切页不改窗口大小。
+- 监控13项、5列3行；风扇图完整边框、规整细网格/坐标；温度/转速成对数字输入，最低/最高转速滑块放底部。ECC等不支持控件仍禁用。
+- 条件项折叠与短动效，开关快速点击可即时反向；原生中文深色右键菜单，不重绘菜单。隐藏托盘功能保留。
+- 新增视觉包使用用户安装的 b-end-design-system：采用设置页左分类+右平铺，保留上述用户覆盖规范的约束；统一冷灰深色、柔和红强调#C85C63、6px控件/8px浮层圆角、字号/留白/低对比边框。
+- 页面边缘悬浮展开滚动条及下拉内滚动条两者都调整：细窄圆角滑块、透明轨道、16px命中区。复用原生滚动行为，不引入新组件/图标依赖或后台定时器，不改变设置立即生效/Apply语义。
+- 白色透明图标按原像素去底，ICO含256/64/48/32/24/16；托盘按任务栏DPI选择尺寸，144DPI为24px，仅尺寸变化或原主题/显隐事件刷新，独立HICON所有权。
 
-## 已交付的新进程架构
-- 同一core默认角色为原生host，保留RadeonTunerMainWindow控制入口，不创建MainPage/WindowsXamlManager/WinUI；独立-ui-worker角色使用RadeonTunerUiWorkerWindow，至多一个。外部仍交付一个EXE。
-- host headless ADL/配置初始化，默认registry/AdlAppSyncAll每host一次；worker各自建立ADL上下文，不能跨进程传ADL句柄，不重复全局默认写入/同步。性能采集仅worker有，后台保持/应用匹配/Gamma/Eyefinity保留。
-- 启worker前PauseProfileLoop等待host当前批次完成；worker期间host暂停，关闭worker前亦暂停其批次。后台与worker不会同时轮询写驱动；worker结束后host重读Settings/Profiles并恢复实际生效档，再恢复后台。
-- AVSettingsJson构造缓存整文件，交接重新构造；HideTrayIcon/ThemeIconMono/ThemeStyle由worker通知所属host刷新，不再200ms整文件读盘。
-- 匿名继承双向pipe、固定长度头、8MB上限、STARTUPINFOEX handle-list，host内存保存模型/选择/草稿，无永久会话文件或公开配置格式变更。完整内部模型保留Current/Default/范围/Step/Support/UsingProfile等，optional字符串null保持。
-- 每次开worker在暂停后捕获最新runtime flags，合并到保留草稿，按DeviceId+Application对齐UI UsingProfile；后台实际生效cache标志与UI选中草稿分离，不能ReloadProfiles冒称Global已生效。设备身份失配不套错snapshot。
-- 正反消息使用所属host HWND/PID及worker PID校验；closing先通知，快召回排队。正常完整退出异步握手继续读pipe；worker等待UI工作及对应分辨率回滚后捕获/退出。Custom Stop已改IAsyncAction并await真实删除，无固定Sleep充当完成。
-- host在worker未建窗时记完整退出并在轮询重试，整套退出前不再恢复后台批次。Job kill-on-close仅防孤儿，SILENT_BREAKAWAY_OK保留Updater/外部工具；更新成功走整套退出且co_return；初始化失败有原错误UI入口，不启无效ADL循环。
+## 保留的进程与数据架构
+- 一个core具有原生host和-ui-worker双角色，后台不初始化XAML；面板按需创建独立进程，关闭即退出，后台保持/应用配置匹配/Gamma/Eyefinity继续运行。性能采集仅面板存活时运行。
+- host与worker各建ADL上下文；host每次生命周期仅一次默认初始化/应用同步。开worker前等待host写入批次暂停，worker期间host暂停；worker退出前等待其批次和异步UI操作结束，避免同时写驱动。
+- 内部匿名双向pipe、固定长度头、8MB上限、STARTUPINFOEX继承句柄清单；模型与草稿只存内存，不新增公开配置格式/永久会话文件。完整模型含Current/Default/范围/Step/Support/UsingProfile，optional字符串null保持。
+- 每次开worker刷新host实际生效flags，按DeviceId+Application合并草稿；后台实际生效cache与UI选中草稿分离。设备身份失配不恢复错设备snapshot。
+- worker结束后host重读设置/Profiles并恢复实际生效档；AVSettingsJson缓存整文件，交接重新构造，托盘显隐/主题主动通知，无200ms整文件读盘。
+- host/worker消息按所属HWND/PID核对，快召回排队；完整退出异步握手，继续读pipe，等待真实分辨率回滚与Custom删除完成。Job kill-on-close防孤儿，SILENT_BREAKAWAY_OK允许Updater/外部工具脱离，更新成功走整套退出并co_return。
 
-## 代码检查与限制
-- DSH同会话实施DPI、A headless接口、B进程/IPC及两轮定向修复。Codex补namespace/投影接口/host角色标志，以及最后3项暂停批次、等待Custom删除、建窗后重试退出。
-- 独立审查已确认headless路径无XAML激活、批次暂停无循环等待；已发现并修复模型元数据/cache flags陈旧、退出堵pipe/强杀回滚、跨副本召回、设置轮询、optional null和更新器退出问题。最后限定复核未发现残留或明显类型错误，可以云编译。
-- 实际静态：汉化12项、布局7页104行、diff--check通过。没有运行程序或采集本轮内存，不承诺具体降幅，也不把编译等同于真实超频/Gamma/Eyefinity验收。
-- UiValidation保留原隔离同进程检查入口，只构建不运行，不能证明正式跨进程生命周期。前轮run42065045829及本轮run42215572575均已核对success，本轮正式工件已覆盖交付。
+## 当前修复与验证
+- 28个滑块数值框已从假只读模板改原生可编辑ContentElement；Tag绑定原Slider，Text/IsEnabled实时绑定。Enter或失焦提交完整有限数值，按原范围/步进归一化；Esc恢复原值，未编辑聚焦不改值。仍走原ValueChanged/Apply逻辑，既有12个风扇整数输入保留。
+- UI循环已补IDesktopWindowXamlSourceNative2::PreTranslateMessage，native frame获得WM_SETFOCUS时SetFocus到XAML并NavigateFocus(Restore)。快照Capture/Restore限定page.FindName对应对象，排除跨控件同名模板部件，重建后恢复数值绑定。
+- 已实际观察：运行core F6B7EDFBA833A55D6164C80C7ACFB56E4B8BE4424B6FA1E0E22B6B0DE4422B85，风扇Temp0可删除为空再输入30；调校Core_Max输入1时Slider仍0，Esc后均0，未点Apply。Sky立即抓取可能早于消息处理，必须稳定后再判断；此前仅立即返回旧文本的失败观察不能证明修复无效。
+- 实测关闭worker后只剩host，但旧召回用ShowWindow显示host白色空窗，已可见时不再触发WM_SHOWWINDOW，阻塞再次打开。源码已将启动器和core两条召回改为注册消息RadeonTuner.ShowSettings，host走EnsureUI/LaunchUiWorker。该修复已云构建，待与新界面合并后实测召回。
+- 当前交付目录仍为58AF0B6D160BE3A1C8688A9CABE0A8E267C00BD2AA32F5D7E17F4EAF343D03D1/3203072字节版。后续正式包已下载在.build-work/cloud-recall，SHA256 2E9C1901A7ABE8FC81DA388F7565700F95228C42755278E600C343092BE0F255/3201024字节，尚未覆盖，不能把待交付包描述为运行中。
+- DSH首轮视觉包仅改App.xaml和verify-ui-layout.ps1；diff/汉化12项/7页104行等静态检查通过，无GUI/本地编译。Codex针对报告未决项发现Indicator三态空及PanningRoot状态不完整，已给同会话定向修复，参考微软release/2.8的ScrollBar_themeresources.xaml；当前等待修复结果，不重复已有效检查。
 
-## 开发/发布/清理
-- 活跃DSH session-c605187d-a18a-4ef4-8d4a-353f838e7a13，保留会话及源码直至明确项目结束；当前无DSH任务运行。
-- 入口 AppWinMain.cpp、App.cpp、MainPage.cpp；IPC RadeonTunerIpc.h；backend RadeonTunerBackend.h；构建 .github/workflows/build.yml/windows-2025-vs2026，正式包先上传，后编译UiValidation，不在runner运行应用。
-- 本轮开始本地3e516a8f77d7d81a1e3db648774e36b012556146、远端6a2b253b7d71fb6408969b435b211575ac994f61，同树5499310e7384c012268e5db184be3e5c4547a468。普通Git网络曾失败，API对象发布逐blob/tree核对，expected_sha非强制更新；不要盲推旧origin/main。
-- .build-work/Prepare-GitHubUpload.ps1可重新生成临时上传清单；最新本地/远端/树映射保存于.build-work/evidence/source-publication.json，已用完的base64上传清单清理。下载放本任务.build-work，校验ZIP和EXE报告，再覆盖指定交付；清理可再下载ZIP/解压副本，保留发布证据/恢复文件。
-- 本轮无本机编译工具安装。上轮VSBuildTools18.11.3实例98facc78/SDK26100/Installer已卸载；原.NET6/8/10、Desktop8/10、VC++v14 x64/x86及DOTNET_TieredCompilation=0保留。禁止重复跨会话outputs清理，禁止动其他项目/设置/共享运行库。
-- 候选源码已发布：本地9e4c6873c44d696c9f14d517a2696b611e4884be、远端fad10e5b2462640cfe67e0b234221ce9303890c5，同树2d38d09495f269a6ee95bc5fba6835c25ed16108，16文件逐blob/tree校验。下一次API增量使用该本地/远端基线。最后3项关闭残留已由Codex修复并获限定复核通过；已进入云编译。用户不允许本机实测。
-- 本轮云run42214476488 Release编译失败，唯一根因App::RefreshTrayIconForDpiChange漏头文件声明，引发11项连带成员解析错误。已补声明并核对全部App定义有对应头声明；不改实现/设计，需重编。首次候选本地9e4c687/远端fad10e5b树2d38d094。
-- 编译声明修正已发布：本地e6299374b1f4426cc2c7a6433bfd79804ce52d4a、远端7b7f817b26abb8596b569eaf10a98376599e370e，同树fa30db154b7976930d9cd9c0f427b20ed7e3308b。下一次API增量以此为基线，当前等待第二轮云编译。
-- 第二轮构建run42215572575（远端7b7f817b）正在Release编译；第一轮失败仅补了DPI方法声明，运行代码逻辑与已审候选一致。正式工件就绪后下载校验，严禁启动EXE。
-- 正式Release已编译/打包/上传，run42215572575，artifact13501373058。已下载校验ZIP digest83EEA3EF5BBA5DAA6BC0FDCAAD8DC92280243D49E1EF0E1529C94FD9EDCE26AE，并覆盖指定EXE：3183616字节，SHA256 B093E80771CCD445F561A790EF9B46EFB2CC0E00489C3DC787589D81762DCCE1。打包报告与外部交付哈希一致，未启动任何应用。receipt与report在.build-work/evidence/process-split-*；下载ZIP/解压副本已清理。UiValidation仍在云端编译，未运行。
+## 开发、发布与恢复
+- 活跃DSH session-c605187d-a18a-4ef4-8d4a-353f838e7a13，同一cwd复用。本轮视觉包已成功返回，旧启动配置错误未复现；不能据此宣称PTC节省已验证。保留活跃历史，不动全局DSH链路。
+- 代码入口AppWinMain.cpp/App.cpp/MainPage.cpp；IPC RadeonTunerIpc.h；后台RadeonTunerBackend.h。云构建.github/workflows/build.yml，windows-2025-vs2026，正式Release工件先上传，再编译UiValidation；云端不运行程序或驱动。
+- 最新已发布代码：本地afe69011f746ddf361d815eac6a3d2107e9736da、远端7d139ca1d7891b4d5c7692411df423bc2cb2a74d、同树b68360d68f1ffa36271f0ef8d5ccccb075d55498，run42357578668正式产物已核验。下一次API增量以此本地/远端为基线；origin/main陈旧，勿盲推。
+- .build-work/Prepare-GitHubUpload.ps1基于已提交Git原始blob生成临时base64清单；发布逐blob/tree校验，expected_sha非强制更新。最终本地/远端/树映射写入.build-work/evidence/source-publication.json（当前其中旧映射尚待更新）。项目记录更新用skip-ci提交。
+- 验证入口tools/verify-localization.ps1、tools/verify-ui-layout.ps1、git diff --check；只做受影响检查。不要把构建、静态或一次编辑等同于全部驱动/内存/生命周期验收。
 
-- 最终云run42215572575结论success：Release与UiValidation均编译/打包/上传成功，只做静态检查与编译打包，没有执行应用。代码交付对应本地e6299374/远端7b7f817b/树fa30db154；后续仅项目记录更新，不需要重编。正式EXE交付receipt及report保留，6.26MB下载ZIP/解压临时文件已删除；运行设置/源码/活跃DSH恢复资料保留待用户验收。
-
-## 2026-11-07 数字输入交互修复：已交付
-- 用户反馈数字框无法编辑，确认28个滑块绑定TextBox用了禁用hit test/Tab及隐藏ContentElement的ApplicationTextBoxNoHit。已改原生可编辑模板，保留160x32/数值居中等视觉与布局。
-- 支持点击/选择/粘贴/Tab，Enter或失焦提交，Esc恢复当前值；编辑中允许空白/负号/小数，不逐键重置。只提交完整有限数字，按原Slider范围/步进归一化，再走原ValueChanged路径，不改变原应用按钮/保存/驱动语义。未编辑聚焦不改值，Enter后失焦不重复应用。真正只读/不支持字段保持，既有12个风扇输入未变。
-- 提交/取消及UI快照恢复后重建Text/IsEnabled实时OneWay绑定，避免重开或换设备后失去同步。仅UI恢复层改动，后台/IPC协议/公开配置格式未变。
-- DSH本轮因tools配置mode=ptc不兼容、sessionPersistence未激活启动失败；未修改DSH配置或重新建会话，Codex直接实现。活跃session-c605187d-a18a-4ef4-8d4a-353f838e7a13及其历史保留。
-- 实际检查：28项Tag/Value/IsEnabled/事件关联静态核对，汉化12项、布局7页104行、最终diff检查通过。修正过Data::Binding/BindingMode命名空间后，云run42353651555正式Release编译/打包/上传成功。隔离版在正式交付时仍在云端构建；未运行任何应用、驱动、内存或UI测试。
-- 交付 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe，3201536字节，SHA256 0BF54F22AAABDE10B9C08FD09D97300784FC57FC481913A2142C6918573A616E。ZIP digest59F1F050A05DBFAAC956B7A2C8C086F66DF9B0F258FD62E5556F46355FAE3B66，artifact13566568061；与打包报告及外部副本一致。
-- 应用代码本地612e41de124813e858f79b24d311afd652ccbefb、远端051e60f0cc0610849bdc9dc66457406c24304361，同树5c616a68267500bab3f5c4e0491259735a22cf02。最终项目记录为单独skip-ci提交，最新映射见.build-work/evidence/source-publication.json，后续API增量以该映射为准。
-- 4个临时下载/解压文件已清理；numeric-input-delivery.json及numeric-input-build-report.json保留。源码/设置/活跃会话等待用户验收，禁止自动启动软件或继续套用旧关机指令。后续若需更多修改，复用现库与会话；DSH仍不可用时明确fallback，不擅自修改全局DSH链路。
-## 2026-11-07 用户再次反馈：只能选中，不能输入
-- 已只读核验外部EXE SHA256=0BF54F22...，运行App目录core=DFFDADECF90A1A96E86859ACF156189DAEC162A8EC7E9A9858F99E3E1EC960DB、Resources.pri=58E0BB550E87D67F3252C87D5C621A3EC4070F8B3BE268F5065E53BBB9D1B1DF，均与numeric-input-build-report一致，确实已更新，不归因为用户没重启。
-- 用户明确新授权使用COMPUTER USE，覆盖此前不实测限制，仅复现/验证数字编辑，不点击应用，不改驱动设置。已用Sky复现风扇Temp0：点击后焦点在textbox_Fan_Temp_0，Ctrl+A/BackSpace未改变30；没有点击Apply，也未改变数值。首次召回另观察到native host空白窗，随后实际worker正常出现；此为已观察相关宿主问题。
-- 新定位：CreateWindowXaml消息循环只有TranslateMessage/DispatchMessage，没有IDesktopWindowXamlSourceNative2::PreTranslateMessage，也无WM_SETFOCUS/NavigateFocus处理。微软UWP XAML Islands文档明确需要前置键盘消息路由。下一步补宿主输入管线，云编译后用Computer Use在原值/撤销范围验证真实键盘编辑，不能仅凭编译宣称解决。
-- 本轮直接补UI工作进程消息循环PreTranslateMessage：仅XAML已处理消息跳过后续分发，未处理/失败走原Translate/Dispatch；每条消息临时解析当前source，避免持有已释放island。原生后台循环不初始化XAML、不改驱动/配置。待云编译后Computer Use验证实键Ctrl+A/删除/输入/撤销；未改动当前运行数值30。
-- 键盘宿主修复已发布：本地f3fc267a191f9c3d8da984003b11dd9272adc2ec、远端905a5ec3ef603f27374331b4a1509c541856e4bd，同树c2e57c7be49a6a1c22693422d8ed597b8888ecc8；后续API增量以此为准。当前云编译，交付仍是已确认存在键盘问题的0BF54F22版，待新版真实验证。
-- PreTranslate单独修复run42355167410正式包已覆盖并核验运行core=B480AC7D...；Sky实测Temp0依旧无法Ctrl+A/BackSpace/输入1，值仍30。不能宣称已修复。新增WM_SETFOCUS将native frame键盘焦点交还XAML子窗口，并NavigateFocus(Restore)保留当前编辑目标，待第二次云编译及实测。
-- 用户指出重建面板前输入正常。已对比489fa50与当前：风扇模板未改，窗口由预先可见改为延迟显示；另发现快照递归视觉树按Name单键保存，包含跨控件重名模板部件（ContentElement等）。Capture/Restore现限定page.FindName同一对象，避免内部模板状态串写；需验首次与重开后的键盘输入，不能把该缺陷直接当作已证实的唯一原因。
-- run42356488405正式包已覆盖：外EXE58AF0B6D.../3203072，运行core F6B7EDFB...。Sky实测首次面板：风扇Temp0删除为空并输入30还原；调校Core_Max从0输入1但Slider仍0，Esc恢复0，未点Apply。注意Sky立即抓取可能早于消息处理，应等待后再观测最终值。
-- 关闭worker后已确认只剩host，但再运行EXE仅显示host白色空窗、未创建worker，阻塞重开验收。根因启动器及core召回用ShowWindow显示无界面的host，且已经可见时不再触发WM_SHOWWINDOW。现两条召回改发注册消息RadeonTuner.ShowSettings，host接收走EnsureUI/LaunchUiWorker，无值载荷，不改后台设置。待云构建与重开复核。
+## 清理边界与环境
+- 前两轮cloud-keyboard/cloud-panel-input共8个临时下载/解压文件约12.6MB已删除，build-report等证据保留；cloud-recall留待最终交付后删。只清理本任务验证过的临时文件，不跨会话批量清理outputs。
+- 本轮无本机编译环境安装。上轮VSBuildTools18.11.3实例98facc78/SDK26100/Installer已卸载；原.NET6/8/10、Desktop8/10、VC++v14 x64/x86及DOTNET_TieredCompilation=0保留。不可误删共享环境、其他项目、凭据、用户设置或活跃DSH历史。
+- 收尾前必须先验证指定EXE及用户要求的GitHub源码已成功保存；项目只有用户明确满意结束后才删除本地源码/Git/项目记录及本项目独有环境。当前不满足关闭项目条件。
+- DSH定向修复已完成：按微软WinUI2.8核对Grid/Panning Border部件、命名轨道与Thumb Transform，补齐Indicator三态及ConsciousStates，实际使用hover/pressed色，保留ScrollBarStyle/DefaultScrollBarStyle/隐式入口。XML解析、汉化12项、原7页104行等布局断言和新增原生部件/状态断言、diff检查均通过。未编译或跑GUI；下一步Codex云构建并覆盖，约20秒验证数值编辑与重开，外观由用户验收。

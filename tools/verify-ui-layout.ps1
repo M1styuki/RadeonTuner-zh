@@ -178,7 +178,7 @@ foreach ($StyleKey in @('ApplicationTextBox', 'ApplicationTextBoxNoHit', 'Applic
     if ($null -eq $Style) { Add-Failure "Missing $StyleKey style."; continue }
     Require-Setter $Style 'Height' '32' $StyleKey
     Require-Setter $Style 'BorderThickness' '1' $StyleKey
-    Require-Setter $Style 'CornerRadius' '4' $StyleKey
+    Require-Setter $Style 'CornerRadius' '{StaticResource ApplicationControlCornerRadius}' $StyleKey
     Require-Setter $Style 'FontSize' '13' $StyleKey
     Require-Setter $Style 'TextAlignment' 'Center' $StyleKey
 }
@@ -215,7 +215,7 @@ if ($null -eq $ComboStyle) { Add-Failure 'Missing ApplicationComboBox style.' }
 else {
     Require-Setter $ComboStyle 'Height' '32' 'ApplicationComboBox'
     Require-Setter $ComboStyle 'BorderThickness' '1' 'ApplicationComboBox'
-    Require-Setter $ComboStyle 'CornerRadius' '6' 'ApplicationComboBox'
+    Require-Setter $ComboStyle 'CornerRadius' '{StaticResource ApplicationControlCornerRadius}' 'ApplicationComboBox'
     Require-Setter $ComboStyle 'FontSize' '13' 'ApplicationComboBox'
 }
 foreach ($StyleKey in @('ApplicationButton', 'ApplicationButtonImage')) {
@@ -223,7 +223,7 @@ foreach ($StyleKey in @('ApplicationButton', 'ApplicationButtonImage')) {
     if ($null -eq $Style) { Add-Failure "Missing $StyleKey style."; continue }
     Require-Setter $Style 'Height' '32' $StyleKey
     Require-Setter $Style 'MinHeight' '32' $StyleKey
-    Require-Setter $Style 'CornerRadius' '4' $StyleKey
+    Require-Setter $Style 'CornerRadius' '{StaticResource ApplicationControlCornerRadius}' $StyleKey
 }
 $ButtonStyle = $AppStyles['ApplicationButton']
 Require-Setter $ButtonStyle 'FontSize' '13' 'ApplicationButton'
@@ -232,6 +232,71 @@ Require-Setter $ButtonImageStyle 'Width' '32' 'ApplicationButtonImage'
 Require-Setter $ButtonImageStyle 'Padding' '0' 'ApplicationButtonImage'
 Require-Setter $ButtonImageStyle 'BorderThickness' '0' 'ApplicationButtonImage'
 
+# Compact native scrollbar: thin 6 DIP thumbs, 16 DIP hit area, transparent track, all native parts present.
+$ScrollBarStyle = $AppXaml.SelectSingleNode("//*[local-name()='Style' and @TargetType='ScrollBar']", $AppNamespace)
+if ($null -eq $ScrollBarStyle) { Add-Failure 'Missing implicit ScrollBar style.' }
+else {
+    $ScrollBarTemplate = $ScrollBarStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='Template']/*[local-name()='Setter.Value']/*[local-name()='ControlTemplate']")
+    if ($null -eq $ScrollBarTemplate) { Add-Failure 'ScrollBar style has no control template.' }
+    else {
+        foreach ($Part in @('HorizontalRoot', 'HorizontalThumb', 'VerticalRoot', 'VerticalThumb', 'HorizontalLargeDecrease', 'HorizontalLargeIncrease', 'VerticalLargeDecrease', 'VerticalLargeIncrease')) {
+            if ($null -eq $ScrollBarTemplate.SelectSingleNode(".//*[@x:Name='$Part']", $AppNamespace)) { Add-Failure "ScrollBar template is missing $Part." }
+        }
+        $VerticalThumb = $ScrollBarTemplate.SelectSingleNode(".//*[@x:Name='VerticalThumb']", $AppNamespace)
+        $HorizontalThumb = $ScrollBarTemplate.SelectSingleNode(".//*[@x:Name='HorizontalThumb']", $AppNamespace)
+        foreach ($TypeCheck in @(@('HorizontalRoot','Grid'), @('VerticalRoot','Grid'), @('HorizontalPanningRoot','Grid'), @('VerticalPanningRoot','Grid'), @('HorizontalPanningThumb','Border'), @('VerticalPanningThumb','Border'), @('HorizontalTrackRect','Rectangle'), @('VerticalTrackRect','Rectangle'), @('HorizontalThumb','Thumb'), @('VerticalThumb','Thumb'), @('HorizontalLargeDecrease','RepeatButton'), @('VerticalLargeIncrease','RepeatButton'))) {
+            $Node = $ScrollBarTemplate.SelectSingleNode(".//*[@x:Name='$($TypeCheck[0])']", $AppNamespace)
+            if ($null -eq $Node -or $Node.LocalName -ne $TypeCheck[1]) { Add-Failure "ScrollBar $($TypeCheck[0]) must be a $($TypeCheck[1])." }
+        }
+        $IndicatorStates = $ScrollBarTemplate.SelectSingleNode(".//*[@x:Name='ScrollingIndicatorStates']", $AppNamespace)
+        if ($null -eq $IndicatorStates) { Add-Failure 'ScrollBar is missing ScrollingIndicatorStates.' }
+        else {
+            foreach ($StateName in @('TouchIndicator', 'MouseIndicator', 'NoIndicator')) {
+                if ($null -eq $IndicatorStates.SelectSingleNode("./*[local-name()='VisualState' and @x:Name='$StateName']", $AppNamespace)) { Add-Failure "ScrollingIndicatorStates is missing $StateName." }
+            }
+            $TouchState = $IndicatorStates.SelectSingleNode("./*[local-name()='VisualState' and @x:Name='TouchIndicator']", $AppNamespace)
+            $MouseState = $IndicatorStates.SelectSingleNode("./*[local-name()='VisualState' and @x:Name='MouseIndicator']", $AppNamespace)
+            $NoState = $IndicatorStates.SelectSingleNode("./*[local-name()='VisualState' and @x:Name='NoIndicator']", $AppNamespace)
+            if ($null -eq $TouchState -or $null -eq $TouchState.SelectSingleNode(".//*[local-name()='Setter' and @Target='HorizontalPanningRoot.Visibility' and @Value='Visible']", $AppNamespace)) { Add-Failure 'TouchIndicator must show the horizontal panning root.' }
+            if ($null -eq $TouchState -or $null -eq $TouchState.SelectSingleNode(".//*[local-name()='Setter' and @Target='VerticalPanningRoot.Visibility' and @Value='Visible']", $AppNamespace)) { Add-Failure 'TouchIndicator must show the vertical panning root.' }
+            if ($null -eq $MouseState -or $null -eq $MouseState.SelectSingleNode(".//*[local-name()='Setter' and @Target='HorizontalRoot.Visibility' and @Value='Visible']", $AppNamespace)) { Add-Failure 'MouseIndicator must restore the horizontal root.' }
+            if ($null -eq $MouseState -or $null -eq $MouseState.SelectSingleNode(".//*[local-name()='Setter' and @Target='VerticalRoot.Visibility' and @Value='Visible']", $AppNamespace)) { Add-Failure 'MouseIndicator must restore the vertical root.' }
+            if ($null -eq $NoState -or $null -eq $NoState.SelectSingleNode(".//*[local-name()='ObjectAnimationUsingKeyFrames' and @Storyboard.TargetName='VerticalRoot']", $AppNamespace)) { Add-Failure 'NoIndicator must collapse the vertical root.' }
+            if ($null -eq $NoState -or $null -eq $NoState.SelectSingleNode(".//*[local-name()='ObjectAnimationUsingKeyFrames' and @Storyboard.TargetName='HorizontalRoot']", $AppNamespace)) { Add-Failure 'NoIndicator must collapse the horizontal root.' }
+            if ($null -eq $NoState -or $null -eq $NoState.SelectSingleNode(".//*[local-name()='DoubleAnimation' and @Storyboard.TargetName='VerticalThumb' and @To='0']", $AppNamespace)) { Add-Failure 'NoIndicator must fade the vertical thumb.' }
+            if ($null -eq $NoState -or $null -eq $NoState.SelectSingleNode(".//*[local-name()='DoubleAnimation' and @Storyboard.TargetName='HorizontalThumb' and @To='0']", $AppNamespace)) { Add-Failure 'NoIndicator must fade the horizontal thumb.' }
+        }
+        $ConsciousStates = $ScrollBarTemplate.SelectSingleNode(".//*[@x:Name='ConsciousStates']", $AppNamespace)
+        if ($null -eq $ConsciousStates) { Add-Failure 'ScrollBar is missing ConsciousStates.' }
+        else {
+            $Expanded = $ConsciousStates.SelectSingleNode("./*[local-name()='VisualState' and @x:Name='Expanded']", $AppNamespace)
+            if ($null -eq $Expanded -or $null -eq $Expanded.SelectSingleNode(".//*[local-name()='Setter' and @Target='VerticalThumb.Width' and @Value='{StaticResource ApplicationScrollBarExpandedThumbSize}']", $AppNamespace)) { Add-Failure 'Expanded must use the 8 DIP vertical thumb token.' }
+            if ($null -eq $Expanded -or $null -eq $Expanded.SelectSingleNode(".//*[local-name()='Setter' and @Target='HorizontalThumb.Height' and @Value='{StaticResource ApplicationScrollBarExpandedThumbSize}']", $AppNamespace)) { Add-Failure 'Expanded must use the 8 DIP horizontal thumb token.' }
+            if ($null -eq $Expanded -or $null -eq $Expanded.SelectSingleNode(".//*[local-name()='Setter' and @Target='VerticalThumb.Background' and @Value='{ThemeResource ScrollBarThumbFillPointerOver}']", $AppNamespace)) { Add-Failure 'Expanded must use the hover thumb color resource.' }
+        }
+        foreach ($Transform in @('HorizontalThumbTransform', 'VerticalThumbTransform')) {
+            if ($null -eq $ScrollBarTemplate.SelectSingleNode(".//*[@x:Name='$Transform']", $AppNamespace)) { Add-Failure "ScrollBar is missing $Transform." }
+        }
+        $ThumbTemplate = $AppXaml.SelectSingleNode("//*[@x:Key='ApplicationScrollBarThumb']", $AppNamespace)
+        if ($null -eq $ThumbTemplate) { Add-Failure 'Missing scrollbar thumb template.' }
+        else {
+            if ($null -eq $ThumbTemplate.SelectSingleNode(".//*[local-name()='Setter' and @Target='ThumbVisual.Background' and @Value='{ThemeResource ScrollBarThumbFillPointerOver}']", $AppNamespace)) { Add-Failure 'Scrollbar thumb pointer-over must use the hover color resource.' }
+            if ($null -eq $ThumbTemplate.SelectSingleNode(".//*[local-name()='Setter' and @Target='ThumbVisual.Background' and @Value='{ThemeResource ScrollBarThumbFillPressed}']", $AppNamespace)) { Add-Failure 'Scrollbar thumb pressed must use the pressed color resource.' }
+        }
+        $ThumbSize = $AppXaml.SelectSingleNode("//*[@x:Key='ApplicationScrollBarThumbSize']", $AppNamespace)
+        $ExpandedThumbSize = $AppXaml.SelectSingleNode("//*[@x:Key='ApplicationScrollBarExpandedThumbSize']", $AppNamespace)
+        if ($null -eq $ThumbSize -or $ThumbSize.InnerText.Trim() -ne '6') { Add-Failure 'Scrollbar thumb size token must be 6.' }
+        if ($null -eq $ExpandedThumbSize -or $ExpandedThumbSize.InnerText.Trim() -ne '8') { Add-Failure 'Expanded scrollbar thumb size token must be 8.' }
+        if ($null -eq $VerticalThumb -or $VerticalThumb.GetAttribute('Width') -ne '{StaticResource ApplicationScrollBarThumbSize}') { Add-Failure 'Vertical scrollbar thumb must use the 6 DIP size token.' }
+        if ($null -eq $HorizontalThumb -or $HorizontalThumb.GetAttribute('Height') -ne '{StaticResource ApplicationScrollBarThumbSize}') { Add-Failure 'Horizontal scrollbar thumb must use the 6 DIP size token.' }
+    }
+    Require-Setter $ScrollBarStyle 'MinWidth' '16' 'ScrollBar'
+    Require-Setter $ScrollBarStyle 'MinHeight' '16' 'ScrollBar'
+}
+foreach ($ScrollKey in @('ScrollBarThumbFill', 'ScrollBarTrackFill', 'ScrollBarPanningThumbBackground')) {
+    if ($null -eq $AppXaml.SelectSingleNode("//*[@x:Key='$ScrollKey']", $AppNamespace)) { Add-Failure "Missing $ScrollKey resource." }
+}
+
 # Palette: the dark surface, control, border, hover, text, muted and accent values requested by design.
 $DarkDictionary = $AppXaml.SelectSingleNode("//*[local-name()='ResourceDictionary' and @x:Key='Dark']", $AppNamespace)
 $HighContrastDictionary = $AppXaml.SelectSingleNode("//*[local-name()='ResourceDictionary' and @x:Key='HighContrast']", $AppNamespace)
@@ -239,12 +304,12 @@ if ($null -eq $DarkDictionary) { Add-Failure 'Missing Dark theme dictionary.' }
 if ($null -eq $HighContrastDictionary) { Add-Failure 'Missing HighContrast theme dictionary.' }
 if ($null -ne $DarkDictionary) {
     $Palette = [ordered]@{
-        ThemeBackgroundColor = '#17191E'
-        ThemeControlColor = '#252A33'
-        ThemeBorderColor = '#434A57'
-        ThemeHoverColor = '#303741'
-        ThemeForegroundColor = '#E1E5EA'
-        ApplicationDimGrayColor = '#9DA5B4'
+        ThemeBackgroundColor = '#15181D'
+        ThemeControlColor = '#20252D'
+        ThemeBorderColor = '#3A424E'
+        ThemeHoverColor = '#2B323D'
+        ThemeForegroundColor = '#E6EBF2'
+        ApplicationDimGrayColor = '#9FAAB8'
         ThemeNavIndicatorColor = '#C85C63'
     }
     foreach ($Key in $Palette.Keys) {
