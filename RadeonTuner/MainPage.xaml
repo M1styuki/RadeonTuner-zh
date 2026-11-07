@@ -800,7 +800,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_RadeonChill_Min" Margin="0" ValueChanged="slider_RadeonChill_Min_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_RadeonChill_Min" Margin="0" Text="{Binding ElementName=slider_RadeonChill_Min, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_RadeonChill_Min" Margin="0" Text="{Binding ElementName=slider_RadeonChill_Min, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_RadeonChill_Min}" IsEnabled="{Binding ElementName=slider_RadeonChill_Min, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -823,7 +823,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_RadeonChill_Max" Margin="0" ValueChanged="slider_RadeonChill_Max_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_RadeonChill_Max" Margin="0" Text="{Binding ElementName=slider_RadeonChill_Max, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_RadeonChill_Max" Margin="0" Text="{Binding ElementName=slider_RadeonChill_Max, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_RadeonChill_Max}" IsEnabled="{Binding ElementName=slider_RadeonChill_Max, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -868,7 +868,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Frtc_FrameRateTarget" Margin="0" ValueChanged="slider_Frtc_FrameRateTarget_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Frtc_Fps" Text="{Binding ElementName=slider_Frtc_FrameRateTarget, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Frtc_Fps" Text="{Binding ElementName=slider_Frtc_FrameRateTarget, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Frtc_FrameRateTarget}" IsEnabled="{Binding ElementName=slider_Frtc_FrameRateTarget, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -916,7 +916,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_RadeonBoost_MinResolution" Margin="0" ValueChanged="slider_RadeonBoost_MinResolution_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_RadeonBoost_MinRes" Text="{Binding ElementName=slider_RadeonBoost_MinResolution, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_RadeonBoost_MinRes" Text="{Binding ElementName=slider_RadeonBoost_MinResolution, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_RadeonBoost_MinResolution}" IsEnabled="{Binding ElementName=slider_RadeonBoost_MinResolution, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -964,7 +964,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_RadeonImageSharpening1_Sharpening" Margin="0" ValueChanged="slider_RadeonImageSharpening1_Sharpening_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_RadeonImageSharpening1_Sharpening" Text="{Binding ElementName=slider_RadeonImageSharpening1_Sharpening, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_RadeonImageSharpening1_Sharpening" Text="{Binding ElementName=slider_RadeonImageSharpening1_Sharpening, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_RadeonImageSharpening1_Sharpening}" IsEnabled="{Binding ElementName=slider_RadeonImageSharpening1_Sharpening, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1030,7 +1030,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_RadeonImageSharpening2_Sharpening" Margin="0" ValueChanged="slider_RadeonImageSharpening2_Sharpening_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_RadeonImageSharpening2_Sharpening" Text="{Binding ElementName=slider_RadeonImageSharpening2_Sharpening, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_RadeonImageSharpening2_Sharpening" Text="{Binding ElementName=slider_RadeonImageSharpening2_Sharpening, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_RadeonImageSharpening2_Sharpening}" IsEnabled="{Binding ElementName=slider_RadeonImageSharpening2_Sharpening, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1376,7 +1376,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Core_Min" ValueChanged="slider_Core_Min_ValueChanged" Margin="0" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Core_Min" Text="{Binding ElementName=slider_Core_Min, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Core_Min" Text="{Binding ElementName=slider_Core_Min, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Core_Min}" IsEnabled="{Binding ElementName=slider_Core_Min, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1403,7 +1403,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Core_Max" ValueChanged="slider_Core_Max_ValueChanged" Margin="0" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Core_Max" Text="{Binding ElementName=slider_Core_Max, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Core_Max" Text="{Binding ElementName=slider_Core_Max, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Core_Max}" IsEnabled="{Binding ElementName=slider_Core_Max, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1468,7 +1468,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Memory_Max" Margin="0" ValueChanged="slider_Memory_Max_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Memory_Max" Text="{Binding ElementName=slider_Memory_Max, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Memory_Max" Text="{Binding ElementName=slider_Memory_Max, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Memory_Max}" IsEnabled="{Binding ElementName=slider_Memory_Max, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1495,7 +1495,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Power_Limit" Margin="0" ValueChanged="slider_Power_Limit_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Power_Limit" Text="{Binding ElementName=slider_Power_Limit, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Power_Limit" Text="{Binding ElementName=slider_Power_Limit, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Power_Limit}" IsEnabled="{Binding ElementName=slider_Power_Limit, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1522,7 +1522,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Power_Voltage" Margin="0" ValueChanged="slider_Power_Voltage_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Power_Voltage" Text="{Binding ElementName=slider_Power_Voltage, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Power_Voltage" Text="{Binding ElementName=slider_Power_Voltage, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Power_Voltage}" IsEnabled="{Binding ElementName=slider_Power_Voltage, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1549,7 +1549,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Power_TDC" Margin="0" ValueChanged="slider_Power_TDC_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Power_TDC" Text="{Binding ElementName=slider_Power_TDC, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Power_TDC" Text="{Binding ElementName=slider_Power_TDC, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Power_TDC}" IsEnabled="{Binding ElementName=slider_Power_TDC, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2201,7 +2201,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_GammaBase" Margin="0" ValueChanged="slider_Display_GammaRGB_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_GammaBase" Text="{Binding ElementName=slider_Display_GammaBase, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_GammaBase" Text="{Binding ElementName=slider_Display_GammaBase, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_GammaBase}" IsEnabled="{Binding ElementName=slider_Display_GammaBase, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2225,7 +2225,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_GammaRed" Margin="0" ValueChanged="slider_Display_GammaRGB_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_GammaRed" Text="{Binding ElementName=slider_Display_GammaRed, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_GammaRed" Text="{Binding ElementName=slider_Display_GammaRed, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_GammaRed}" IsEnabled="{Binding ElementName=slider_Display_GammaRed, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2249,7 +2249,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_GammaGreen" Margin="0" ValueChanged="slider_Display_GammaRGB_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_GammaGreen" Text="{Binding ElementName=slider_Display_GammaGreen, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_GammaGreen" Text="{Binding ElementName=slider_Display_GammaGreen, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_GammaGreen}" IsEnabled="{Binding ElementName=slider_Display_GammaGreen, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2273,7 +2273,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_GammaBlue" Margin="0" ValueChanged="slider_Display_GammaRGB_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_GammaBlue" Text="{Binding ElementName=slider_Display_GammaBlue, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_GammaBlue" Text="{Binding ElementName=slider_Display_GammaBlue, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_GammaBlue}" IsEnabled="{Binding ElementName=slider_Display_GammaBlue, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2298,7 +2298,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_Brightness" Margin="0" ValueChanged="slider_Display_Brightness_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_Brightness" Text="{Binding ElementName=slider_Display_Brightness, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_Brightness" Text="{Binding ElementName=slider_Display_Brightness, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_Brightness}" IsEnabled="{Binding ElementName=slider_Display_Brightness, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2322,7 +2322,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_Contrast" Margin="0" ValueChanged="slider_Display_Contrast_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_Contrast" Text="{Binding ElementName=slider_Display_Contrast, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_Contrast" Text="{Binding ElementName=slider_Display_Contrast, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_Contrast}" IsEnabled="{Binding ElementName=slider_Display_Contrast, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2346,7 +2346,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_Saturation" Margin="0" ValueChanged="slider_Display_Saturation_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_Saturation" Text="{Binding ElementName=slider_Display_Saturation, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_Saturation" Text="{Binding ElementName=slider_Display_Saturation, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_Saturation}" IsEnabled="{Binding ElementName=slider_Display_Saturation, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2370,7 +2370,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_Hue" Margin="0" ValueChanged="slider_Display_Hue_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_Hue" Text="{Binding ElementName=slider_Display_Hue, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_Hue" Text="{Binding ElementName=slider_Display_Hue, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_Hue}" IsEnabled="{Binding ElementName=slider_Display_Hue, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2437,7 +2437,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_ColorTemperature_Kelvin" Margin="0" ValueChanged="slider_Display_ColorTemperature_Kelvin_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_ColorTemperature" Text="{Binding ElementName=slider_Display_ColorTemperature_Kelvin, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_ColorTemperature" Text="{Binding ElementName=slider_Display_ColorTemperature_Kelvin, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_ColorTemperature_Kelvin}" IsEnabled="{Binding ElementName=slider_Display_ColorTemperature_Kelvin, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2485,7 +2485,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_Protanopia" Margin="0" ValueChanged="slider_Display_Protanopia_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_Protanopia" Text="{Binding ElementName=slider_Display_Protanopia, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_Protanopia" Text="{Binding ElementName=slider_Display_Protanopia, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_Protanopia}" IsEnabled="{Binding ElementName=slider_Display_Protanopia, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2512,7 +2512,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_Deuteranopia" Margin="0" ValueChanged="slider_Display_Deuteranopia_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_Deuteranopia" Text="{Binding ElementName=slider_Display_Deuteranopia, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_Deuteranopia" Text="{Binding ElementName=slider_Display_Deuteranopia, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_Deuteranopia}" IsEnabled="{Binding ElementName=slider_Display_Deuteranopia, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2539,7 +2539,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Display_Tritanopia" Margin="0" ValueChanged="slider_Display_Tritanopia_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Display_Tritanopia" Text="{Binding ElementName=slider_Display_Tritanopia, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Display_Tritanopia" Text="{Binding ElementName=slider_Display_Tritanopia, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Display_Tritanopia}" IsEnabled="{Binding ElementName=slider_Display_Tritanopia, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2690,7 +2690,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Video_Sharpening" Margin="0" ValueChanged="slider_Video_Sharpening_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_VideoUpscale_Sharpening" Text="{Binding ElementName=slider_Video_Sharpening, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_VideoUpscale_Sharpening" Text="{Binding ElementName=slider_Video_Sharpening, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Video_Sharpening}" IsEnabled="{Binding ElementName=slider_Video_Sharpening, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -2717,7 +2717,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <Slider x:Name="slider_Video_Brightness" Margin="0" ValueChanged="slider_Video_Brightness_ValueChanged" Style="{ThemeResource ApplicationSlider}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Grid.Column="0" MinWidth="120" Height="32" />
-                                            <TextBox x:Name="textbox_Video_Brightness" Text="{Binding ElementName=slider_Video_Brightness, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" />
+                                            <TextBox x:Name="textbox_Video_Brightness" Text="{Binding ElementName=slider_Video_Brightness, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Width="160" MinWidth="160" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="2" Height="32" TextAlignment="Center" Tag="{Binding ElementName=slider_Video_Brightness}" IsEnabled="{Binding ElementName=slider_Video_Brightness, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -3018,7 +3018,7 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Text="{Binding ElementName=slider_Eyefinity_Rows, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" />
+                                <TextBox Grid.Column="0" Text="{Binding ElementName=slider_Eyefinity_Rows, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Tag="{Binding ElementName=slider_Eyefinity_Rows}" IsEnabled="{Binding ElementName=slider_Eyefinity_Rows, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                 <Slider Grid.Column="1" x:Name="slider_Eyefinity_Rows" Margin="10,0,0,0" Minimum="1" Maximum="6" Style="{ThemeResource ApplicationSlider}" />
                             </Grid>
                             <!-- Columns -->
@@ -3028,7 +3028,7 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Text="{Binding ElementName=slider_Eyefinity_Columns, Path=Value}" Style="{ThemeResource ApplicationTextBoxNoHit}" />
+                                <TextBox Grid.Column="0" Text="{Binding ElementName=slider_Eyefinity_Columns, Path=Value, Mode=OneWay}" Style="{ThemeResource ApplicationSliderNumberBox}" Tag="{Binding ElementName=slider_Eyefinity_Columns}" IsEnabled="{Binding ElementName=slider_Eyefinity_Columns, Path=IsEnabled, Mode=OneWay}" GotFocus="textbox_NumericInput_GotFocus" KeyDown="textbox_NumericInput_KeyDown" LostFocus="textbox_NumericInput_LostFocus" />
                                 <Slider Grid.Column="1" x:Name="slider_Eyefinity_Columns" Margin="10,0,0,0" Minimum="1" Maximum="6" Style="{ThemeResource ApplicationSlider}" />
                             </Grid>
                             <!-- Display Placement Order -->

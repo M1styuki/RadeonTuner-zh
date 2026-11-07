@@ -522,7 +522,7 @@ foreach ($PageName in $PageNames) {
                 $Slider.GetAttribute('Height') -ne '32') {
                 Add-Failure "Slider does not stretch from the shared start with a usable minimum: $PageName / $RowName"
             }
-            if ($NumberBox.GetAttribute('Style') -ne '{ThemeResource ApplicationTextBoxNoHit}' -or
+            if ($NumberBox.GetAttribute('Style') -ne '{ThemeResource ApplicationSliderNumberBox}' -or
                 $NumberBox.GetAttribute('Width') -ne '160' -or
                 $NumberBox.GetAttribute('MinWidth') -ne '160' -or
                 $NumberBox.GetAttribute('Height') -ne '32' -or

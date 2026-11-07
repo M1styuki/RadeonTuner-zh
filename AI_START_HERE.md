@@ -43,3 +43,10 @@
 - 正式Release已编译/打包/上传，run42215572575，artifact13501373058。已下载校验ZIP digest83EEA3EF5BBA5DAA6BC0FDCAAD8DC92280243D49E1EF0E1529C94FD9EDCE26AE，并覆盖指定EXE：3183616字节，SHA256 B093E80771CCD445F561A790EF9B46EFB2CC0E00489C3DC787589D81762DCCE1。打包报告与外部交付哈希一致，未启动任何应用。receipt与report在.build-work/evidence/process-split-*；下载ZIP/解压副本已清理。UiValidation仍在云端编译，未运行。
 
 - 最终云run42215572575结论success：Release与UiValidation均编译/打包/上传成功，只做静态检查与编译打包，没有执行应用。代码交付对应本地e6299374/远端7b7f817b/树fa30db154；后续仅项目记录更新，不需要重编。正式EXE交付receipt及report保留，6.26MB下载ZIP/解压临时文件已删除；运行设置/源码/活跃DSH恢复资料保留待用户验收。
+
+## 2026-11-07 数字输入交互修复
+- 用户反馈数字框无法编辑，已确认滑块绑定TextBox使用ApplicationTextBoxNoHit（禁用hit test/Tab），仅作单向读数。本轮改可调数字为实际输入，Enter/失焦提交、Esc恢复；保留原Slider范围/步进及ValueChanged/Apply/save语义，真正只读和不支持字段不解禁。
+- 继续云端编译并覆盖指定EXE，源码推私有仓库；依旧禁止启动软件实测。当前交付仍B093E807...3183616字节，未替换。
+- 同DSH session-c605187d-a18a-4ef4-8d4a-353f838e7a13正在实施；本轮基线本地4616d1306bb8e7da954b566f8ce2afda13d56a17、远端13124116e49acc7da3535d40aa88eb0c1ef7c214，同树e434163b695d0f59a700b2352900fe945ea2117a，source-publication.json为准。保留原进程架构、DPI、界面几何/风扇算法/公开配置格式。
+- DSH本轮启动失败，headless tools插件拒绝mode=ptc，sessionPersistence未激活；未恢复或更换会话、未改DSH配置。Codex已直接完成本轮实现：28个NoHit滑块读数改原生可编辑TextBox，GotFocus记录初值，Enter/失焦只在实际编辑后提交到原Slider.Value，Esc恢复实时OneWay绑定。完整有限数字校验、原范围/步进归一化、disabled与IsReadOnly不解禁，未编辑聚焦不改变原值。既有12个风扇输入保持不变，无新增驱动/IPC/配置语义改动。
+- 真实检查：28项Tag/Value/IsEnabled/事件关联静态核对、汉化12项、布局7页104行、diff--check通过。源改动为App.xaml/MainPage.xaml/MainPage.h/.cpp及原布局检查预期，尚未云编译、没有运行软件。

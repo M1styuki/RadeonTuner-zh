@@ -788,6 +788,12 @@
                 </Setter>
             </Style>
 
+            <Style x:Key="ApplicationSliderNumberBox" TargetType="TextBox" BasedOn="{StaticResource ApplicationFanNumberBox}">
+                <Setter Property="IsTabStop" Value="True"/>
+                <Setter Property="IsHitTestVisible" Value="True"/>
+                <Setter Property="IsReadOnly" Value="False"/>
+            </Style>
+
             <Style x:Name="ApplicationTextBoxNoHit" TargetType="TextBox">
                 <Setter Property="IsTabStop" Value="False"/>
                 <Setter Property="IsHitTestVisible" Value="False"/>

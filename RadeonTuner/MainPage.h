@@ -208,6 +208,11 @@ namespace winrt::RadeonTuner::implementation
 		void UpdateFanInputFields();
 		void ApplyFanInputValue(TextBox const& textBox);
 		Slider FanInputAdapter(TextBox const& textBox);
+		void ApplyNumericInputValue(TextBox const& textBox);
+		void RestoreNumericInputValue(TextBox const& textBox);
+		void textbox_NumericInput_GotFocus(IInspectable const& sender, RoutedEventArgs const& e);
+		void textbox_NumericInput_KeyDown(IInspectable const& sender, KeyRoutedEventArgs const& e);
+		void textbox_NumericInput_LostFocus(IInspectable const& sender, RoutedEventArgs const& e);
 		void UpdateDependentSettingsInterface(bool animate);
 		void ApplyDependentRow(FrameworkElement const& row, bool visible, bool animate);
 		void FinalizeDependentRow(FrameworkElement const& row, bool visible);
@@ -453,6 +458,8 @@ namespace winrt::RadeonTuner::implementation
 		bool comboVisualsInitialized = false;
 		bool suppressDependentFoldAnimation = false;
 		uint64_t pageTransitionGeneration = 0;
+		winrt::weak_ref<TextBox> numericInputFocusedBox;
+		winrt::hstring numericInputOriginalText;
 		FrameworkElement pageTransitionTarget{ nullptr };
 		winrt::Windows::UI::Xaml::Media::Animation::Storyboard pageTransitionStoryboard{ nullptr };
 		std::unordered_map<void*, winrt::Windows::UI::Xaml::Media::Animation::Storyboard> dependentAnimations;

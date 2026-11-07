@@ -3,6 +3,9 @@
 #include <winrt/Windows.UI.ViewManagement.h>
 #include <winrt/Windows.UI.Xaml.Media.Animation.h>
 #include <cmath>
+#include <cerrno>
+#include <cwchar>
+#include <cwctype>
 #include <limits>
 #include <utility>
 #include <atomic>
@@ -142,6 +145,93 @@ namespace winrt::RadeonTuner::implementation
 	{
 		//Notification timer generation, kept outside the page so a queued tick cannot touch a released page.
 		uint64_t g_notificationGeneration = 0;
+
+		bool TryParseSliderInput(std::wstring const& text, Slider const& slider, double& value)
+		{
+			wchar_t* end = nullptr;
+			errno = 0;
+			double parsed = std::wcstod(text.c_str(), &end);
+			if (end == text.c_str() || errno == ERANGE || !std::isfinite(parsed)) { return false; }
+			while (*end && std::iswspace(*end)) { ++end; }
+			if (*end) { return false; }
+
+			double minimum = slider.Minimum();
+			double maximum = slider.Maximum();
+			parsed = std::clamp(parsed, minimum, maximum);
+			double step = slider.StepFrequency();
+			if (step > 0 && std::isfinite(step))
+			{
+				parsed = minimum + std::round((parsed - minimum) / step) * step;
+			}
+			value = std::clamp(parsed, minimum, maximum);
+			return std::isfinite(value);
+		}
+	}
+
+	void MainPage::RestoreNumericInputValue(TextBox const& textBox)
+	{
+		try
+		{
+			auto slider = textBox.Tag().try_as<Slider>();
+			if (!slider) { return; }
+			//Restore the live one-way binding after either a committed edit or Escape.
+			Binding binding;
+			binding.Source(slider);
+			binding.Path(PropertyPath(L"Value"));
+			binding.Mode(BindingMode::OneWay);
+			textBox.SetBinding(TextBox::TextProperty(), binding);
+			if (numericInputFocusedBox.get() == textBox) { numericInputOriginalText = textBox.Text(); }
+		}
+		catch (...) {}
+	}
+
+	void MainPage::ApplyNumericInputValue(TextBox const& textBox)
+	{
+		try
+		{
+			auto slider = textBox.Tag().try_as<Slider>();
+			if (!slider) { return; }
+			double value = 0;
+			bool edited = numericInputFocusedBox.get() == textBox && numericInputOriginalText != textBox.Text();
+			if (edited && textBox.IsEnabled() && !textBox.IsReadOnly() && slider.IsEnabled() &&
+				TryParseSliderInput(std::wstring(textBox.Text().c_str()), slider, value) && value != slider.Value())
+			{
+				//The existing slider handler remains the only model/apply path.
+				slider.Value(value);
+			}
+		}
+		catch (...) {}
+		RestoreNumericInputValue(textBox);
+	}
+
+	void MainPage::textbox_NumericInput_GotFocus(IInspectable const& sender, RoutedEventArgs const& e)
+	{
+		if (auto textBox = sender.try_as<TextBox>())
+		{
+			numericInputFocusedBox = winrt::make_weak(textBox);
+			numericInputOriginalText = textBox.Text();
+		}
+	}
+
+	void MainPage::textbox_NumericInput_KeyDown(IInspectable const& sender, KeyRoutedEventArgs const& e)
+	{
+		auto textBox = sender.try_as<TextBox>();
+		if (!textBox) { return; }
+		if (e.Key() == winrt::Windows::System::VirtualKey::Enter)
+		{
+			ApplyNumericInputValue(textBox);
+			e.Handled(true);
+		}
+		else if (e.Key() == winrt::Windows::System::VirtualKey::Escape)
+		{
+			RestoreNumericInputValue(textBox);
+			e.Handled(true);
+		}
+	}
+
+	void MainPage::textbox_NumericInput_LostFocus(IInspectable const& sender, RoutedEventArgs const& e)
+	{
+		if (auto textBox = sender.try_as<TextBox>()) { ApplyNumericInputValue(textBox); }
 	}
 
 	namespace
