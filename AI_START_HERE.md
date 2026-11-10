@@ -1,7 +1,7 @@
 # RadeonTuner 简体中文版：项目记录
 
 ## 用户目标与边界
-- 当前开发版0.72已合并 dumbie/RadeonTuner 至99e759baa8701761fa75caf3b97e23d37ae0baf2（7次上游提交），保留仅简体中文、深色界面和现有后台架构；待本轮云端交付覆盖。
+- 当前交付版0.72已合并 dumbie/RadeonTuner 至99e759baa8701761fa75caf3b97e23d37ae0baf2（7次上游提交），保留仅简体中文、深色界面和现有后台架构；已完成本轮云端编译和EXE覆盖。
 - 私有源码仓库 https://github.com/M1styuki/RadeonTuner-zh 。用户明确授权上传源码、仅云端编译、下载覆盖 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe。最初只交付一个EXE，允许首次运行释放必要运行文件和设置。
 - 运行根 C:\Users\78539\AppData\Local\RadeonTuner-zh-CN\App；Settings\Settings.json、Profiles及用户数据必须保留。不得用迁移/驱动失败模拟扩大验证。
 - 用户现授权Computer Use复现/验证数字编辑及面板关闭后重开，替代此前不实测限制；只操作本应用，在原值/撤销范围内，不点Apply，不改驱动设置，不测性能。用户同意新版就绪后约20秒操作；其他工作不用Computer Use。外观最终由用户验收。
@@ -28,7 +28,7 @@
 - UI循环已补IDesktopWindowXamlSourceNative2::PreTranslateMessage，native frame获得WM_SETFOCUS时SetFocus到XAML并NavigateFocus(Restore)。快照Capture/Restore限定page.FindName对应对象，排除跨控件同名模板部件，重建后恢复数值绑定。
 - 已实际观察：运行core F6B7EDFBA833A55D6164C80C7ACFB56E4B8BE4424B6FA1E0E22B6B0DE4422B85，风扇Temp0可删除为空再输入30；调校Core_Max输入1时Slider仍0，Esc后均0，未点Apply。Sky立即抓取可能早于消息处理，必须稳定后再判断；此前仅立即返回旧文本的失败观察不能证明修复无效。
 - 实测关闭worker后只剩host，但旧召回用ShowWindow显示host白色空窗，已可见时不再触发WM_SHOWWINDOW，阻塞再次打开。源码已将启动器和core两条召回改为注册消息RadeonTuner.ShowSettings，host走EnsureUI/LaunchUiWorker。该修复已合并最终界面EXE，最终包重开实测未完成，待用户验收。
-- 最终交付D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe已覆盖并校验：SHA256 0A80FFE12AB25EC53FF3144684844A44CFF0E181DBCCB038EC924B0A470B25C1，3204096字节，run42359458442正式Release和UiValidation均构建成功；云端未运行应用。工件13568619951，ZIP digest f165ebb129d5215cd4510b901a78d6fe08d11538cb23f021bfd18e3f5c22aea0，证据interface-delivery.json/interface-build-report.json。
+- 当前交付D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe：0.72.0.0，3217408字节，SHA256 BD19A3C054FE532E467755D4EAF1D20D09A529901227829D2DDF4FBF6DDAD554；云run42831738936 Release与UiValidation完整success，仅编译打包，未执行应用。最终receipt/report为.build-work/evidence/upstream-42831738936-*。
 - DSH首轮视觉包仅改App.xaml和verify-ui-layout.ps1；diff/汉化12项/7页104行等静态检查通过，无GUI/本地编译。Codex针对报告未决项发现Indicator三态空及PanningRoot状态不完整，已给同会话定向修复，参考微软release/2.8的ScrollBar_themeresources.xaml；修复已完成并通过静态检查，不重复已有效检查。
 
 ## 开发、发布与恢复
@@ -63,5 +63,12 @@
 - 独立复核5项已修复并闭合，最后一处锁外Gamma预筛选由Codex做最小修改移除：关闭分支总进入AdlGammaApply(...true)，写锁内核对归属，无归属不写驱动。reviewer仅复核新改动确认无剩余直接阻塞；未做真实驱动/服务/GUI验证。DSH相关静态检查已通过，保留结果不重复无关验证。
 - 下一步本地真实merge commit、普通Git快进推送（origin/main 4f094ac为祖先），云端Release/UiValidation编译，下载正式单EXE覆盖指定目录；不启动应用、不改本机设置/服务，不根据旧指令关机。
 - 源码合并提交已发布：本地72ebd795330f2300f110f8226c1b911e671607ea（真实merge含99e与用户4f祖先），普通Git推送两次github:443连接失败；改API逐34个blob及整树校验，远端126642543376001cf4010968c9a5dc1c2588b0e5与本地同树edbccc96c9b9fdab3eed3b1d2a2456985a7ee4a0。API提交为单父4f的等价内容提交，不含上游99e原始祖先；本地真实merge历史保留供后续上游合并。后续API增量须用这组本地/远端同树映射，不能误认为SHA相同或盲推覆盖远端；source-publication.json已更新。当前等待云编译。
-- 本轮正式Release编译/打包/上传成功，云run42830308665，artifact13770289132，ZIP digest e285f15094b1046c3a11d7e8ba0613cd2a34a797499927d4da855698ac3385d8。已下载核验并覆盖指定EXE：0.72.0.0，3217408字节，SHA256 FB249E3DCFD9BE2D6519AC8B4BF3FCC323EEC6F7F91222832F0701F9C2BA6882，与打包报告一致；未启动程序/驱动/服务、未修改AppData设置或运行文件。本轮4个临时下载/解压文件已清理，upstream-42830308665-build-report.json和delivery.json保留。UiValidation仍在云端编译，只构建不运行，当前尚不能宣称完整job成功。
+- 本轮正式Release编译/打包/上传成功，云run42830308665，artifact13770289132，ZIP digest e285f15094b1046c3a11d7e8ba0613cd2a34a797499927d4da855698ac3385d8。已下载核验并覆盖指定EXE：0.72.0.0，3217408字节，SHA256 FB249E3DCFD9BE2D6519AC8B4BF3FCC323EEC6F7F91222832F0701F9C2BA6882，与打包报告一致；未启动程序/驱动/服务、未修改AppData设置或运行文件。本轮4个临时下载/解压文件已清理，upstream-42830308665-build-report.json和delivery.json保留。该次UiValidation后续因测试工程旧控件名编译失败，见下方修复与最终成功记录。
 - 首轮云job42830308665整体failure仅发生在后续UiValidation编译：UiBehaviorTests.h和UiValidationScenario.h共5处仍引用上游已更名的combobox_FanControl_Mode/事件名，正式Release已成功交付。Codex按当前MainPage声明做纯字面更名为combobox_FanControlMode，保留原UTF8编码/BOM/换行，无生产代码改动；diff核对及旧名称全量检索通过。需提交后再云编译，不能将首轮完整job写为success。
+- 隔离编译控件名修正已发布：本地20cef0a3f96d215817683102c797525069592b7a、远端a994bc61f87b8a847ebfd2fcef6f34d45a333b0a、同树0fb17fc65462276fdbf4f2276be1168abe18f594。已验证RadeonTuner生产源码目录树在72ebd79与20cef0a间完全不变（e538eddddcd7bbf9f27e4505aafdce51c4e4f2ce），故此前正式EXE/独立复核仍有效，不因测试工程更名重复改动驱动代码。等待新job完整编译结果；后续API增量用20cef0a/a994bc映射。
+
+## 2026-11-10 上游0.72最终交付完成
+- 最终云run42831738936完整success：正式Release和UiValidation均编译/打包/上传成功；未执行GUI/驱动/服务。首轮隔离工程旧控件名已修复，生产目录树与已独立复核版本相同。
+- 已用本次最终正式工件13771972322覆盖唯一交付EXE，0.72.0.0，3217408字节，SHA256 BD19A3C054FE532E467755D4EAF1D20D09A529901227829D2DDF4FBF6DDAD554；ZIP digest c56f2bb5319626e2e25a90a71fb4ed088bdac1f4be18b4357451ba6c9ca16bc0，与打包报告和外部文件匹配。未改AppData设置/运行文件，用户正常退出旧程序后重新打开即可完成运行文件升级。
+- 本轮两次下载共8个临时ZIP/解压/日志/副本已删除；receipt与报告、活跃源码/测试/Git/DSH会话/审查记录保留待用户验收。无本机开发环境安装。
+- 最终应用及隔离更名修正对应本地20cef0a3f96d215817683102c797525069592b7a、远端a994bc61f87b8a847ebfd2fcef6f34d45a333b0a，同树0fb17fc65462276fdbf4f2276be1168abe18f594。后续仅项目记录skip-ci提交，最终映射见source-publication.json；生产目录树e538eddddcd7bbf9f27e4505aafdce51c4e4f2ce，已合并上游至99e759b，并保留用户4f导航修复。
