@@ -209,7 +209,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <!-- Header -->
-                <Border x:Name="border_Header" Grid.Row="0" Margin="14,10,14,0" Padding="0,4">
+                <Border x:Name="border_Header" Grid.Row="0" Margin="14,10,14,0" Padding="0,4" Visibility="Collapsed">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -313,7 +313,7 @@
                     </Grid>
                 </Border>
                 <!-- Status -->
-                <Border x:Name="border_Gpu_Status" Grid.Row="1" Margin="14,16,14,0" Padding="0">
+                <Border x:Name="border_Gpu_Status" Grid.Row="1" Margin="14,16,14,0" Padding="0" Visibility="Collapsed">
                     <Grid ColumnSpacing="24" RowSpacing="14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -421,7 +421,7 @@
                     </Grid>
                 </Border>
                 <!-- Buttons -->
-                <Border x:Name="border_ActionButtons" Grid.Row="2" Margin="14,4,14,0" Padding="0,4">
+                <Border x:Name="border_ActionButtons" Grid.Row="2" Margin="14,4,14,0" Padding="0,4" Visibility="Collapsed">
                     <Grid>
                         <VariableSizedWrapGrid x:Name="stackpanel_Tuning_Buttons" ItemWidth="105" ItemHeight="32" Margin="4,2,4,2" Orientation="Horizontal">
                             <Button x:Name="button_Tuning_Apply" Click="button_Tuning_Apply_Click" Content="应用" Width="100" Style="{ThemeResource ApplicationButton}" ToolTipService.ToolTip="应用调校与风扇设置。&#xA;&#xA;* 绿色：设置未更改。&#xA;* 橙色：设置已更改，请应用。&#xA;* 红色：设置应用失败。" />

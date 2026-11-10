@@ -1097,6 +1097,14 @@ if ($null -eq $UpdateButtonImage -or [int]$UpdateButtonImage.GetAttribute('Width
     Add-Failure 'Header update icon is not 16 DIP.'
 }
 
+# Navigation reveals these regions only after the selected page is known.
+foreach ($Name in @('border_Header', 'border_Gpu_Status', 'border_ActionButtons')) {
+    $Region = $Xaml.SelectSingleNode("//*[@x:Name='$Name']", $Namespace)
+    if ($null -eq $Region -or $Region.GetAttribute('Visibility') -ne 'Collapsed') {
+        Add-Failure "Navigation region must start collapsed to avoid overlapping controls during initialization: $Name"
+    }
+}
+
 $Result = [ordered]@{
     xaml = $XamlPath
     app_xaml = $AppXamlPath
