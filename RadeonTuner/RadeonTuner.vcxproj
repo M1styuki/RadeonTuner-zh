@@ -68,13 +68,14 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <ExceptionHandling>Async</ExceptionHandling>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PreprocessorDefinitions>_VSDESIGNER_DONT_LOAD_AS_DLL;DISABLE_XAML_GENERATED_MAIN;$(UiValidationDefines)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories Condition="'$(UiValidation)'=='true'">$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) /bigobj /Zm400 /utf-8</AdditionalOptions>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj /Zm400 /utf-8 /Zc:preprocessor</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -82,7 +83,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-      <AdditionalDependencies>Comdlg32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comdlg32.lib;Advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -200,9 +201,13 @@
     <ClInclude Include="SettingCheck.h" />
     <ClInclude Include="SettingFunc.h" />
     <ClInclude Include="SettingSave.h" />
+    <ClInclude Include="WindowsService.h" />
     <ClInclude Include="SettingLoad.h" />
     <ClInclude Include="SystemIntegrationIdentity.h" />
     <ClInclude Include="DisplaySettingsClass.h" />
+    <ClInclude Include="SteamFuncAppInfo.h" />
+    <ClInclude Include="SteamStructures.h" />
+    <ClInclude Include="SteamFunctions.h" />
     <ClInclude Include="SteamFuncLibraryFolders.h" />
     <ClInclude Include="TuningFanSettingsClass.h" />
     <ClInclude Include="TuningFanSettingsConvertUIAdl.h" />
@@ -227,10 +232,9 @@
     <ClCompile Include="App.cpp">
       <DependentUpon>App.xaml</DependentUpon>
     </ClCompile>
-    <ClCompile Include="pch.cpp" />
-    <ClCompile Include="SteamFuncAppInfo.h" />
-    <ClCompile Include="SteamStructures.h" />
-    <ClCompile Include="SteamFunctions.h" />
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Midl Include="App.idl">

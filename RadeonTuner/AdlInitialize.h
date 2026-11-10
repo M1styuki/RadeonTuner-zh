@@ -134,6 +134,8 @@ namespace winrt::RadeonTuner::implementation
 #else
 		try
 		{
+			//Fix when you downgrade a driver without removing the newer driver it may load the wrong atiadlxx file possibly leading to getting blocked.
+
 			//Initialize ADL library
 			HINSTANCE hInstance = LoadLibraryW(L"atiadlxx.dll");
 			if (hInstance == NULL)

@@ -1410,6 +1410,9 @@ namespace winrt::RadeonTuner::implementation
 				UpdateCheckResult updateCheckResult = UpdateCheck(AppVariables::hInstance, "dumbie", "RadeonTuner");
 				if (updateCheckResult.UpdateFound)
 				{
+					//Set update version
+					vUpdateVersion = updateCheckResult.UpdateVersion;
+
 					//Show update button
 					button_Update_Launch().Visibility(Visibility::Visible);
 
@@ -1475,6 +1478,7 @@ namespace winrt::RadeonTuner::implementation
 					stackpanel_FsrOverrideRayRegeneration().Visibility(Visibility::Visible);
 					stackpanel_FsrOverrideNeuralRadianceCaching().Visibility(Visibility::Visible);
 					stackpanel_FluidMotion_Options().Visibility(Visibility::Visible);
+					stackpanel_RadeonBoost_Options().Visibility(Visibility::Visible);
 					stackpanel_FsrShowInformation().Visibility(Visibility::Visible);
 					stackpanel_FsrDisableMLSwapchain().Visibility(Visibility::Visible);
 
@@ -1496,6 +1500,7 @@ namespace winrt::RadeonTuner::implementation
 					stackpanel_FsrOverrideRayRegeneration().Visibility(Visibility::Collapsed);
 					stackpanel_FsrOverrideNeuralRadianceCaching().Visibility(Visibility::Collapsed);
 					stackpanel_FluidMotion_Options().Visibility(Visibility::Collapsed);
+					stackpanel_RadeonBoost_Options().Visibility(Visibility::Collapsed);
 					stackpanel_FsrShowInformation().Visibility(Visibility::Collapsed);
 					stackpanel_FsrDisableMLSwapchain().Visibility(Visibility::Collapsed);
 
@@ -2379,7 +2384,7 @@ namespace RadeonTunerBackend
 		RT_T_INT(PowerLimit) RT_T_INT(PowerVoltage) RT_T_INT(PowerTDC) RT_T_INT(FanSpeedMin) RT_T_INT(FanSpeedMax)
 		RT_T_INT(FanZeroRpm) RT_T_INT(FanSpeed0) RT_T_INT(FanTemp0) RT_T_INT(FanSpeed1) RT_T_INT(FanTemp1)
 		RT_T_INT(FanSpeed2) RT_T_INT(FanTemp2) RT_T_INT(FanSpeed3) RT_T_INT(FanTemp3) RT_T_INT(FanSpeed4) RT_T_INT(FanTemp4)
-		RT_T_INT(KeepActive) RT_T_INT(FanControlMode)
+		RT_T_INT(KeepActive) RT_T_INT(FanControlMode) RT_T_INT(FanRangedCurve)
 #undef RT_T_INT
 		j["FanZeroTemp"] = v.FanZeroTemp; j["FanSupport"] = v.FanSupport; j["TuningSupport"] = v.TuningSupport; j["UsingProfile"] = v.UsingProfile;
 		return j;
@@ -2394,7 +2399,7 @@ namespace RadeonTunerBackend
 		RT_T_LOAD(PowerLimit) RT_T_LOAD(PowerVoltage) RT_T_LOAD(PowerTDC) RT_T_LOAD(FanSpeedMin) RT_T_LOAD(FanSpeedMax)
 		RT_T_LOAD(FanZeroRpm) RT_T_LOAD(FanSpeed0) RT_T_LOAD(FanTemp0) RT_T_LOAD(FanSpeed1) RT_T_LOAD(FanTemp1)
 		RT_T_LOAD(FanSpeed2) RT_T_LOAD(FanTemp2) RT_T_LOAD(FanSpeed3) RT_T_LOAD(FanTemp3) RT_T_LOAD(FanSpeed4) RT_T_LOAD(FanTemp4)
-		RT_T_LOAD(KeepActive) RT_T_LOAD(FanControlMode)
+		RT_T_LOAD(KeepActive) RT_T_LOAD(FanControlMode) RT_T_LOAD(FanRangedCurve)
 #undef RT_T_LOAD
 		try { v.FanZeroTemp = j.value("FanZeroTemp", -1); } catch (...) {}
 		try { v.FanSupport = j.value("FanSupport", false); } catch (...) {}
@@ -2472,6 +2477,22 @@ namespace RadeonTunerBackend
 	static nlohmann::json MultimediaToJson(MultimediaSettings const& v) { nlohmann::json j = nlohmann::json::object(); j["DeviceId"] = v.DeviceId.has_value() ? wstring_to_string_utf8(v.DeviceId.value()) : std::string(); j["Application"] = v.Application.has_value() ? wstring_to_string_utf8(v.Application.value()) : std::string(); j["VideoUpscaling"] = IntJson(v.VideoUpscaling); j["VideoSharpening"] = IntJson(v.VideoSharpening); j["VideoBrightness"] = IntJson(v.VideoBrightness); j["UsingProfile"] = v.UsingProfile; return j; }
 	static MultimediaSettings MultimediaFromJson(nlohmann::json const& j) { MultimediaSettings v{}; try { v.DeviceId = string_to_wstring_utf8(j.value("DeviceId", std::string())); } catch (...) {} try { v.Application = string_to_wstring_utf8(j.value("Application", std::string())); } catch (...) {} if (j.contains("VideoUpscaling")) { IntLoad(j["VideoUpscaling"], v.VideoUpscaling); } if (j.contains("VideoSharpening")) { IntLoad(j["VideoSharpening"], v.VideoSharpening); } if (j.contains("VideoBrightness")) { IntLoad(j["VideoBrightness"], v.VideoBrightness); } try { v.UsingProfile = j.value("UsingProfile", false); } catch (...) {} return v; }
 
+	static void RestoreGammaTargets(nlohmann::json const& state)
+	{
+		try
+		{
+			if (!state.contains("gamma_restore_targets") || !state["gamma_restore_targets"].is_array()) { return; }
+			std::lock_guard<std::mutex> lock(gammaAppliedTargetsMutex);
+			gammaAppliedTargets.clear();
+			for (auto const& item : state["gamma_restore_targets"])
+			{
+				std::wstring target = string_to_wstring_utf8(item.get<std::string>());
+				if (!target.empty()) { gammaAppliedTargets.insert(target); }
+			}
+		}
+		catch (...) {}
+	}
+
 	static void RestoreCacheFlags(nlohmann::json const& state)
 	{
 		auto restore = [](nlohmann::json const& array, auto& cache)
@@ -2509,7 +2530,7 @@ namespace RadeonTunerBackend
 			nlohmann::json draft = nlohmann::json::parse(draftJson);
 			nlohmann::json runtime = nlohmann::json::parse(runtimeJson);
 
-			for (const char* key : { "tuning_cache", "display_cache", "multimedia_cache" })
+			for (const char* key : { "tuning_cache", "display_cache", "multimedia_cache", "gamma_restore_targets" })
 			{
 				if (runtime.contains(key)) { draft[key] = runtime[key]; }
 			}
@@ -2550,7 +2571,9 @@ namespace RadeonTunerBackend
 		try
 		{
 			if (json.empty()) { return false; }
-			RestoreCacheFlags(nlohmann::json::parse(json));
+			nlohmann::json state = nlohmann::json::parse(json);
+			RestoreCacheFlags(state);
+			RestoreGammaTargets(state);
 			return true;
 		}
 		catch (...) { return false; }
@@ -2589,6 +2612,11 @@ namespace RadeonTunerBackend
 			state["tuning_cache"] = nlohmann::json::array(); appendCache(state["tuning_cache"], tuningFanSettingsCache);
 			state["display_cache"] = nlohmann::json::array(); appendCache(state["display_cache"], displaySettingsCache);
 			state["multimedia_cache"] = nlohmann::json::array(); appendCache(state["multimedia_cache"], multimediaSettingsCache);
+			state["gamma_restore_targets"] = nlohmann::json::array();
+			{
+				std::lock_guard<std::mutex> lock(gammaAppliedTargetsMutex);
+				for (auto const& target : gammaAppliedTargets) { state["gamma_restore_targets"].push_back(wstring_to_string_utf8(target)); }
+			}
 			state["snapshot"] = nlohmann::json::parse(RadeonTunerUiSession::CaptureSnapshotJson());
 			return state.dump();
 		}
@@ -2663,6 +2691,7 @@ namespace RadeonTunerBackend
 				RadeonTunerUiSession::RestoreSnapshotJson(state["snapshot"].dump());
 			}
 			RestoreCacheFlags(state);
+			RestoreGammaTargets(state);
 			return true;
 		}
 		catch (...)

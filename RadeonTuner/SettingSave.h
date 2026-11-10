@@ -280,4 +280,24 @@ namespace winrt::RadeonTuner::implementation
 		}
 		catch (...) {}
 	}
+	void MainPage::button_DisableRadeonServices_Click(IInspectable const& sender, RoutedEventArgs const& e)
+	{
+		try
+		{
+			if (disable_saving_settings) { return; }
+			ToggleRadeonServices(true);
+		}
+		catch (...) {}
+	}
+
+	void MainPage::button_EnableRadeonServices_Click(IInspectable const& sender, RoutedEventArgs const& e)
+	{
+		try
+		{
+			if (disable_saving_settings) { return; }
+			ToggleRadeonServices(false);
+		}
+		catch (...) {}
+	}
+
 }

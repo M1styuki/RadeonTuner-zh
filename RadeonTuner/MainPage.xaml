@@ -461,7 +461,7 @@
                     </Grid>
                 </Border>
                 <!-- Main -->
-                <ScrollViewer Grid.Row="3" Margin="14,8,8,0" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Grid.Row="3" Margin="14,8,16,0" VerticalScrollBarVisibility="Auto">
                     <Grid Margin="0,0,8,18">
                         <!-- Graphics -->
                         <Grid x:Name="stackpanel_Graphics" Visibility="Collapsed">
@@ -874,6 +874,7 @@
                                 </Border>
                                 </StackPanel>
                                 <!-- Radeon Boost -->
+                                <StackPanel x:Name="stackpanel_RadeonBoost_Options">
                                 <Border Style="{ThemeResource FlatSettingRow}">
                                     <Grid MinWidth="0" ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
@@ -920,6 +921,7 @@
                                         </Grid>
                                     </Grid>
                                 </Border>
+                                </StackPanel>
                                 </StackPanel>
                                 <!-- Radeon Image Sharpening 1 -->
                                 <Border Style="{ThemeResource FlatSettingRow}">
@@ -1589,9 +1591,9 @@
                                                     </StackPanel>
                                                 </StackPanel>
                                             </StackPanel>
-                                            <TextBlock Style="{ThemeResource FlatValueHint}" x:Name="textblock_FanControl_Mode_Value" ToolTipService.ToolTip="驱动中的当前设置" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,2,0,0" TextWrapping="Wrap" MaxWidth="300" />
+                                            <TextBlock Style="{ThemeResource FlatValueHint}" x:Name="textblock_FanControlMode_Value" ToolTipService.ToolTip="驱动中的当前设置" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,2,0,0" TextWrapping="Wrap" MaxWidth="300" />
                                         </StackPanel>
-                                        <ComboBox x:Name="combobox_FanControl_Mode" Margin="0" Width="160" HorizontalAlignment="Right" Style="{ThemeResource ApplicationComboBox}" SelectionChanged="combobox_FanControl_Mode_SelectionChanged" MinWidth="160" VerticalAlignment="Center" Grid.Column="1" Height="32" />
+                                        <ComboBox x:Name="combobox_FanControlMode" Margin="0" Width="160" HorizontalAlignment="Right" Style="{ThemeResource ApplicationComboBox}" SelectionChanged="combobox_FanControlMode_SelectionChanged" MinWidth="160" VerticalAlignment="Center" Grid.Column="1" Height="32" />
                                     </Grid>
                                 </Border>
                                 <!-- Fan Zero RPM -->
@@ -1832,6 +1834,25 @@
                                 </StackPanel>
                                 <!-- Ranged Fan Speed -->
                                 <StackPanel x:Name="stackpanel_FanControl_RangedFanSpeed" Visibility="Collapsed">
+                                    <!-- Ranged fan curve -->
+                                    <Border Style="{ThemeResource FlatSettingRow}">
+                                        <Grid MinWidth="0" ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="300" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" MinWidth="0" Grid.Column="0">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Style="{ThemeResource FlatSettingLabel}" Text="范围风扇曲线" Margin="0" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="252" />
+                                                    <StackPanel VerticalAlignment="Center" Margin="4,0,0,0" Orientation="Horizontal">
+                                                        <Image Style="{ThemeResource FlatHelpIcon}" Source="{ThemeResource ThemeImageInformation}" ToolTipService.ToolTip="选择范围风扇转速使用的曲线。&#xA;&#xA;- 线性：风扇转速随温度线性上升。&#xA;&#xA;- 静音：起始转速更低，高温时上升更快。" Margin="2,0" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <TextBlock Style="{ThemeResource FlatValueHint}" x:Name="textblock_FanRangedCurve_Value" ToolTipService.ToolTip="驱动中的当前设置" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,2,0,0" TextWrapping="Wrap" MaxWidth="300" />
+                                            </StackPanel>
+                                            <ComboBox x:Name="combobox_FanRangedCurve" Margin="0" Width="160" HorizontalAlignment="Right" SelectionChanged="combobox_FanRangedCurve_SelectionChanged" Style="{ThemeResource ApplicationComboBox}" MinWidth="160" VerticalAlignment="Center" Grid.Column="1" Height="32" />
+                                        </Grid>
+                                    </Border>
                                     <Border x:Name="grid_Fan_Range_Row" Style="{ThemeResource FlatSettingRow}">
                                         <Grid x:Name="grid_Fan_Range_Inputs" MinWidth="0" ColumnSpacing="16" HorizontalAlignment="Stretch">
                                             <Grid.ColumnDefinitions>
@@ -2172,7 +2193,7 @@
                                                 <TextBlock Style="{ThemeResource FlatSettingLabel}" Text="显示伽马控制" Margin="0" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="252" />
                                                 <StackPanel VerticalAlignment="Center" Margin="4,0,0,0" Orientation="Horizontal">
                                                     <Image Style="{ThemeResource FlatHelpIcon}" Source="{ThemeResource ThemeImageInformation}" ToolTipService.ToolTip="启用或禁用显示伽马调整。" Margin="2,0" />
-                                                    <Image Style="{ThemeResource FlatHelpIcon}" Source="/Assets/WarningOrange.png" ToolTipService.ToolTip="* 某些正在运行的应用程序或视频播放可能会阻止伽马更改，可能需要先最小化或关闭它们，伽马才会生效。&#xA;&#xA;* 更改分辨率或在屏幕模式之间切换会将伽马重置为默认值；RadeonTuner 运行时将尝试恢复目标伽马，但可能需要几秒钟。" Margin="2,0" />
+                                                    <Image Style="{ThemeResource FlatHelpIcon}" Source="/Assets/WarningOrange.png" ToolTipService.ToolTip="* 某些正在运行的应用程序或视频播放可能会阻止伽马更改，可能需要先最小化或关闭它们，伽马才会生效。&#xA;&#xA;* 更改分辨率或在屏幕模式之间切换会将伽马重置为默认值；RadeonTuner 运行时将尝试恢复目标伽马，但可能需要几秒钟。&#xA;&#xA;* 启用“显示伽马控制”可能禁用当前显示器使用的 ICC 配置文件；请在使用伽马控制或 ICC 配置文件之间选择。" Margin="2,0" />
                                                 </StackPanel>
                                             </StackPanel>
                                             <TextBlock Style="{ThemeResource FlatValueHint}" x:Name="textblock_Display_GammaControl_Value" ToolTipService.ToolTip="驱动中的当前设置" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,2,0,0" TextWrapping="Wrap" MaxWidth="300" />
@@ -2938,6 +2959,28 @@
                                 </Grid>
                             </Border>
                             <!-- Radeon services -->
+                            <Border Style="{ThemeResource FlatSettingRow}">
+                                <Grid MinWidth="0" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="300" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" MinWidth="0" Grid.Column="0">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Style="{ThemeResource FlatSettingLabel}" Text="Radeon 服务" Margin="0" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="252" />
+                                            <StackPanel VerticalAlignment="Center" Margin="4,0,0,0" Orientation="Horizontal">
+                                                <Image Style="{ThemeResource FlatHelpIcon}" Source="{ThemeResource ThemeImageInformation}" ToolTipService.ToolTip="手动禁用或启用 Radeon 后台服务，以释放资源并减少日志。" Margin="2,0" />
+                                                <Image Style="{ThemeResource FlatHelpIcon}" Source="/Assets/WarningOrange.png" ToolTipService.ToolTip="* 禁用服务可能导致流体运动帧（AFMF）和 Radeon Boost 等显卡功能无法使用。&#xA;&#xA;* 更新或重新安装驱动程序会重新启用服务。&#xA;&#xA;* 此操作不会自动执行，只有在点击按钮时才会更改服务状态。" Margin="2,0" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Column="1">
+                                        <Image x:Name="button_DisableRadeonServices_AdminShield" Style="{ThemeResource FlatHelpIcon}" Source="{ThemeResource ThemeImageShield}" ToolTipService.ToolTip="更改服务状态需要管理员权限；以管理员身份运行后可继续操作。" Margin="2,0,8,0" />
+                                        <Button x:Name="button_DisableRadeonServices" Content="禁用 Radeon 服务" Click="button_DisableRadeonServices_Click" Style="{ThemeResource ApplicationButton}" ToolTipService.ToolTip="手动禁用 AMD External Events Utility 和 AMD Crash Defender Service。" VerticalAlignment="Center" />
+                                        <Button x:Name="button_EnableRadeonServices" Content="启用 Radeon 服务" Click="button_EnableRadeonServices_Click" Margin="8,0,0,0" Style="{ThemeResource ApplicationButton}" ToolTipService.ToolTip="手动启用 AMD External Events Utility 和 AMD Crash Defender Service。" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
                             <!-- Check update on launch -->
                             <Border Style="{ThemeResource FlatSettingRow}">
                                 <Grid MinWidth="0" ColumnSpacing="16">

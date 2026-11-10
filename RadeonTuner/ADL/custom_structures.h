@@ -1,3 +1,11 @@
+typedef struct ADLOD8SaveSetting
+{
+	ADLOD8SettingId Identifier = ADLOD8SettingId::OD8_COUNT;
+	int TargetValue = 0;
+	bool UseDefaultValue = false;
+	bool ResetValue = false;
+};
+
 typedef struct ADLOD8SingleInitSettingWrap : ADLOD8SingleInitSetting
 {
 	bool IsSupported()
@@ -124,6 +132,12 @@ enum class FanControlModes : int
 	FanZeroRpmOnly = 1,
 	RangedFanSpeed = 2,
 	CustomFanCurve = 3
+};
+
+enum class FanRangedCurves : int
+{
+	Linear = 0,
+	Quiet = 1
 };
 
 enum class OD8_OPTIMZED_POWER_MODES : int

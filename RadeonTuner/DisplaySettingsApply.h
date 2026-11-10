@@ -454,7 +454,7 @@ namespace winrt::RadeonTuner::implementation
 					auto newValueBlue = targetSettings.GammaBlue.Get(settingGet).value();
 
 					//Apply gamma values
-					AdlGammaApply(displayAdapterIndex, newValueBase, newValueRed, newValueGreen, newValueBlue);
+					AdlGammaApply(displayAdapterIndex, newValueBase, newValueRed, newValueGreen, newValueBlue, false);
 				}
 				else
 				{
@@ -464,8 +464,8 @@ namespace winrt::RadeonTuner::implementation
 					float defaultValueGreen = adlSettings.GammaGreen.Default.value();
 					float defaultValueBlue = adlSettings.GammaBlue.Default.value();
 
-					//Apply gamma values
-					AdlGammaApply(displayAdapterIndex, defaultValueBase, defaultValueRed, defaultValueGreen, defaultValueBlue);
+					//Check ownership inside the gamma write lock, including pending writes.
+					AdlGammaApply(displayAdapterIndex, defaultValueBase, defaultValueRed, defaultValueGreen, defaultValueBlue, true);
 				}
 			}
 			catch (...) {}

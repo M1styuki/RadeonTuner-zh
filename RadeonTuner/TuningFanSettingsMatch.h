@@ -82,6 +82,21 @@ namespace winrt::RadeonTuner::implementation
 				{
 					if (settingsProfile.FanSpeedMax.Current.value() != settingsAdl.FanSpeedMax.Current.value()) { return false; }
 				}
+
+				//Compare the actual five curve points produced by the selected shape.
+				//The driver does not return the Linear/Quiet enum, so matching only
+				//min/max would skip a curve-shape change.
+				if (settingsProfile.FanSpeedMin.Current.has_value() && settingsProfile.FanSpeedMax.Current.has_value())
+				{
+					int fanRangedCurve = settingsProfile.FanRangedCurve.Get(AdlSettingGet::Current).value_or((int)FanRangedCurves::Linear);
+					int curveValues[5]{};
+					TuningFanRangedCurveValues(settingsProfile.FanSpeedMin.Current.value(), settingsProfile.FanSpeedMax.Current.value(), fanRangedCurve, curveValues);
+					const AdlSettingInt* adlCurveSpeed[5] = { &settingsAdl.FanSpeed0, &settingsAdl.FanSpeed1, &settingsAdl.FanSpeed2, &settingsAdl.FanSpeed3, &settingsAdl.FanSpeed4 };
+					for (int i = 0; i < 5; i++)
+					{
+						if (adlCurveSpeed[i]->Current.has_value() && adlCurveSpeed[i]->Support && adlCurveSpeed[i]->Current.value() != curveValues[i]) { return false; }
+					}
+				}
 			}
 			else if (fanControlMode == (int)FanControlModes::CustomFanCurve)
 			{

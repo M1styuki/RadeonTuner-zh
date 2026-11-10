@@ -1,6 +1,23 @@
 #pragma once
 #include "pch.h"
 
+inline void TuningFanRangedCurveValues(int curveStart, int curveEnd, int fanRangedCurve, int (&curveValues)[5])
+{
+	float curveWeightsLinear[] = { 0.00F, 0.25F, 0.50F, 0.75F, 1.00F };
+	float curveWeightsQuiet[] = { 0.00F, 0.20F, 0.40F, 0.60F, 1.00F };
+	for (UINT i = 0; i < 5; i++)
+	{
+		if (fanRangedCurve == (int)FanRangedCurves::Linear)
+		{
+			curveValues[i] = std::round(curveStart + (curveEnd - curveStart) * curveWeightsLinear[i]);
+		}
+		else
+		{
+			curveValues[i] = std::round(curveStart + (curveEnd - curveStart) * curveWeightsQuiet[i]);
+		}
+	}
+}
+
 struct TuningFanSettings
 {
 	//Settings
@@ -31,6 +48,7 @@ struct TuningFanSettings
 	//Custom
 	AdlSettingInt KeepActive{ .Current = false, .Default = false };
 	AdlSettingInt FanControlMode{ .Current = (int)FanControlModes::NoFanControl, .Default = (int)FanControlModes::NoFanControl };
+	AdlSettingInt FanRangedCurve{ .Current = (int)FanRangedCurves::Linear, .Default = (int)FanRangedCurves::Linear };
 
 	//Variables (No export)
 	int FanZeroTemp = -1;
@@ -71,7 +89,8 @@ struct TuningFanSettings
 		//Custom
 		KeepActive.Current = KeepActive.Default;
 		FanControlMode.Current = FanControlMode.Default;
+		FanRangedCurve.Current = FanRangedCurve.Default;
 	}
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(TuningFanSettings, DeviceId, Application, CoreMin.Current, CoreMax.Current, MemoryTiming.Current, MemoryEcc.Current, MemoryMax.Current, PowerLimit.Current, PowerVoltage.Current, PowerTDC.Current, FanSpeedMin.Current, FanSpeedMax.Current, FanZeroRpm.Current, FanSpeed0.Current, FanTemp0.Current, FanSpeed1.Current, FanTemp1.Current, FanSpeed2.Current, FanTemp2.Current, FanSpeed3.Current, FanTemp3.Current, FanSpeed4.Current, FanTemp4.Current, KeepActive.Current, FanControlMode.Current)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(TuningFanSettings, DeviceId, Application, CoreMin.Current, CoreMax.Current, MemoryTiming.Current, MemoryEcc.Current, MemoryMax.Current, PowerLimit.Current, PowerVoltage.Current, PowerTDC.Current, FanSpeedMin.Current, FanSpeedMax.Current, FanZeroRpm.Current, FanSpeed0.Current, FanTemp0.Current, FanSpeed1.Current, FanTemp1.Current, FanSpeed2.Current, FanTemp2.Current, FanSpeed3.Current, FanTemp3.Current, FanSpeed4.Current, FanTemp4.Current, KeepActive.Current, FanControlMode.Current, FanRangedCurve.Current)
 };

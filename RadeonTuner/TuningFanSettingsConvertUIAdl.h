@@ -12,6 +12,15 @@ namespace winrt::RadeonTuner::implementation
 			//Gpu Core Minimum
 			if (tuningFanSettings.CoreMin.Support && tuningFanSettings.CoreMin.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.CoreMin.Minimum.has_value())
+				{
+					slider_Core_Min().Minimum(tuningFanSettings.CoreMin.Minimum.value());
+					slider_Core_Min().Maximum(tuningFanSettings.CoreMin.Maximum.value());
+					slider_Core_Min().StepFrequency(tuningFanSettings.CoreMin.Step.value());
+					slider_Core_Min().SmallChange(tuningFanSettings.CoreMin.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.CoreMin.Get(settingType, true).value();
 
@@ -21,15 +30,6 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				std::wstring valueHint = number_to_wstring(valueInt) + L"MHz";
 				textblock_Core_Min_Value().Text(valueHint);
-
-				//Set interface
-				if (tuningFanSettings.CoreMin.Minimum.has_value())
-				{
-					slider_Core_Min().Minimum(tuningFanSettings.CoreMin.Minimum.value());
-					slider_Core_Min().Maximum(tuningFanSettings.CoreMin.Maximum.value());
-					slider_Core_Min().StepFrequency(tuningFanSettings.CoreMin.Step.value());
-					slider_Core_Min().SmallChange(tuningFanSettings.CoreMin.Step.value());
-				}
 
 				//Enable or disable interface
 				slider_Core_Min().IsEnabled(true);
@@ -46,16 +46,6 @@ namespace winrt::RadeonTuner::implementation
 			//Gpu Core Maximum
 			if (tuningFanSettings.CoreMax.Support && tuningFanSettings.CoreMax.Get(settingType, true).has_value())
 			{
-				//Get setting
-				int valueInt = tuningFanSettings.CoreMax.Get(settingType, true).value();
-
-				//Set setting value
-				slider_Core_Max().Value(valueInt);
-
-				//Set hint value
-				std::wstring valueHint = number_to_wstring(valueInt) + L"MHz";
-				textblock_Core_Max_Value().Text(valueHint);
-
 				//Set interface
 				if (tuningFanSettings.CoreMax.Minimum.has_value())
 				{
@@ -74,6 +64,16 @@ namespace winrt::RadeonTuner::implementation
 						textblock_Core_Max().Text(L"GPU 最高频率");
 					}
 				}
+
+				//Get setting
+				int valueInt = tuningFanSettings.CoreMax.Get(settingType, true).value();
+
+				//Set setting value
+				slider_Core_Max().Value(valueInt);
+
+				//Set hint value
+				std::wstring valueHint = number_to_wstring(valueInt) + L"MHz";
+				textblock_Core_Max_Value().Text(valueHint);
 
 				//Enable or disable interface
 				slider_Core_Max().IsEnabled(true);
@@ -140,6 +140,15 @@ namespace winrt::RadeonTuner::implementation
 			//Memory Frequency
 			if (tuningFanSettings.MemoryMax.Support && tuningFanSettings.MemoryMax.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.MemoryMax.Minimum.has_value())
+				{
+					slider_Memory_Max().Minimum(tuningFanSettings.MemoryMax.Minimum.value());
+					slider_Memory_Max().Maximum(tuningFanSettings.MemoryMax.Maximum.value());
+					slider_Memory_Max().StepFrequency(tuningFanSettings.MemoryMax.Step.value());
+					slider_Memory_Max().SmallChange(tuningFanSettings.MemoryMax.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.MemoryMax.Get(settingType, true).value();
 
@@ -149,15 +158,6 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				std::wstring valueHint = number_to_wstring(valueInt) + L"MTs";
 				textblock_Memory_Max_Value().Text(valueHint);
-
-				//Set interface
-				if (tuningFanSettings.MemoryMax.Minimum.has_value())
-				{
-					slider_Memory_Max().Minimum(tuningFanSettings.MemoryMax.Minimum.value());
-					slider_Memory_Max().Maximum(tuningFanSettings.MemoryMax.Maximum.value());
-					slider_Memory_Max().StepFrequency(tuningFanSettings.MemoryMax.Step.value());
-					slider_Memory_Max().SmallChange(tuningFanSettings.MemoryMax.Step.value());
-				}
 
 				//Enable or disable interface
 				slider_Memory_Max().IsEnabled(true);
@@ -174,6 +174,15 @@ namespace winrt::RadeonTuner::implementation
 			//Power Limit
 			if (tuningFanSettings.PowerLimit.Support && tuningFanSettings.PowerLimit.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.PowerLimit.Minimum.has_value())
+				{
+					slider_Power_Limit().Minimum(tuningFanSettings.PowerLimit.Minimum.value());
+					slider_Power_Limit().Maximum(tuningFanSettings.PowerLimit.Maximum.value());
+					slider_Power_Limit().StepFrequency(tuningFanSettings.PowerLimit.Step.value());
+					slider_Power_Limit().SmallChange(tuningFanSettings.PowerLimit.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.PowerLimit.Get(settingType, true).value();
 
@@ -183,15 +192,6 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				std::wstring valueHint = number_to_wstring(valueInt) + L"%";
 				textblock_Power_Limit_Value().Text(valueHint);
-
-				//Set interface
-				if (tuningFanSettings.PowerLimit.Minimum.has_value())
-				{
-					slider_Power_Limit().Minimum(tuningFanSettings.PowerLimit.Minimum.value());
-					slider_Power_Limit().Maximum(tuningFanSettings.PowerLimit.Maximum.value());
-					slider_Power_Limit().StepFrequency(tuningFanSettings.PowerLimit.Step.value());
-					slider_Power_Limit().SmallChange(tuningFanSettings.PowerLimit.Step.value());
-				}
 
 				//Enable or disable interface
 				slider_Power_Limit().IsEnabled(true);
@@ -208,16 +208,6 @@ namespace winrt::RadeonTuner::implementation
 			//Power Voltage
 			if (tuningFanSettings.PowerVoltage.Support && tuningFanSettings.PowerVoltage.Get(settingType, true).has_value())
 			{
-				//Get setting
-				int valueInt = tuningFanSettings.PowerVoltage.Get(settingType, true).value();
-
-				//Set setting value
-				slider_Power_Voltage().Value(valueInt);
-
-				//Set hint value
-				std::wstring valueHint = number_to_wstring(valueInt) + L"mV";
-				textblock_Power_Voltage_Value().Text(valueHint);
-
 				//Set interface
 				if (tuningFanSettings.PowerVoltage.Minimum.has_value())
 				{
@@ -237,6 +227,16 @@ namespace winrt::RadeonTuner::implementation
 					}
 				}
 
+				//Get setting
+				int valueInt = tuningFanSettings.PowerVoltage.Get(settingType, true).value();
+
+				//Set setting value
+				slider_Power_Voltage().Value(valueInt);
+
+				//Set hint value
+				std::wstring valueHint = number_to_wstring(valueInt) + L"mV";
+				textblock_Power_Voltage_Value().Text(valueHint);
+
 				//Enable or disable interface
 				slider_Power_Voltage().IsEnabled(true);
 			}
@@ -252,6 +252,15 @@ namespace winrt::RadeonTuner::implementation
 			//Power TDC
 			if (tuningFanSettings.PowerTDC.Support && tuningFanSettings.PowerTDC.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.PowerTDC.Minimum.has_value())
+				{
+					slider_Power_TDC().Minimum(tuningFanSettings.PowerTDC.Minimum.value());
+					slider_Power_TDC().Maximum(tuningFanSettings.PowerTDC.Maximum.value());
+					slider_Power_TDC().StepFrequency(tuningFanSettings.PowerTDC.Step.value());
+					slider_Power_TDC().SmallChange(tuningFanSettings.PowerTDC.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.PowerTDC.Get(settingType, true).value();
 
@@ -261,15 +270,6 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				std::wstring valueHint = number_to_wstring(valueInt) + L"%";
 				textblock_Power_TDC_Value().Text(valueHint);
-
-				//Set interface
-				if (tuningFanSettings.PowerTDC.Minimum.has_value())
-				{
-					slider_Power_TDC().Minimum(tuningFanSettings.PowerTDC.Minimum.value());
-					slider_Power_TDC().Maximum(tuningFanSettings.PowerTDC.Maximum.value());
-					slider_Power_TDC().StepFrequency(tuningFanSettings.PowerTDC.Step.value());
-					slider_Power_TDC().SmallChange(tuningFanSettings.PowerTDC.Step.value());
-				}
 
 				//Enable or disable interface
 				slider_Power_TDC().IsEnabled(true);
@@ -297,6 +297,9 @@ namespace winrt::RadeonTuner::implementation
 
 				//Show or hide Zero RPM line
 				grid_Fan_Zero_Rpm_Line_Gpu().Visibility(valueBool ? Visibility::Visible : Visibility::Collapsed);
+
+				//Enable or disable interface
+				toggleswitch_Fan_Zero_Rpm().IsEnabled(true);
 			}
 			else
 			{
@@ -307,6 +310,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Speed 0
 			if (tuningFanSettings.FanSpeed0.Support && tuningFanSettings.FanSpeed0.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanSpeed0.Minimum.has_value())
+				{
+					slider_Fan_Speed_0().Minimum(tuningFanSettings.FanSpeed0.Minimum.value());
+					slider_Fan_Speed_0().Maximum(tuningFanSettings.FanSpeed0.Maximum.value());
+					slider_Fan_Speed_0().StepFrequency(tuningFanSettings.FanSpeed0.Step.value());
+					slider_Fan_Speed_0().SmallChange(tuningFanSettings.FanSpeed0.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanSpeed0.Get(settingType, true).value();
 
@@ -316,14 +328,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_0_Speed_Value().Text(number_to_wstring(valueInt) + L"%");
 
-				//Set interface
-				if (tuningFanSettings.FanSpeed0.Minimum.has_value())
-				{
-					slider_Fan_Speed_0().Minimum(tuningFanSettings.FanSpeed0.Minimum.value());
-					slider_Fan_Speed_0().Maximum(tuningFanSettings.FanSpeed0.Maximum.value());
-					slider_Fan_Speed_0().StepFrequency(tuningFanSettings.FanSpeed0.Step.value());
-					slider_Fan_Speed_0().SmallChange(tuningFanSettings.FanSpeed0.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Speed_0().IsEnabled(true);
 			}
 			else
 			{
@@ -334,6 +340,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Temperature 0
 			if (tuningFanSettings.FanTemp0.Support && tuningFanSettings.FanTemp0.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanTemp0.Minimum.has_value())
+				{
+					slider_Fan_Temp_0().Minimum(tuningFanSettings.FanTemp0.Minimum.value());
+					slider_Fan_Temp_0().Maximum(tuningFanSettings.FanTemp0.Maximum.value());
+					slider_Fan_Temp_0().StepFrequency(tuningFanSettings.FanTemp0.Step.value());
+					slider_Fan_Temp_0().SmallChange(tuningFanSettings.FanTemp0.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanTemp0.Get(settingType, true).value();
 
@@ -343,14 +358,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_0_Temp_Value().Text(number_to_wstring(valueInt) + L"°C");
 
-				//Set interface
-				if (tuningFanSettings.FanTemp0.Minimum.has_value())
-				{
-					slider_Fan_Temp_0().Minimum(tuningFanSettings.FanTemp0.Minimum.value());
-					slider_Fan_Temp_0().Maximum(tuningFanSettings.FanTemp0.Maximum.value());
-					slider_Fan_Temp_0().StepFrequency(tuningFanSettings.FanTemp0.Step.value());
-					slider_Fan_Temp_0().SmallChange(tuningFanSettings.FanTemp0.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Temp_0().IsEnabled(true);
 			}
 			else
 			{
@@ -361,6 +370,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Speed 1
 			if (tuningFanSettings.FanSpeed1.Support && tuningFanSettings.FanSpeed1.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanSpeed1.Minimum.has_value())
+				{
+					slider_Fan_Speed_1().Minimum(tuningFanSettings.FanSpeed1.Minimum.value());
+					slider_Fan_Speed_1().Maximum(tuningFanSettings.FanSpeed1.Maximum.value());
+					slider_Fan_Speed_1().StepFrequency(tuningFanSettings.FanSpeed1.Step.value());
+					slider_Fan_Speed_1().SmallChange(tuningFanSettings.FanSpeed1.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanSpeed1.Get(settingType, true).value();
 
@@ -370,14 +388,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_1_Speed_Value().Text(number_to_wstring(valueInt) + L"%");
 
-				//Set interface
-				if (tuningFanSettings.FanSpeed1.Minimum.has_value())
-				{
-					slider_Fan_Speed_1().Minimum(tuningFanSettings.FanSpeed1.Minimum.value());
-					slider_Fan_Speed_1().Maximum(tuningFanSettings.FanSpeed1.Maximum.value());
-					slider_Fan_Speed_1().StepFrequency(tuningFanSettings.FanSpeed1.Step.value());
-					slider_Fan_Speed_1().SmallChange(tuningFanSettings.FanSpeed1.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Speed_1().IsEnabled(true);
 			}
 			else
 			{
@@ -388,6 +400,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Temperature 1
 			if (tuningFanSettings.FanTemp1.Support && tuningFanSettings.FanTemp1.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanTemp1.Minimum.has_value())
+				{
+					slider_Fan_Temp_1().Minimum(tuningFanSettings.FanTemp1.Minimum.value());
+					slider_Fan_Temp_1().Maximum(tuningFanSettings.FanTemp1.Maximum.value());
+					slider_Fan_Temp_1().StepFrequency(tuningFanSettings.FanTemp1.Step.value());
+					slider_Fan_Temp_1().SmallChange(tuningFanSettings.FanTemp1.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanTemp1.Get(settingType, true).value();
 
@@ -397,14 +418,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_1_Temp_Value().Text(number_to_wstring(valueInt) + L"°C");
 
-				//Set interface
-				if (tuningFanSettings.FanTemp1.Minimum.has_value())
-				{
-					slider_Fan_Temp_1().Minimum(tuningFanSettings.FanTemp1.Minimum.value());
-					slider_Fan_Temp_1().Maximum(tuningFanSettings.FanTemp1.Maximum.value());
-					slider_Fan_Temp_1().StepFrequency(tuningFanSettings.FanTemp1.Step.value());
-					slider_Fan_Temp_1().SmallChange(tuningFanSettings.FanTemp1.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Temp_1().IsEnabled(true);
 			}
 			else
 			{
@@ -415,6 +430,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Speed 2
 			if (tuningFanSettings.FanSpeed2.Support && tuningFanSettings.FanSpeed2.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanSpeed2.Minimum.has_value())
+				{
+					slider_Fan_Speed_2().Minimum(tuningFanSettings.FanSpeed2.Minimum.value());
+					slider_Fan_Speed_2().Maximum(tuningFanSettings.FanSpeed2.Maximum.value());
+					slider_Fan_Speed_2().StepFrequency(tuningFanSettings.FanSpeed2.Step.value());
+					slider_Fan_Speed_2().SmallChange(tuningFanSettings.FanSpeed2.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanSpeed2.Get(settingType, true).value();
 
@@ -424,14 +448,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_2_Speed_Value().Text(number_to_wstring(valueInt) + L"%");
 
-				//Set interface
-				if (tuningFanSettings.FanSpeed2.Minimum.has_value())
-				{
-					slider_Fan_Speed_2().Minimum(tuningFanSettings.FanSpeed2.Minimum.value());
-					slider_Fan_Speed_2().Maximum(tuningFanSettings.FanSpeed2.Maximum.value());
-					slider_Fan_Speed_2().StepFrequency(tuningFanSettings.FanSpeed2.Step.value());
-					slider_Fan_Speed_2().SmallChange(tuningFanSettings.FanSpeed2.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Speed_2().IsEnabled(true);
 			}
 			else
 			{
@@ -442,6 +460,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Temperature 2
 			if (tuningFanSettings.FanTemp2.Support && tuningFanSettings.FanTemp2.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanTemp2.Minimum.has_value())
+				{
+					slider_Fan_Temp_2().Minimum(tuningFanSettings.FanTemp2.Minimum.value());
+					slider_Fan_Temp_2().Maximum(tuningFanSettings.FanTemp2.Maximum.value());
+					slider_Fan_Temp_2().StepFrequency(tuningFanSettings.FanTemp2.Step.value());
+					slider_Fan_Temp_2().SmallChange(tuningFanSettings.FanTemp2.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanTemp2.Get(settingType, true).value();
 
@@ -451,14 +478,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_2_Temp_Value().Text(number_to_wstring(valueInt) + L"°C");
 
-				//Set interface
-				if (tuningFanSettings.FanTemp2.Minimum.has_value())
-				{
-					slider_Fan_Temp_2().Minimum(tuningFanSettings.FanTemp2.Minimum.value());
-					slider_Fan_Temp_2().Maximum(tuningFanSettings.FanTemp2.Maximum.value());
-					slider_Fan_Temp_2().StepFrequency(tuningFanSettings.FanTemp2.Step.value());
-					slider_Fan_Temp_2().SmallChange(tuningFanSettings.FanTemp2.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Temp_2().IsEnabled(true);
 			}
 			else
 			{
@@ -469,6 +490,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Speed 3
 			if (tuningFanSettings.FanSpeed3.Support && tuningFanSettings.FanSpeed3.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanSpeed3.Minimum.has_value())
+				{
+					slider_Fan_Speed_3().Minimum(tuningFanSettings.FanSpeed3.Minimum.value());
+					slider_Fan_Speed_3().Maximum(tuningFanSettings.FanSpeed3.Maximum.value());
+					slider_Fan_Speed_3().StepFrequency(tuningFanSettings.FanSpeed3.Step.value());
+					slider_Fan_Speed_3().SmallChange(tuningFanSettings.FanSpeed3.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanSpeed3.Get(settingType, true).value();
 
@@ -478,14 +508,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_3_Speed_Value().Text(number_to_wstring(valueInt) + L"%");
 
-				//Set interface
-				if (tuningFanSettings.FanSpeed3.Minimum.has_value())
-				{
-					slider_Fan_Speed_3().Minimum(tuningFanSettings.FanSpeed3.Minimum.value());
-					slider_Fan_Speed_3().Maximum(tuningFanSettings.FanSpeed3.Maximum.value());
-					slider_Fan_Speed_3().StepFrequency(tuningFanSettings.FanSpeed3.Step.value());
-					slider_Fan_Speed_3().SmallChange(tuningFanSettings.FanSpeed3.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Speed_3().IsEnabled(true);
 			}
 			else
 			{
@@ -496,6 +520,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Temperature 3
 			if (tuningFanSettings.FanTemp3.Support && tuningFanSettings.FanTemp3.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanTemp3.Minimum.has_value())
+				{
+					slider_Fan_Temp_3().Minimum(tuningFanSettings.FanTemp3.Minimum.value());
+					slider_Fan_Temp_3().Maximum(tuningFanSettings.FanTemp3.Maximum.value());
+					slider_Fan_Temp_3().StepFrequency(tuningFanSettings.FanTemp3.Step.value());
+					slider_Fan_Temp_3().SmallChange(tuningFanSettings.FanTemp3.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanTemp3.Get(settingType, true).value();
 
@@ -505,14 +538,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_3_Temp_Value().Text(number_to_wstring(valueInt) + L"°C");
 
-				//Set interface
-				if (tuningFanSettings.FanTemp3.Minimum.has_value())
-				{
-					slider_Fan_Temp_3().Minimum(tuningFanSettings.FanTemp3.Minimum.value());
-					slider_Fan_Temp_3().Maximum(tuningFanSettings.FanTemp3.Maximum.value());
-					slider_Fan_Temp_3().StepFrequency(tuningFanSettings.FanTemp3.Step.value());
-					slider_Fan_Temp_3().SmallChange(tuningFanSettings.FanTemp3.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Temp_3().IsEnabled(true);
 			}
 			else
 			{
@@ -523,6 +550,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Speed 4
 			if (tuningFanSettings.FanSpeed4.Support && tuningFanSettings.FanSpeed4.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanSpeed4.Minimum.has_value())
+				{
+					slider_Fan_Speed_4().Minimum(tuningFanSettings.FanSpeed4.Minimum.value());
+					slider_Fan_Speed_4().Maximum(tuningFanSettings.FanSpeed4.Maximum.value());
+					slider_Fan_Speed_4().StepFrequency(tuningFanSettings.FanSpeed4.Step.value());
+					slider_Fan_Speed_4().SmallChange(tuningFanSettings.FanSpeed4.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanSpeed4.Get(settingType, true).value();
 
@@ -532,14 +568,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_4_Speed_Value().Text(number_to_wstring(valueInt) + L"%");
 
-				//Set interface
-				if (tuningFanSettings.FanSpeed4.Minimum.has_value())
-				{
-					slider_Fan_Speed_4().Minimum(tuningFanSettings.FanSpeed4.Minimum.value());
-					slider_Fan_Speed_4().Maximum(tuningFanSettings.FanSpeed4.Maximum.value());
-					slider_Fan_Speed_4().StepFrequency(tuningFanSettings.FanSpeed4.Step.value());
-					slider_Fan_Speed_4().SmallChange(tuningFanSettings.FanSpeed4.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Speed_4().IsEnabled(true);
 			}
 			else
 			{
@@ -550,6 +580,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Temperature 4
 			if (tuningFanSettings.FanTemp4.Support && tuningFanSettings.FanTemp4.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanTemp4.Minimum.has_value())
+				{
+					slider_Fan_Temp_4().Minimum(tuningFanSettings.FanTemp4.Minimum.value());
+					slider_Fan_Temp_4().Maximum(tuningFanSettings.FanTemp4.Maximum.value());
+					slider_Fan_Temp_4().StepFrequency(tuningFanSettings.FanTemp4.Step.value());
+					slider_Fan_Temp_4().SmallChange(tuningFanSettings.FanTemp4.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanTemp4.Get(settingType, true).value();
 
@@ -559,14 +598,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Curve_4_Temp_Value().Text(number_to_wstring(valueInt) + L"°C");
 
-				//Set interface
-				if (tuningFanSettings.FanTemp4.Minimum.has_value())
-				{
-					slider_Fan_Temp_4().Minimum(tuningFanSettings.FanTemp4.Minimum.value());
-					slider_Fan_Temp_4().Maximum(tuningFanSettings.FanTemp4.Maximum.value());
-					slider_Fan_Temp_4().StepFrequency(tuningFanSettings.FanTemp4.Step.value());
-					slider_Fan_Temp_4().SmallChange(tuningFanSettings.FanTemp4.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Temp_4().IsEnabled(true);
 			}
 			else
 			{
@@ -577,6 +610,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Speed Minimum
 			if (tuningFanSettings.FanSpeedMin.Support && tuningFanSettings.FanSpeedMin.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanSpeedMin.Minimum.has_value())
+				{
+					slider_Fan_Speed_Min().Minimum(tuningFanSettings.FanSpeedMin.Minimum.value());
+					slider_Fan_Speed_Min().Maximum(tuningFanSettings.FanSpeedMin.Maximum.value());
+					slider_Fan_Speed_Min().StepFrequency(tuningFanSettings.FanSpeedMin.Step.value());
+					slider_Fan_Speed_Min().SmallChange(tuningFanSettings.FanSpeedMin.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanSpeedMin.Get(settingType, true).value();
 
@@ -586,14 +628,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Speed_Min_Value().Text(number_to_wstring(valueInt) + L"%");
 
-				//Set interface
-				if (tuningFanSettings.FanSpeedMin.Minimum.has_value())
-				{
-					slider_Fan_Speed_Min().Minimum(tuningFanSettings.FanSpeedMin.Minimum.value());
-					slider_Fan_Speed_Min().Maximum(tuningFanSettings.FanSpeedMin.Maximum.value());
-					slider_Fan_Speed_Min().StepFrequency(tuningFanSettings.FanSpeedMin.Step.value());
-					slider_Fan_Speed_Min().SmallChange(tuningFanSettings.FanSpeedMin.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Speed_Min().IsEnabled(true);
 			}
 			else
 			{
@@ -604,6 +640,15 @@ namespace winrt::RadeonTuner::implementation
 			//Fan Speed Maximum
 			if (tuningFanSettings.FanSpeedMax.Support && tuningFanSettings.FanSpeedMax.Get(settingType, true).has_value())
 			{
+				//Set interface
+				if (tuningFanSettings.FanSpeedMax.Minimum.has_value())
+				{
+					slider_Fan_Speed_Max().Minimum(tuningFanSettings.FanSpeedMax.Minimum.value());
+					slider_Fan_Speed_Max().Maximum(tuningFanSettings.FanSpeedMax.Maximum.value());
+					slider_Fan_Speed_Max().StepFrequency(tuningFanSettings.FanSpeedMax.Step.value());
+					slider_Fan_Speed_Max().SmallChange(tuningFanSettings.FanSpeedMax.Step.value());
+				}
+
 				//Get setting
 				int valueInt = tuningFanSettings.FanSpeedMax.Get(settingType, true).value();
 
@@ -613,14 +658,8 @@ namespace winrt::RadeonTuner::implementation
 				//Set hint value
 				textblock_Fan_Speed_Max_Value().Text(number_to_wstring(valueInt) + L"%");
 
-				//Set interface
-				if (tuningFanSettings.FanSpeedMax.Minimum.has_value())
-				{
-					slider_Fan_Speed_Max().Minimum(tuningFanSettings.FanSpeedMax.Minimum.value());
-					slider_Fan_Speed_Max().Maximum(tuningFanSettings.FanSpeedMax.Maximum.value());
-					slider_Fan_Speed_Max().StepFrequency(tuningFanSettings.FanSpeedMax.Step.value());
-					slider_Fan_Speed_Max().SmallChange(tuningFanSettings.FanSpeedMax.Step.value());
-				}
+				//Enable or disable interface
+				slider_Fan_Speed_Max().IsEnabled(true);
 			}
 			else
 			{
@@ -651,7 +690,7 @@ namespace winrt::RadeonTuner::implementation
 
 				//Custom settings
 				toggleswitch_KeepActive().IsEnabled(false);
-				combobox_FanControl_Mode().IsEnabled(false);
+				combobox_FanControlMode().IsEnabled(false);
 			}
 			else
 			{
@@ -666,7 +705,7 @@ namespace winrt::RadeonTuner::implementation
 
 				//Custom settings
 				toggleswitch_KeepActive().IsEnabled(true);
-				combobox_FanControl_Mode().IsEnabled(true);
+				combobox_FanControlMode().IsEnabled(true);
 			}
 
 			//Enable or disable fan interface

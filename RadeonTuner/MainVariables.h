@@ -1,4 +1,6 @@
 #pragma once
+#include <set>
+#include <mutex>
 #include "pch.h"
 
 //Status
@@ -12,6 +14,11 @@ inline bool messageBoxComplete = false;
 inline bool appPickerCompleted = false;
 inline bool appPickerSelected = false;
 inline bool appPickerCancel = false;
+inline std::wstring vUpdateVersion = L"";
+//Actual adapters this process has written gamma to; runtime-only, never persisted.
+inline std::set<std::wstring> gammaAppliedTargets;
+inline std::mutex gammaAppliedTargetsMutex;
+inline std::mutex gammaWriteMutex;
 
 //ADL
 inline int adl_Res0 = ADL_ERR;

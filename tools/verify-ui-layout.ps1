@@ -1028,9 +1028,15 @@ foreach ($RequiredCode in @(
     }
 }
 
-if ($RowCount -ne 104) { Add-Failure "Expected 104 setting rows, found $RowCount." }
+$RangedCurve = $Xaml.SelectSingleNode("//*[@x:Name='combobox_FanRangedCurve']", $Namespace)
+$RangedSection = $Xaml.SelectSingleNode("//*[@x:Name='stackpanel_FanControl_RangedFanSpeed']", $Namespace)
+if ($null -eq $RangedCurve -or $null -eq $RangedSection -or $null -eq $RangedSection.SelectSingleNode(".//*[@x:Name='combobox_FanRangedCurve']", $Namespace)) { Add-Failure 'Ranged fan curve combo must be inside the ranged fan section.' }
+foreach ($ServiceButton in @('button_DisableRadeonServices', 'button_EnableRadeonServices', 'button_DisableRadeonServices_AdminShield')) {
+    if ($null -eq $Xaml.SelectSingleNode("//*[@x:Name='$ServiceButton']", $Namespace)) { Add-Failure "Missing manual service control $ServiceButton." }
+}
+if ($RowCount -ne 106) { Add-Failure "Expected 106 setting rows, found $RowCount." }
 if ($ToggleCount -ne 46) { Add-Failure "Expected 46 toggle rows, found $ToggleCount." }
-if ($ComboCount -ne 23) { Add-Failure "Expected 23 combo rows, found $ComboCount." }
+if ($ComboCount -ne 24) { Add-Failure "Expected 24 combo rows, found $ComboCount." }
 if ($SliderRowCount -ne 26) { Add-Failure "Expected 26 ordinary visible slider rows, found $SliderRowCount." }
 if ($FanPairRowCount -ne 5) { Add-Failure "Expected 5 input-only fan curve rows, found $FanPairRowCount." }
 if ($FanPairInputCount -ne 10) { Add-Failure "Expected 10 input-only fan curve number boxes, found $FanPairInputCount." }
@@ -1041,7 +1047,7 @@ if ($HiddenFanAdapterCount -ne 10) { Add-Failure "Expected 10 hidden fan curve a
 $AllHandledSliders = @($Xaml.SelectNodes("//*[local-name()='Slider' and @ValueChanged]", $Namespace))
 if ($AllHandledSliders.Count -ne 38) { Add-Failure "Expected the previous 38 value-driven sliders, found $($AllHandledSliders.Count)." }
 if (($SliderRowCount + $FanRangeSliderCount + $HiddenFanAdapterCount) -ne 38) { Add-Failure "Ordinary, visible range and hidden fan sliders do not add up to the 38 slider guarantee." }
-if ($ButtonRowCount -ne 3) { Add-Failure "Expected 3 button rows, found $ButtonRowCount." }
+if ($ButtonRowCount -ne 4) { Add-Failure "Expected 4 button rows, found $ButtonRowCount." }
 
 $MetricOrder = @(
     'textblock_Current_Gpu_Activity', 'textblock_Current_Core_Speed', 'textblock_Current_Memory_Usage',

@@ -9,8 +9,8 @@ IDR_PAYLOAD RCDATA "payload.cab"
 1 RT_MANIFEST "launcher.manifest"
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION 0,70,0,0
-PRODUCTVERSION 0,70,0,0
+FILEVERSION 0,72,0,0
+PRODUCTVERSION 0,72,0,0
 FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
 FILEFLAGS VS_FF_DEBUG
@@ -27,12 +27,12 @@ BEGIN
 		BEGIN
 			VALUE "CompanyName", "Arnold Vink"
 			VALUE "FileDescription", "RadeonTuner single-file launcher"
-			VALUE "FileVersion", "0.70.0.0"
+			VALUE "FileVersion", "0.72.0.0"
 			VALUE "InternalName", "RadeonTunerLauncher"
 			VALUE "LegalCopyright", "Copyright (C) Arnold Vink"
 			VALUE "OriginalFilename", "RadeonTuner-zh-CN.exe"
 			VALUE "ProductName", "RadeonTuner"
-			VALUE "ProductVersion", "0.70.0.0"
+			VALUE "ProductVersion", "0.72.0.0"
 		END
 	END
 	BLOCK "VarFileInfo"

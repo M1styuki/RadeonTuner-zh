@@ -1,7 +1,7 @@
 # RadeonTuner 简体中文版：项目记录
 
 ## 用户目标与边界
-- 基于 dumbie/RadeonTuner 0.70，已合并 dfade6b/c120f54a；仅简体中文，深色界面，保留原驱动调节、配置与响应行为。
+- 当前开发版0.72已合并 dumbie/RadeonTuner 至99e759baa8701761fa75caf3b97e23d37ae0baf2（7次上游提交），保留仅简体中文、深色界面和现有后台架构；待本轮云端交付覆盖。
 - 私有源码仓库 https://github.com/M1styuki/RadeonTuner-zh 。用户明确授权上传源码、仅云端编译、下载覆盖 D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe。最初只交付一个EXE，允许首次运行释放必要运行文件和设置。
 - 运行根 C:\Users\78539\AppData\Local\RadeonTuner-zh-CN\App；Settings\Settings.json、Profiles及用户数据必须保留。不得用迁移/驱动失败模拟扩大验证。
 - 用户现授权Computer Use复现/验证数字编辑及面板关闭后重开，替代此前不实测限制；只操作本应用，在原值/撤销范围内，不点Apply，不改驱动设置，不测性能。用户同意新版就绪后约20秒操作；其他工作不用Computer Use。外观最终由用户验收。
@@ -46,3 +46,19 @@
 - 当前视觉代码已发布：本地2e7232432836eb6d804a01d95f48527faad900c8、远端5b74baf1babf42b8950bdd2253daa0748a533b79、同树1fc9402de8beba825bfca4c5a37d014f0e026efb；云run42359458442已success。后续API增量以这组为基线；source-publication.json已更新，交付及限制已记录，完整最终基线见source-publication.json。
 
 - 最终GUI验证限制：准备退出旧版期间Sky检测到用户正在操作，Codex停止Computer Use；未强杀当前host/worker、未修改运行目录/用户设置。外部EXE已覆盖，但当前仍运行旧core。用户需从应用内选择退出后再打开EXE完成升级；不能宣称最终重开、滚动条或触摸交互实测通过。先前相同数值输入代码的删除/键入/Esc实测有效。
+
+## 2026-11-10 用户更新后的下载覆盖
+- 远端main已由用户更新到4f094ace8cc01ad9673621d88762bca1e19c967f，run42765738420 success；已下载正式工件13740755217并覆盖D:\Download\RadeonTuner-zh\RadeonTuner-简体中文版.exe，3204096字节，SHA256 4F3021903931FEE5BC18A0198C92E8BBF03369D62CA7E9D239591AE00F360BD5，与工件ZIP digest及打包报告一致。
+- 本次只下载覆盖，没有启动程序/GUI测试/修改设置/重新构建/推送源码；下载及解压临时文件已清理，报告与交付receipt保存于.build-work/evidence/update-42765738420-*。
+- 本地源码仍处于前次提交3f2ec5b；source-publication.json中的本地/远端映射仅为历史基线。未来开发需先与用户新远端同步，不得用旧本地树覆盖用户更新。
+
+- 2026-11-10用户明确授权合并最新上游、提交GitHub、云构建并覆盖EXE。Codex已同步origin/main 4f094ac并核对应用代码完全保留用户导航初始化修复；本地fec8da7仅多项目记录，远端4f是祖先，可正常Git推送，不再用旧API增量基线。上游已fetch固定99e759baa8701761fa75caf3b97e23d37ae0baf2，7次提交交同一DSH会话以真实merge --no-commit合入，Codex最后提交。
+- 合并设计：保留当前平铺汉化深色/原生滚动条/可编辑数字/隐藏托盘/独立轻量host+按需worker。范围风扇新增曲线选项兼容旧配置并纳入完整内部元数据交接；Gamma按实际API目标跟踪本程序写入归属，只实际写入路径更新，并随host/worker交接，关闭且未控制过不写Gamma，启用后关闭恢复一次，草稿切换不冒充实际状态；服务启停仅手动及原管理员门控，不运行服务/驱动/GUI测试。此包涉及ADL reset与运行事实，需要非DSH独立定向审查，然后云编译。
+- DSH合并包已完成并暂存，MERGE_HEAD=99e759b，当前HEAD仍fec8da74be5e622ab6751c14bdecd1dd5bb87a4b；8处冲突已解，未提交推送/GUI/本地编译。新增gammaAppliedTargets运行归属随内部gamma_restore_targets交接，FanRangedCurve完整元数据/默认兼容及手动服务SCM辅助已加入。DSH实际检查：cached/working diff、汉化12项、布局7页106行/24下拉/4按钮行、XML及声明括号核对通过。Codex统一core和launcher元数据0.72.0.0，core resource.rc保留原UTF16LE BOM与原长度1146字节。独立merge_safety_review正在只读核对Gamma失败/交接/线程、OD8 reset、曲线字段和服务手动权限路径；通过后提交推送正常Git，并云构建覆盖。
+- 独立复核未通过候选，已给同一DSH定向修复5项：AdlSettingInt/Float/String重复Get签名(P1编译阻塞)；Gamma型号级key串目标；两次Gamma写入+归属更新未整体串行且成功判断读共享adl_Res0（改本次局部返回值）；范围风扇匹配只比较端点而漏Linear/Quiet中间点；服务startService参数方向反。审查其余OD8 reset/count、FanRangedCurve默认与完整IPC、正常暂停交接未见额外问题。修完仅复核这些路径和新改动，再提交构建。
+- DSH已修完独立复核5项：三个重复Get收敛为单个fallback实现；Gamma键改完整PNP/UDID/PCI+实际adapterIndex，未知完整身份拒绝写而非共享；新增gammaWriteMutex串行两次写入/归属更新，锁内重查恢复资格并用局部ADL返回值；Apply/Match共享五点曲线公式；服务传!disableServices，配置和启停分别统计并报告部分失败。汉化/布局106行/24下拉/4按钮行、目标diff、XML和静态核对通过，仍未运行驱动服务或编译。独立复核正在只看修复闭合，尚未提交/推送。
+
+## 2026-11-10 上游0.72合并待交付
+- 已合入上游7次提交，保留用户4f094ac导航初始化修复、现平铺汉化/原生滚动条/可编辑数字/隐藏托盘及轻量双进程架构；增加范围风扇线性/静音、修复默认风扇恢复、关闭Gamma保护ICC、手动Radeon服务控制及相应中文说明。core与launcher版本均0.72.0.0。
+- 独立复核5项已修复并闭合，最后一处锁外Gamma预筛选由Codex做最小修改移除：关闭分支总进入AdlGammaApply(...true)，写锁内核对归属，无归属不写驱动。reviewer仅复核新改动确认无剩余直接阻塞；未做真实驱动/服务/GUI验证。DSH相关静态检查已通过，保留结果不重复无关验证。
+- 下一步本地真实merge commit、普通Git快进推送（origin/main 4f094ac为祖先），云端Release/UiValidation编译，下载正式单EXE覆盖指定目录；不启动应用、不改本机设置/服务，不根据旧指令关机。

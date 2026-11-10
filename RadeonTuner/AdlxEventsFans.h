@@ -42,7 +42,7 @@ namespace winrt::RadeonTuner::implementation
 		catch (...) {}
 	}
 
-	void MainPage::combobox_FanControl_Mode_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e)
+	void MainPage::combobox_FanControlMode_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e)
 	{
 		try
 		{
@@ -50,7 +50,7 @@ namespace winrt::RadeonTuner::implementation
 			if (disable_saving) { return; }
 
 			//Get setting value
-			int newValue = combobox_FanControl_Mode().SelectedIndex();
+			int newValue = combobox_FanControlMode().SelectedIndex();
 
 			//Adjust button colors
 			SolidColorBrush colorIgnored = Application::Current().Resources().Lookup(box_value(L"ApplicationIgnoredBrush")).as<SolidColorBrush>();
@@ -62,6 +62,27 @@ namespace winrt::RadeonTuner::implementation
 
 			//Update fan control mode interface
 			UpdateFanControlModeInterface(tuningFanSettingsProfile, true);
+		}
+		catch (...) {}
+	}
+
+	void MainPage::combobox_FanRangedCurve_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e)
+	{
+		try
+		{
+			//Check if saving is disabled
+			if (disable_saving) { return; }
+
+			//Get setting value
+			int newValue = combobox_FanRangedCurve().SelectedIndex();
+
+			//Adjust button colors
+			SolidColorBrush colorIgnored = Application::Current().Resources().Lookup(box_value(L"ApplicationIgnoredBrush")).as<SolidColorBrush>();
+			button_Tuning_Apply().Background(colorIgnored);
+			button_Fan_Apply().Background(colorIgnored);
+
+			//Update current value
+			tuningFanSettingsProfile.FanRangedCurve.Current = newValue;
 		}
 		catch (...) {}
 	}

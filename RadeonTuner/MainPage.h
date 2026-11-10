@@ -64,7 +64,7 @@ namespace winrt::RadeonTuner::implementation
 		static bool AdlAppPropertyUpdate(AdlApplication& adlApp, std::wstring propertyGpuId, std::wstring propertyName, std::wstring propertyValue);
 
 		static bool Adl_Overdrive8_Values_Reset(int gpuAdapterIndex);
-		static bool Adl_Overdrive8_Values_Set(int gpuAdapterIndex, std::vector<std::tuple<ADLOD8SettingId, int, bool>> saveSettings);
+		static bool Adl_Overdrive8_Values_Set(int gpuAdapterIndex, std::vector<ADLOD8SaveSetting> saveSettings);
 		static std::optional<int> Adl_Overdrive8_Load_Value(int gpuAdapterIndex, ADLOD8SettingId settingId);
 		static std::optional<ADLOD8SingleInitSettingWrap> Adl_Overdrive8_Load_Default(int gpuAdapterIndex, ADLOD8SettingId settingId);
 		static bool Adl_Overdrive8_Feature_Supported(int gpuAdapterIndex, ADLOD8FeatureControl featureId);
@@ -88,7 +88,7 @@ namespace winrt::RadeonTuner::implementation
 		static DWORD AdlGammaRampClamp(float clampValue);
 		static bool AdlGammaRampMatch(const AdlGammaRamp& gammaRampBegin, const AdlGammaRamp& gammaRampEnd);
 		static AdlGammaRamp AdlGammaRampBuild(float baseGamma, float redGamma, float greenGamma, float blueGamma);
-		static bool AdlGammaApply(int gpuAdapterIndex, float baseGamma, float redGamma, float greenGamma, float blueGamma);
+		static bool AdlGammaApply(int gpuAdapterIndex, float baseGamma, float redGamma, float greenGamma, float blueGamma, bool restoreDefault = false);
 
 		static bool AdlRegistrySettingSet(int gpuAdapterIndex, std::string subKey, std::string keyName, std::wstring keyValue);
 		static bool AdlRegistrySettingSet(int gpuAdapterIndex, std::string subKey, std::string keyName, int keyValue);
@@ -305,6 +305,9 @@ namespace winrt::RadeonTuner::implementation
 		winrt::IAsyncAction button_Update_Check_Click(IInspectable const& sender, RoutedEventArgs const& e);
 		winrt::IAsyncAction button_Update_Launch_Click(IInspectable const& sender, RoutedEventArgs const& e);
 		void button_Fps_Overlayer_Click(IInspectable const& sender, RoutedEventArgs const& e);
+		void ToggleRadeonServices(bool disableServices);
+		void button_DisableRadeonServices_Click(IInspectable const& sender, RoutedEventArgs const& e);
+		void button_EnableRadeonServices_Click(IInspectable const& sender, RoutedEventArgs const& e);
 		void toggleswitch_Fan_Zero_Rpm_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
 		void slider_Core_Min_ValueChanged(IInspectable const& sender, RangeBaseValueChangedEventArgs const& e);
 		void slider_Core_Max_ValueChanged(IInspectable const& sender, RangeBaseValueChangedEventArgs const& e);
@@ -413,8 +416,9 @@ namespace winrt::RadeonTuner::implementation
 		void combobox_ThemeStyle_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 		void toggleswitch_UpdateExcludeDrivers_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
 		void toggleswitch_FsrDisableMLSwapchain_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
-		void combobox_FanControl_Mode_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
+		void combobox_FanControlMode_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 		void slider_FanRanged_ValueChanged(IInspectable const& sender, RangeBaseValueChangedEventArgs const& e);
+		void combobox_FanRangedCurve_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 
 #ifdef RADEONTUNER_UI_VALIDATION
 		size_t UiValidationAnimationCount() const { return dependentAnimations.size(); }

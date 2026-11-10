@@ -59,6 +59,11 @@ const std::vector<std::wstring> ADL_FSR_MULTIFRAMEGEN_RATIO =
 	L"使用应用程序设置", L"2X", L"3X", L"4X"
 };
 
+const std::vector<std::wstring> ADL_FSR_LATENCY_REDUCTION_LEVEL =
+{
+	L"Level 1", L"Level 2"
+};
+
 const std::vector<std::wstring> ADL_BOOST2_ALGORITHM =
 {
 	L"已禁用", L"基于输入", L"基于场景", L"多模式"
@@ -82,6 +87,11 @@ const std::vector<std::wstring> RADT_THEME_STYLE =
 const std::vector<std::wstring> ADL_FANCONTROL_MODES_STRING =
 {
 	L"无风扇控制", L"仅零 RPM", L"范围风扇转速", L"自定义风扇曲线"
+};
+
+const std::vector<std::wstring> ADL_FANRANGED_MODES_STRING =
+{
+	L"线性", L"静音"
 };
 
 //ADLX

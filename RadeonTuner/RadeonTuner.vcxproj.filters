@@ -279,6 +279,9 @@
     <ClInclude Include="SettingFunc.h">
       <Filter>Page Files\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="WindowsService.h">
+      <Filter>Page Files\Settings</Filter>
+    </ClInclude>
     <ClInclude Include="SettingLoad.h">
       <Filter>Page Files\Settings</Filter>
     </ClInclude>
