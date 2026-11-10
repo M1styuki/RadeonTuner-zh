@@ -639,14 +639,14 @@ namespace RadeonTunerUiValidation
 			page->UpdateFanInputFields();
 
 			//Preview the real mutually exclusive fan mode UI without ADL or a mode profile write.
-			page->combobox_FanControl_Mode().SelectedIndex((int)FanControlModes::CustomFanCurve);
+			page->combobox_FanControlMode().SelectedIndex((int)FanControlModes::CustomFanCurve);
 			tuningFanSettingsProfile.FanControlMode.Current = (int)FanControlModes::CustomFanCurve;
 			page->UpdateFanControlModeInterface(tuningFanSettingsProfile, false);
 		}
 		else
 		{
 			//Keep the layout run deterministic without touching ADL: show one official mode section.
-			page->combobox_FanControl_Mode().SelectedIndex((int)FanControlModes::CustomFanCurve);
+			page->combobox_FanControlMode().SelectedIndex((int)FanControlModes::CustomFanCurve);
 			tuningFanSettingsProfile.FanControlMode.Current = (int)FanControlModes::CustomFanCurve;
 			page->UpdateFanControlModeInterface(tuningFanSettingsProfile, false);
 			page->UpdateDependentSettingsInterface(false);

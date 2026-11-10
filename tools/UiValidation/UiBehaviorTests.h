@@ -91,8 +91,8 @@ namespace RadeonTunerUiValidation
 			//Fan mode combobox event updates the profile and the visible mode sections
 			auto selectFanMode = [&](FanControlModes mode)
 			{
-				page->combobox_FanControl_Mode().SelectedIndex((int)mode);
-				page->combobox_FanControl_Mode_SelectionChanged(page->combobox_FanControl_Mode(), winrt::Windows::UI::Xaml::Controls::SelectionChangedEventArgs{ nullptr });
+				page->combobox_FanControlMode().SelectedIndex((int)mode);
+				page->combobox_FanControlMode_SelectionChanged(page->combobox_FanControlMode(), winrt::Windows::UI::Xaml::Controls::SelectionChangedEventArgs{ nullptr });
 				//Settle the reveal animation for deterministic state assertions; the event path above remains the production animation path.
 				page->UpdateFanControlModeInterface(tuningFanSettingsProfile, false);
 			};
