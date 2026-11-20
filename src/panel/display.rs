@@ -7,6 +7,7 @@ use gpui::{Context, Div, div, prelude::*, rgb};
 
 #[derive(Default)]
 pub(super) struct DisplayPage {
+    settings: Vec<crate::adl::display::settings::Setting>,
     displays: Vec<Display>,
     display_index: usize,
     modes: Vec<Mode>,
@@ -34,8 +35,10 @@ impl Panel {
         let page = &mut self.display;
         page.current = None;
         page.modes.clear();
+        page.settings.clear();
         if let (Some(driver), Some(display)) = (&self.driver, page.displays.get(page.display_index))
         {
+            page.settings = driver.display_settings(display);
             match driver
                 .current_mode(display)
                 .and_then(|current| Ok((current, driver.possible_modes(display)?)))
@@ -196,6 +199,70 @@ impl Panel {
                         })),
                 );
             }
+        }
+        for (i, setting) in page.settings.iter().enumerate() {
+            let mut row = div()
+                .flex()
+                .gap_3()
+                .items_center()
+                .child(div().flex_1().child(setting.label))
+                .child(setting.text());
+            for (id, label, step) in [
+                ("display-down", "−", -setting.step),
+                ("display-up", "+", setting.step),
+            ] {
+                let next = setting
+                    .draft
+                    .saturating_add(step)
+                    .clamp(setting.min, setting.max);
+                let button = div().id((id, i)).px_2().child(label);
+                row = row.child(if next != setting.draft {
+                    button
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |p, _, _, cx| {
+                            p.display.settings[i].draft = next;
+                            cx.notify();
+                        }))
+                } else {
+                    button.opacity(0.45)
+                });
+            }
+            section = section.child(row);
+        }
+        if !page.settings.is_empty() {
+            section = section.child(
+                div()
+                    .id("display-defaults")
+                    .cursor_pointer()
+                    .child("载入显示默认值")
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        for s in &mut p.display.settings {
+                            s.draft = s.default.clamp(s.min, s.max);
+                        }
+                        cx.notify();
+                    })),
+            );
+        }
+        if page.settings.iter().any(|s| s.current != s.draft) {
+            section = section.child(
+                div()
+                    .id("display-apply")
+                    .cursor_pointer()
+                    .child("应用显示设置")
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        if let (Some(driver), Some(display)) =
+                            (&p.driver, p.display.displays.get(p.display.display_index))
+                        {
+                            let result = driver.apply_display(display, &p.display.settings);
+                            p.read_modes();
+                            p.display.status = match result {
+                                Ok(()) => "显示设置已应用".into(),
+                                Err(err) => err.to_string(),
+                            };
+                        }
+                        cx.notify();
+                    })),
+            );
         }
         if page.displays.is_empty() && page.status.is_empty() {
             section = section.child("未检测到可用的 AMD 显示器");
