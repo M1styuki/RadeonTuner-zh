@@ -3,6 +3,7 @@
 mod adl;
 mod mode_preview;
 mod panel;
+mod profile_store;
 mod profiles;
 mod settings;
 mod tray;

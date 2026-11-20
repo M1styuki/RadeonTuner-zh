@@ -12,7 +12,9 @@ use std::time::Duration;
 pub const TITLE: &str = "RadeonTuner · Rust";
 mod display;
 mod multimedia;
+mod tuning;
 struct Panel {
+    tuning: tuning::Editor,
     display: display::DisplayPage,
     video: Vec<crate::adl::multimedia::VideoControl>,
     video_status: String,
@@ -35,7 +37,12 @@ impl Panel {
         self.tuning_status.clear();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
             match driver.controls(device.index) {
-                Ok(values) => self.controls = values,
+                Ok(values) => {
+                    self.controls = values;
+                    if let Err(err) = self.load_tuning() {
+                        self.tuning_status = err.to_string();
+                    }
+                }
                 Err(err) => self.tuning_status = err.to_string(),
             }
         }
@@ -84,6 +91,7 @@ impl Render for Panel {
                     .on_click(cx.listener(move |panel, _, _, cx| {
                         panel.finish_preview(false);
                         panel.selected = i;
+                        panel.reset_tuning_editor();
                         panel.read_displays();
                         panel.read_controls();
                         panel.refresh();
@@ -109,7 +117,11 @@ impl Render for Panel {
         }
         if !self.controls.is_empty() {
             content = content.child(div().text_xl().child("调校与风扇曲线"));
+            content = content.child(self.render_tuning_profiles(cx));
             for (i, control) in self.controls.iter().enumerate() {
+                if !self.show_control(control.id) {
+                    continue;
+                }
                 let mut row = div()
                     .flex()
                     .items_center()
@@ -134,7 +146,7 @@ impl Render for Panel {
                 }
                 content = content.child(row);
             }
-            if self.controls.iter().any(|c| c.draft != c.current) {
+            if self.tuning_changed() {
                 content = content.child(
                     div()
                         .id("apply")
@@ -142,13 +154,8 @@ impl Render for Panel {
                         .p_2()
                         .child("应用更改")
                         .on_click(cx.listener(|panel, _, _, cx| {
-                            if let (Some(driver), Some(device)) =
-                                (&panel.driver, panel.devices.get(panel.selected))
-                            {
-                                match driver.apply(device.index, &panel.controls) {
-                                    Ok(()) => panel.read_controls(),
-                                    Err(err) => panel.tuning_status = err.to_string(),
-                                }
+                            if let Err(err) = panel.save_tuning() {
+                                panel.tuning_status = err.to_string();
                             }
                             cx.notify();
                         })),
@@ -205,6 +212,7 @@ pub fn run() -> Result<()> {
     let start_visible = settings.flag("StartWindowVisible", false)?;
     let close_tray = settings.flag("CloseTray", true)?;
     let mut panel = Panel {
+        tuning: Default::default(),
         display: Default::default(),
         video: Vec::new(),
         video_status: String::new(),

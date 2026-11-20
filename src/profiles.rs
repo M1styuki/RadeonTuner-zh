@@ -6,7 +6,7 @@ use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use std::{
     collections::{HashMap, HashSet},
-    fs, io, mem,
+    mem,
     os::windows::io::{FromRawHandle, OwnedHandle},
     path::PathBuf,
 };
@@ -15,7 +15,7 @@ use windows_sys::Win32::{
     System::Diagnostics::ToolHelp::*,
 };
 
-fn process_names() -> Result<HashSet<String>> {
+pub fn process_names() -> Result<HashSet<String>> {
     unsafe {
         let handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         ensure!(handle != INVALID_HANDLE_VALUE, "无法读取正在运行的应用");
@@ -163,16 +163,8 @@ impl Background {
     pub fn reload(&mut self) -> Result<()> {
         self.applied.clear();
         self.profiles.clear();
-        match fs::read(&self.path) {
-            Ok(bytes) => {
-                self.profiles = serde_json::from_slice(
-                    bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(&bytes),
-                )?;
-                Ok(())
-            }
-            Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
-            Err(err) => Err(err.into()),
-        }
+        self.profiles = crate::profile_store::load(&self.path)?;
+        Ok(())
     }
     pub fn active(&self) -> bool {
         !self.profiles.is_empty()
