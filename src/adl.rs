@@ -36,6 +36,7 @@ struct LogData {
 }
 
 pub struct Device {
+    pub profile_key: String,
     pub index: i32,
     pub name: String,
 }
@@ -120,8 +121,10 @@ impl Driver {
                     continue;
                 }
                 let id = string(&adapter.pnp);
+                let profile_key = id.split('\\').nth(1).unwrap_or_default().to_owned();
                 if id.is_empty() || ids.insert(id) {
                     devices.push(Device {
+                        profile_key,
                         index: adapter.index,
                         name: string(&adapter.name),
                     });

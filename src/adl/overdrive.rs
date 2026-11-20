@@ -3,6 +3,9 @@ use anyhow::{Result, ensure};
 use std::{ptr, slice};
 
 const COUNT: usize = 77; // OD8_COUNT in the bundled AMD headers.
+pub const ECC: usize = COUNT; // Separate workstation API, never an OD8 table index.
+type EccGet = unsafe extern "C" fn(Handle, i32, *mut i32, *mut i32, *mut i32, *mut i32) -> i32;
+type EccSet = unsafe extern "C" fn(Handle, i32, i32) -> i32;
 type Limits = unsafe extern "C" fn(Handle, i32, *mut i32, *mut i32, *mut *mut [i32; 4]) -> i32;
 type Current = unsafe extern "C" fn(Handle, i32, *mut i32, *mut *mut i32) -> i32;
 type Set = unsafe extern "C" fn(Handle, i32, *const Requests, *mut Values) -> i32;
@@ -27,12 +30,16 @@ pub struct Control {
     pub step: i32,
     pub current: i32,
     pub draft: i32,
+    pub default: i32,
+    pub reset: bool,
 }
 
 const CONTROLS: &[(usize, &str, &str, i32)] = &[
     (1, "最低核心频率", "MHz", 1),
     (0, "最高核心频率", "MHz", 1),
     (8, "最高显存频率", "MHz", 2),
+    (14, "显存时序", "", 1),
+    (15, "零转速", "", 1),
     (9, "功耗限制", "%", 1),
     (37, "电压偏移", "mV", 1),
     (47, "电流限制", "%", 1),
@@ -50,6 +57,62 @@ const CONTROLS: &[(usize, &str, &str, i32)] = &[
 
 impl Driver {
     pub fn controls(&self, index: i32) -> Result<Vec<Control>> {
+        let od = self.od_controls(index);
+        let Some(ecc) = self.ecc(index) else {
+            return od;
+        };
+        let mut controls = od.unwrap_or_default();
+        controls.push(ecc);
+        Ok(controls)
+    }
+
+    fn ecc(&self, index: i32) -> Option<Control> {
+        let (mut caps, mut mode, mut default, mut current, mut desired) = (0, 0, 0, 0, 0);
+        unsafe {
+            let query = self
+                .library
+                .get::<super::ReadInt>(b"ADL2_Workstation_ECC_Caps\0")
+                .ok()?;
+            let get = self
+                .library
+                .get::<EccGet>(b"ADL2_Workstation_ECCX2_Get\0")
+                .ok()?;
+            if query(self.context, index, &mut caps) != 0
+                || caps <= 0
+                || get(
+                    self.context,
+                    index,
+                    &mut mode,
+                    &mut default,
+                    &mut current,
+                    &mut desired,
+                ) != 0
+            {
+                return None;
+            }
+        }
+        let convert = |v| {
+            [0, 2, 3]
+                .iter()
+                .position(|mode| *mode == v)
+                .map(|i| i as i32)
+        };
+        let current = convert(current)?;
+        Some(Control {
+            id: ECC,
+            label: "显存 ECC / EDC",
+            unit: "",
+            min: 0,
+            max: 2,
+            step: 1,
+            current,
+            draft: current,
+            default: convert(default)?,
+            reset: false,
+        })
+    }
+
+    fn od_controls(&self, index: i32) -> Result<Vec<Control>> {
         unsafe {
             let limits = self
                 .library
@@ -78,7 +141,7 @@ impl Driver {
             Ok(CONTROLS
                 .iter()
                 .filter_map(|&(id, label, unit, step)| {
-                    let [_, min, max, _] = *ranges.get(id)?;
+                    let [_, min, max, default] = *ranges.get(id)?;
                     let current = values[id];
                     if min >= max
                         || !(min..=max).contains(&current)
@@ -95,6 +158,8 @@ impl Driver {
                         step,
                         current,
                         draft: current,
+                        default,
+                        reset: false,
                     })
                 })
                 .collect())
@@ -111,7 +176,7 @@ impl Driver {
         for control in &latest {
             effective.insert(control.id, control.current);
         }
-        for draft in controls.iter().filter(|c| c.current != c.draft) {
+        for draft in controls.iter().filter(|c| c.current != c.draft || c.reset) {
             let live = latest.iter().find(|c| c.id == draft.id);
             ensure!(
                 live.is_some_and(
@@ -119,7 +184,13 @@ impl Driver {
                 ),
                 "驱动设置已变化，请重新读取"
             );
-            request.entries[draft.id] = [draft.draft, 1, 0];
+            if draft.id != ECC {
+                request.entries[draft.id] = if draft.reset {
+                    [0, 1, 1]
+                } else {
+                    [draft.draft, 1, 0]
+                };
+            }
             effective.insert(draft.id, draft.draft);
         }
         if let (Some(min), Some(max)) = (effective.get(&1), effective.get(&0)) {
@@ -133,6 +204,27 @@ impl Driver {
                 );
             }
         }
+        if request.entries.iter().any(|entry| entry[1] != 0) {
+            self.set_overdrive(index, &request)?;
+        }
+        if let Some(ecc) = controls
+            .iter()
+            .find(|c| c.id == ECC && c.current != c.draft)
+        {
+            let target = [0, 2, 3][ecc.draft as usize];
+            let code = unsafe {
+                self.library.get::<EccSet>(b"ADL2_Workstation_ECC_Set\0")?(
+                    self.context,
+                    index,
+                    target,
+                )
+            };
+            ensure!(code == 0, "更改显存 ECC 失败 ({code})");
+        }
+        Ok(())
+    }
+
+    fn set_overdrive(&self, index: i32, request: &Requests) -> Result<()> {
         let mut result = Values {
             count: (COUNT - 1) as i32,
             entries: [0; COUNT],
@@ -141,7 +233,7 @@ impl Driver {
             self.library.get::<Set>(b"ADL2_Overdrive8_Setting_Set\0")?(
                 self.context,
                 index,
-                &request,
+                request,
                 &mut result,
             )
         };

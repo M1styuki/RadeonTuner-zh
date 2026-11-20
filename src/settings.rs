@@ -48,4 +48,14 @@ impl Settings {
         tmp.persist(&self.path)?;
         Ok(())
     }
+
+    pub fn profiles_path(&self, filename: &str) -> Result<PathBuf> {
+        Ok(self
+            .path
+            .parent()
+            .and_then(Path::parent)
+            .context("配置目录无效")?
+            .join("Profiles")
+            .join(filename))
+    }
 }
