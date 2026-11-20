@@ -15,6 +15,8 @@ struct Panel {
     devices: Vec<Device>,
     selected: usize,
     metrics: Vec<Metric>,
+    controls: Vec<crate::adl::overdrive::Control>,
+    tuning_status: String,
     message: String,
     settings: Settings,
     start_visible: bool,
@@ -22,6 +24,16 @@ struct Panel {
 }
 
 impl Panel {
+    fn read_controls(&mut self) {
+        self.controls.clear();
+        self.tuning_status.clear();
+        if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
+            match driver.controls(device.index) {
+                Ok(values) => self.controls = values,
+                Err(err) => self.tuning_status = err.to_string(),
+            }
+        }
+    }
     fn refresh(&mut self) {
         self.metrics.clear();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
@@ -64,6 +76,7 @@ impl Render for Panel {
                     .child(device.name.clone())
                     .on_click(cx.listener(move |panel, _, _, cx| {
                         panel.selected = i;
+                        panel.read_controls();
                         panel.refresh();
                         cx.notify();
                     })),
@@ -84,6 +97,68 @@ impl Render for Panel {
                     .child(item.label)
                     .child(value),
             );
+        }
+        if !self.controls.is_empty() {
+            content = content.child(div().text_xl().child("调校与风扇曲线"));
+            for (i, control) in self.controls.iter().enumerate() {
+                let mut row = div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .child(control.label)
+                    .child(format!("{} {}", control.draft, control.unit));
+                for (key, label, step) in [("down", "−", -control.step), ("up", "+", control.step)]
+                {
+                    row = row.child(
+                        div()
+                            .id((key, i))
+                            .cursor_pointer()
+                            .px_3()
+                            .bg(rgb(0x292d34))
+                            .child(label)
+                            .on_click(cx.listener(move |panel, _, _, cx| {
+                                let c = &mut panel.controls[i];
+                                c.draft = c.draft.saturating_add(step).clamp(c.min, c.max);
+                                cx.notify();
+                            })),
+                    );
+                }
+                content = content.child(row);
+            }
+            if self.controls.iter().any(|c| c.draft != c.current) {
+                content = content.child(
+                    div()
+                        .id("apply")
+                        .cursor_pointer()
+                        .p_2()
+                        .child("应用更改")
+                        .on_click(cx.listener(|panel, _, _, cx| {
+                            if let (Some(driver), Some(device)) =
+                                (&panel.driver, panel.devices.get(panel.selected))
+                            {
+                                match driver.apply(device.index, &panel.controls) {
+                                    Ok(()) => panel.read_controls(),
+                                    Err(err) => panel.tuning_status = err.to_string(),
+                                }
+                            }
+                            cx.notify();
+                        })),
+                );
+            }
+            content = content.child(
+                div()
+                    .id("reload")
+                    .cursor_pointer()
+                    .p_2()
+                    .child("重新读取驱动设置")
+                    .on_click(cx.listener(|panel, _, _, cx| {
+                        panel.read_controls();
+                        cx.notify();
+                    })),
+            );
+        }
+        if !self.tuning_status.is_empty() {
+            content = content.child(self.tuning_status.clone());
         }
         content = content.child(div().text_xl().child("窗口设置"));
         for (key, label, on) in [
@@ -123,6 +198,8 @@ pub fn run() -> Result<()> {
         devices: vec![],
         selected: 0,
         metrics: vec![],
+        controls: vec![],
+        tuning_status: String::new(),
         message: String::new(),
         settings,
         start_visible,
@@ -135,6 +212,7 @@ pub fn run() -> Result<()> {
             }
             panel.devices = devices;
             panel.driver = Some(driver);
+            panel.read_controls();
             panel.refresh();
         }
         Err(err) => panel.message = format!("{err:#}"),
