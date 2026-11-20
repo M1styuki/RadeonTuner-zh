@@ -10,8 +10,10 @@ use gpui::{
 use std::time::Duration;
 
 pub const TITLE: &str = "RadeonTuner · Rust";
+mod display;
 mod multimedia;
 struct Panel {
+    display: display::DisplayPage,
     video: Vec<crate::adl::multimedia::VideoControl>,
     video_status: String,
     driver: Option<Driver>,
@@ -39,6 +41,7 @@ impl Panel {
         }
     }
     fn refresh(&mut self) {
+        self.expire_preview();
         self.metrics.clear();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
             match driver.metrics(device.index) {
@@ -79,7 +82,9 @@ impl Render for Panel {
                     }))
                     .child(device.name.clone())
                     .on_click(cx.listener(move |panel, _, _, cx| {
+                        panel.finish_preview(false);
                         panel.selected = i;
+                        panel.read_displays();
                         panel.read_controls();
                         panel.refresh();
                         cx.notify();
@@ -164,6 +169,7 @@ impl Render for Panel {
         if !self.tuning_status.is_empty() {
             content = content.child(self.tuning_status.clone());
         }
+        content = content.child(self.render_displays(cx));
         content = content.child(self.render_video(cx));
         content = content.child(div().text_xl().child("窗口设置"));
         for (key, label, on) in [
@@ -199,6 +205,7 @@ pub fn run() -> Result<()> {
     let start_visible = settings.flag("StartWindowVisible", false)?;
     let close_tray = settings.flag("CloseTray", true)?;
     let mut panel = Panel {
+        display: Default::default(),
         video: Vec::new(),
         video_status: String::new(),
         driver: None,
@@ -219,6 +226,7 @@ pub fn run() -> Result<()> {
             }
             panel.devices = devices;
             panel.driver = Some(driver);
+            panel.read_displays();
             panel.read_controls();
             panel.refresh();
         }

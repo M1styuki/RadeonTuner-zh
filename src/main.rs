@@ -1,11 +1,15 @@
 #![windows_subsystem = "windows"]
 
 mod adl;
+mod mode_preview;
 mod panel;
 mod settings;
 mod tray;
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--preview-mode")) {
+        std::process::exit(mode_preview::worker());
+    }
     let result = if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--panel")) {
         panel::run()
     } else {

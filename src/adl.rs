@@ -192,5 +192,6 @@ impl<T> Drop for Allocation<T> {
     }
 }
 
+pub mod display;
 pub mod multimedia;
 pub mod overdrive;
