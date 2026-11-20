@@ -22,6 +22,10 @@ struct Panel {
     graphics_status: String,
     experimental: bool,
     skip_graphics_check: bool,
+    topmost: bool,
+    hide_tray: bool,
+    mono: bool,
+    links: [bool; 3],
     tuning: tuning::Editor,
     display: display::DisplayPage,
     video: Vec<crate::adl::multimedia::VideoControl>,
@@ -208,6 +212,9 @@ impl Render for Panel {
             for (key, label, on) in [
                 ("StartWindowVisible", "启动时打开面板", self.start_visible),
                 ("CloseTray", "关闭面板后驻留托盘", self.close_tray),
+                ("SetTopMost", "窗口置顶", self.topmost),
+                ("HideTrayIcon", "隐藏托盘图标", self.hide_tray),
+                ("ThemeIconMono", "单色托盘图标", self.mono),
                 ("ShowExperimental", "显示实验性设置", self.experimental),
                 (
                     "SkipSupportCheckGraphics",
@@ -227,6 +234,22 @@ impl Render for Panel {
                         .child(if on { "开" } else { "关" })
                         .on_click(cx.listener(move |panel, _, _, cx| {
                             match panel.settings.set_flag(key, !on) {
+                                Ok(()) if key == "SetTopMost" => {
+                                    panel.topmost = !on;
+                                    if let Err(err) = crate::tray::topmost(!on) {
+                                        panel.message = err.to_string();
+                                    }
+                                }
+                                Ok(()) if key == "HideTrayIcon" || key == "ThemeIconMono" => {
+                                    if key == "HideTrayIcon" {
+                                        panel.hide_tray = !on;
+                                    } else {
+                                        panel.mono = !on;
+                                    }
+                                    if let Err(err) = crate::tray::settings_changed() {
+                                        panel.message = err.to_string();
+                                    }
+                                }
                                 Ok(()) if key == "ShowExperimental" => panel.experimental = !on,
                                 Ok(()) if key == "SkipSupportCheckGraphics" => {
                                     panel.skip_graphics_check = !on;
@@ -240,7 +263,35 @@ impl Render for Panel {
                         })),
                 );
             }
-            if !self.message.is_empty() && self.driver.is_some() {
+            use crate::integration::Link;
+            for (i, (link, label)) in [
+                (Link::Startup, "随 Windows 启动"),
+                (Link::StartMenu, "开始菜单快捷方式"),
+                (Link::ContextMenu, "桌面右键菜单"),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let on = self.links[i];
+                content = content.child(
+                    div()
+                        .id(("link", i))
+                        .p_2()
+                        .flex()
+                        .justify_between()
+                        .cursor_pointer()
+                        .child(label)
+                        .child(if on { "开" } else { "关" })
+                        .on_click(cx.listener(move |p, _, _, cx| {
+                            match link.set(!on) {
+                                Ok(()) => p.links[i] = link.enabled(),
+                                Err(err) => p.message = err.to_string(),
+                            }
+                            cx.notify();
+                        })),
+                );
+            }
+            if !self.message.is_empty() {
                 content = content.child(self.message.clone());
             }
         }
@@ -273,6 +324,20 @@ impl Render for Panel {
                     })),
             );
         }
+        nav = nav.child(
+            div()
+                .id("exit")
+                .px_3()
+                .py_2()
+                .cursor_pointer()
+                .child("退出")
+                .on_click(cx.listener(|p, _, _, cx| {
+                    if let Err(err) = crate::tray::request_exit() {
+                        p.message = err.to_string();
+                        cx.notify();
+                    }
+                })),
+        );
         div()
             .size_full()
             .flex()
@@ -291,6 +356,15 @@ pub fn run() -> Result<()> {
             .ok()
             .filter(|i| *i < PAGES.len())
             .unwrap_or(0),
+        topmost: settings.flag("SetTopMost", false)?,
+        hide_tray: settings.flag("HideTrayIcon", false)?,
+        mono: settings.flag("ThemeIconMono", false)?,
+        links: [
+            crate::integration::Link::Startup,
+            crate::integration::Link::StartMenu,
+            crate::integration::Link::ContextMenu,
+        ]
+        .map(|link| link.enabled()),
         experimental: settings.flag("ShowExperimental", false)?,
         skip_graphics_check: settings.flag("SkipSupportCheckGraphics", false)?,
         info: Vec::new(),
@@ -334,6 +408,11 @@ pub fn run() -> Result<()> {
             },
             |window, cx| {
                 window.set_window_title(TITLE);
+                if panel.topmost {
+                    if let Err(err) = crate::tray::topmost(true) {
+                        panel.message = err.to_string();
+                    }
+                }
                 cx.new(|cx: &mut Context<Panel>| {
                     cx.spawn(async move |view, cx| {
                         loop {

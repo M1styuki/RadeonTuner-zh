@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 mod adl;
+mod integration;
 mod mode_preview;
 mod panel;
 mod profile_store;

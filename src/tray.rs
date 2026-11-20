@@ -12,16 +12,86 @@ use tray_icon::{
 };
 use windows_sys::Win32::{
     Foundation::{ERROR_ALREADY_EXISTS, GetLastError, WAIT_FAILED, WAIT_OBJECT_0, WAIT_TIMEOUT},
-    System::Threading::{CreateEventW, INFINITE, SetEvent},
+    System::Threading::{CreateEventW, EVENT_MODIFY_STATE, INFINITE, OpenEventW, SetEvent},
     UI::WindowsAndMessaging::*,
 };
+
+const OPTIONS: &str = "Local\\RadeonTuner.Rust.Options";
+const EXIT: &str = "Local\\RadeonTuner.Rust.Exit";
+fn wide(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(Some(0)).collect()
+}
+fn event(name: &str) -> Result<OwnedHandle> {
+    let raw = unsafe { CreateEventW(ptr::null(), 0, 0, wide(name).as_ptr()) };
+    if raw.is_null() {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    Ok(unsafe { OwnedHandle::from_raw_handle(raw) })
+}
+fn signal(name: &str) -> Result<()> {
+    let raw = unsafe { OpenEventW(EVENT_MODIFY_STATE, 0, wide(name).as_ptr()) };
+    if raw.is_null() {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    let _handle = unsafe { OwnedHandle::from_raw_handle(raw) };
+    if unsafe { SetEvent(raw) } == 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    Ok(())
+}
+pub fn settings_changed() -> Result<()> {
+    signal(OPTIONS)
+}
+pub fn request_exit() -> Result<()> {
+    signal(EXIT)
+}
+fn panel_window(pid: u32) -> windows_sys::Win32::Foundation::HWND {
+    unsafe {
+        let w = FindWindowW(ptr::null(), wide(TITLE).as_ptr());
+        let mut owner = 0;
+        if !w.is_null() {
+            GetWindowThreadProcessId(w, &mut owner);
+        }
+        if owner == pid { w } else { ptr::null_mut() }
+    }
+}
+pub fn topmost(on: bool) -> Result<()> {
+    let w = panel_window(std::process::id());
+    if w.is_null() {
+        anyhow::bail!("找不到设置窗口");
+    }
+    if unsafe {
+        SetWindowPos(
+            w,
+            if on { HWND_TOPMOST } else { HWND_NOTOPMOST },
+            0,
+            0,
+            0,
+            0,
+            SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE,
+        )
+    } == 0
+    {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    Ok(())
+}
+fn icon(monochrome: bool) -> Result<Icon> {
+    let bytes: &[u8] = if monochrome {
+        include_bytes!("../RadeonTuner/AppIconMono.ico")
+    } else {
+        include_bytes!("../RadeonTuner/AppIconColor.ico")
+    };
+    let rgba = image::load_from_memory(bytes)?.to_rgba8();
+    let (width, height) = rgba.dimensions();
+    Ok(Icon::from_rgba(rgba.into_raw(), width, height)?)
+}
 
 fn open_panel(child: &mut Option<Child>) -> Result<()> {
     if let Some(process) = child.as_mut() {
         if process.try_wait()?.is_none() {
-            let title: Vec<_> = TITLE.encode_utf16().chain(Some(0)).collect();
             unsafe {
-                let window = FindWindowW(ptr::null(), title.as_ptr());
+                let window = panel_window(process.id());
                 if !window.is_null() {
                     ShowWindow(window, SW_RESTORE);
                     SetForegroundWindow(window);
@@ -57,22 +127,24 @@ pub fn run() -> Result<()> {
         }
         return Ok(());
     }
+    let options_changed = event(OPTIONS)?;
+    let exit_request = event(EXIT)?;
     let settings = Settings::open()?;
     let menu = Menu::new();
     let open = MenuItem::new("打开设置", true, None);
     let quit = MenuItem::new("退出", true, None);
     menu.append(&open)?;
+    let website = MenuItem::new("项目网站", true, None);
+    menu.append(&website)?;
     menu.append(&quit)?;
-    let rgba =
-        image::load_from_memory(include_bytes!("../RadeonTuner/AppIconColor.ico"))?.to_rgba8();
-    let (width, height) = rgba.dimensions();
-    let icon = Icon::from_rgba(rgba.into_raw(), width, height)?;
+    let mut mono = settings.flag("ThemeIconMono", false)?;
     let tray = TrayIconBuilder::new()
-        .with_icon(icon)
+        .with_icon(icon(mono)?)
         .with_menu(Box::new(menu))
         .with_menu_on_left_click(false)
         .with_tooltip(TITLE)
         .build()?;
+    tray.set_visible(!settings.flag("HideTrayIcon", false)?)?;
     let mut background = crate::profiles::Background::new(&settings)?;
     let mut last_error: Option<String> = None;
     let mut show_status = |result: Result<()>| {
@@ -103,7 +175,11 @@ pub fn run() -> Result<()> {
                 .saturating_duration_since(std::time::Instant::now())
                 .as_millis() as u32;
         }
-        let mut handles = vec![recall.as_raw_handle()];
+        let mut handles = vec![
+            recall.as_raw_handle(),
+            options_changed.as_raw_handle(),
+            exit_request.as_raw_handle(),
+        ];
         if let Some(process) = child.as_ref() {
             handles.push(process.as_raw_handle());
         }
@@ -126,7 +202,19 @@ pub fn run() -> Result<()> {
             open_panel(&mut child)?;
             continue;
         }
-        if handles.len() == 2 && event == WAIT_OBJECT_0 + 1 {
+        if event == WAIT_OBJECT_0 + 1 {
+            let new_mono = settings.flag("ThemeIconMono", false)?;
+            if new_mono != mono {
+                tray.set_icon(Some(icon(new_mono)?))?;
+                mono = new_mono;
+            }
+            tray.set_visible(!settings.flag("HideTrayIcon", false)?)?;
+            continue;
+        }
+        if event == WAIT_OBJECT_0 + 2 {
+            break;
+        }
+        if handles.len() == 4 && event == WAIT_OBJECT_0 + 3 {
             child.take().context("面板进程已丢失")?.wait()?;
             if !settings.flag("CloseTray", true)? {
                 break;
@@ -149,6 +237,9 @@ pub fn run() -> Result<()> {
             }
         }
         while let Ok(event) = MenuEvent::receiver().try_recv() {
+            if event.id == *website.id() {
+                crate::integration::open("https://projects.arnoldvink.com")?;
+            }
             if event.id == *quit.id() {
                 break 'host;
             }
@@ -169,8 +260,15 @@ pub fn run() -> Result<()> {
         }
     }
     if let Some(mut process) = child {
-        if process.try_wait()?.is_none() {
-            process.kill()?;
+        while process.try_wait()?.is_none() {
+            let window = panel_window(process.id());
+            if !window.is_null() {
+                unsafe {
+                    PostMessageW(window, WM_CLOSE, 0, 0);
+                }
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
         }
         process.wait()?;
     }
