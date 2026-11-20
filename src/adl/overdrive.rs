@@ -1,4 +1,4 @@
-use super::{Driver, Handle};
+use super::{Allocation, Driver, Handle};
 use anyhow::{Result, ensure};
 use std::{ptr, slice};
 
@@ -48,13 +48,6 @@ const CONTROLS: &[(usize, &str, &str, i32)] = &[
     (28, "曲线点 5 转速", "%", 1),
 ];
 
-struct Allocation<T>(*mut T);
-impl<T> Drop for Allocation<T> {
-    fn drop(&mut self) {
-        unsafe { libc::free(self.0.cast()) }
-    }
-}
-
 impl Driver {
     pub fn controls(&self, index: i32) -> Result<Vec<Control>> {
         unsafe {
@@ -64,7 +57,8 @@ impl Driver {
             let current = self
                 .library
                 .get::<Current>(b"ADL2_Overdrive8_Current_SettingX2_Get\0")?;
-            let (mut caps, mut length, mut values_length) = (0, 0, (COUNT - 1) as i32);
+            let (mut caps, mut length, mut values_length) =
+                (0, (COUNT - 1) as i32, (COUNT - 1) as i32);
             let mut ranges = Allocation(ptr::null_mut());
             let mut values = Allocation(ptr::null_mut());
             let code = limits(self.context, index, &mut caps, &mut length, &mut ranges.0);

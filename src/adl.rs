@@ -185,4 +185,12 @@ impl Drop for Driver {
         }
     }
 }
+struct Allocation<T>(*mut T);
+impl<T> Drop for Allocation<T> {
+    fn drop(&mut self) {
+        unsafe { libc::free(self.0.cast()) }
+    }
+}
+
+pub mod multimedia;
 pub mod overdrive;

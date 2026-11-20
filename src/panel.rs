@@ -10,7 +10,10 @@ use gpui::{
 use std::time::Duration;
 
 pub const TITLE: &str = "RadeonTuner · Rust";
+mod multimedia;
 struct Panel {
+    video: Vec<crate::adl::multimedia::VideoControl>,
+    video_status: String,
     driver: Option<Driver>,
     devices: Vec<Device>,
     selected: usize,
@@ -25,6 +28,7 @@ struct Panel {
 
 impl Panel {
     fn read_controls(&mut self) {
+        self.read_video();
         self.controls.clear();
         self.tuning_status.clear();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
@@ -160,6 +164,7 @@ impl Render for Panel {
         if !self.tuning_status.is_empty() {
             content = content.child(self.tuning_status.clone());
         }
+        content = content.child(self.render_video(cx));
         content = content.child(div().text_xl().child("窗口设置"));
         for (key, label, on) in [
             ("StartWindowVisible", "启动时打开面板", self.start_visible),
@@ -194,6 +199,8 @@ pub fn run() -> Result<()> {
     let start_visible = settings.flag("StartWindowVisible", false)?;
     let close_tray = settings.flag("CloseTray", true)?;
     let mut panel = Panel {
+        video: Vec::new(),
+        video_status: String::new(),
         driver: None,
         devices: vec![],
         selected: 0,
@@ -242,6 +249,11 @@ pub fn run() -> Result<()> {
                         }
                     })
                     .detach();
+                    if panel.settings.flag("FirstLaunch", true).unwrap_or(false) {
+                        if let Err(err) = panel.settings.set_flag("FirstLaunch", false) {
+                            panel.message = format!("保存首次启动状态失败：{err}");
+                        }
+                    }
                     panel
                 })
             },
