@@ -46,6 +46,23 @@ fn key(id: usize) -> Option<String> {
     Some(field + ".Current")
 }
 impl Panel {
+    pub(super) fn curve_points(&self) -> Vec<(i32, i32)> {
+        let get = |id| self.controls.iter().find(|c| c.id == id);
+        let speeds = get(20)
+            .zip(get(28))
+            .map(|(first, last)| profiles::curve(first.draft, last.draft, self.tuning.quiet));
+        (0..5)
+            .filter_map(|i| {
+                let temp = get(19 + i * 2)?;
+                let speed = get(20 + i * 2)?;
+                Some(match self.tuning.mode {
+                    3 => (temp.draft, speed.draft),
+                    2 => (temp.default, speeds?[i]),
+                    _ => (temp.default, speed.default),
+                })
+            })
+            .collect()
+    }
     pub(super) fn load_tuning(&mut self) -> Result<()> {
         let device = self.devices.get(self.selected).context("未选择显卡")?;
         let rows = profile_store::load(&self.settings.profiles_path("TuningProfiles.json")?)?;

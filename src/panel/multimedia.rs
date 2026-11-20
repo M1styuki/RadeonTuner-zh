@@ -51,8 +51,20 @@ impl Panel {
                         })),
                 );
             } else {
-                row = row.child(control.draft.to_string());
                 let (min, max, _) = control.feature.limits();
+                if control.feature != Feature::Sharpness || upscale {
+                    row = row.child(self.number(
+                        super::numeric::Field::Video(i),
+                        control.draft,
+                        min,
+                        max,
+                        1,
+                        "",
+                        cx,
+                    ));
+                } else {
+                    row = row.child(control.draft.to_string());
+                }
                 for (key, label, delta) in [("video-down", "−", -1), ("video-up", "+", 1)] {
                     let enabled = (control.feature != Feature::Sharpness || upscale)
                         && (min..=max).contains(&(control.draft.saturating_add(delta)));

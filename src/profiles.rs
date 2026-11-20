@@ -72,7 +72,7 @@ fn number(profile: &Value, name: &str) -> Result<Option<i32>> {
     )?))
 }
 
-fn curve(start: i32, end: i32, quiet: bool) -> [i32; 5] {
+pub fn curve(start: i32, end: i32, quiet: bool) -> [i32; 5] {
     let weights = if quiet {
         [0., 0.2, 0.4, 0.6, 1.]
     } else {

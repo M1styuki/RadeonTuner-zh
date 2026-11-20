@@ -19,6 +19,11 @@ pub(super) struct DisplayPage {
 }
 
 impl Panel {
+    pub(super) fn set_display_draft(&mut self, i: usize, value: i32) {
+        if let Some(s) = self.display.settings.get_mut(i) {
+            s.draft = value;
+        }
+    }
     pub(super) fn read_displays(&mut self) {
         self.display = DisplayPage::default();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
@@ -205,8 +210,24 @@ impl Panel {
                 .flex()
                 .gap_3()
                 .items_center()
-                .child(div().flex_1().child(setting.label))
-                .child(setting.text());
+                .child(div().flex_1().child(setting.label));
+            if matches!(
+                setting.feature,
+                crate::adl::display::settings::Feature::Color(_)
+                    | crate::adl::display::settings::Feature::Correction(1..=3)
+            ) {
+                row = row.child(self.number(
+                    super::numeric::Field::Display(i),
+                    setting.draft,
+                    setting.min,
+                    setting.max,
+                    setting.step,
+                    "",
+                    cx,
+                ));
+            } else {
+                row = row.child(setting.text());
+            }
             for (id, label, step) in [
                 ("display-down", "−", -setting.step),
                 ("display-up", "+", setting.step),

@@ -10,12 +10,15 @@ use gpui::{
 use std::time::Duration;
 
 pub const TITLE: &str = "RadeonTuner · Rust";
+mod curve;
 mod display;
 mod graphics;
 mod multimedia;
+mod numeric;
 const PAGES: [&str; 7] = ["调校", "风扇", "图形", "显示器", "多媒体", "设置", "信息"];
 mod tuning;
 struct Panel {
+    edit: Option<numeric::Edit>,
     page: usize,
     info: Vec<String>,
     graphics: Vec<crate::adl::graphics::Setting>,
@@ -137,6 +140,9 @@ impl Render for Panel {
         }
         if matches!(self.page, 0 | 1) && !self.controls.is_empty() {
             content = content.child(self.render_tuning_profiles(cx));
+            if self.page == 1 {
+                content = content.child(self.render_curve(cx));
+            }
             for (i, control) in self.controls.iter().enumerate() {
                 if ((control.id == 15 || (19..=28).contains(&control.id)) != (self.page == 1))
                     || !self.show_control(control.id)
@@ -148,7 +154,15 @@ impl Render for Panel {
                     .items_center()
                     .justify_between()
                     .child(control.label)
-                    .child(format!("{} {}", control.draft, control.unit));
+                    .child(self.number(
+                        numeric::Field::Tuning(i),
+                        control.draft,
+                        control.min,
+                        control.max,
+                        control.step,
+                        control.unit,
+                        cx,
+                    ));
                 for (key, label, step) in [("down", "−", -control.step), ("up", "+", control.step)]
                 {
                     row = row.child(
@@ -352,6 +366,7 @@ pub fn run() -> Result<()> {
     let start_visible = settings.flag("StartWindowVisible", false)?;
     let close_tray = settings.flag("CloseTray", true)?;
     let mut panel = Panel {
+        edit: None,
         page: usize::try_from(settings.integer("MenuIndex", 0)?)
             .ok()
             .filter(|i| *i < PAGES.len())
