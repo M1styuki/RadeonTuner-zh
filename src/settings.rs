@@ -37,8 +37,18 @@ impl Settings {
     }
 
     pub fn set_flag(&self, key: &str, value: bool) -> Result<()> {
+        self.set(key, Value::Bool(value))
+    }
+    pub fn integer(&self, key: &str, default: i64) -> Result<i64> {
+        Ok(self
+            .read()?
+            .get(key)
+            .and_then(Value::as_i64)
+            .unwrap_or(default))
+    }
+    pub fn set(&self, key: &str, value: Value) -> Result<()> {
         let mut settings = self.read()?;
-        settings.insert(key.into(), Value::Bool(value));
+        settings.insert(key.into(), value);
         let dir = self.path.parent().context("无效设置路径")?;
         fs::create_dir_all(dir)?;
         let mut tmp = tempfile::NamedTempFile::new_in(dir)?;

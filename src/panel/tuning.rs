@@ -232,6 +232,9 @@ impl Panel {
                     cx.notify();
                 })),
         );
+        if self.page != 1 {
+            return section;
+        }
         let mut modes = div().flex().gap_2();
         for (i, label) in ["驱动默认", "仅零转速", "范围转速", "自定义曲线"]
             .into_iter()

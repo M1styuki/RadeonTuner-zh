@@ -11,9 +11,17 @@ use std::time::Duration;
 
 pub const TITLE: &str = "RadeonTuner · Rust";
 mod display;
+mod graphics;
 mod multimedia;
+const PAGES: [&str; 7] = ["调校", "风扇", "图形", "显示器", "多媒体", "设置", "信息"];
 mod tuning;
 struct Panel {
+    page: usize,
+    info: Vec<String>,
+    graphics: Vec<crate::adl::graphics::Setting>,
+    graphics_status: String,
+    experimental: bool,
+    skip_graphics_check: bool,
     tuning: tuning::Editor,
     display: display::DisplayPage,
     video: Vec<crate::adl::multimedia::VideoControl>,
@@ -32,7 +40,6 @@ struct Panel {
 
 impl Panel {
     fn read_controls(&mut self) {
-        self.read_video();
         self.controls.clear();
         self.tuning_status.clear();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
@@ -65,7 +72,7 @@ impl Panel {
 impl Render for Panel {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let mut content = div()
-            .id("content")
+            .id(("content", self.page))
             .size_full()
             .overflow_y_scroll()
             .flex()
@@ -74,52 +81,62 @@ impl Render for Panel {
             .p_5()
             .bg(rgb(0x171a20))
             .text_color(rgb(0xe4e6eb))
-            .child(div().text_xl().child("显卡监控"));
-        for (i, device) in self.devices.iter().enumerate() {
-            content = content.child(
-                div()
-                    .id(("gpu", i))
-                    .cursor_pointer()
-                    .px_3()
-                    .py_1()
-                    .bg(rgb(if self.selected == i {
-                        0x713e47
-                    } else {
-                        0x292d34
-                    }))
-                    .child(device.name.clone())
-                    .on_click(cx.listener(move |panel, _, _, cx| {
-                        panel.finish_preview(false);
-                        panel.selected = i;
-                        panel.reset_tuning_editor();
-                        panel.read_displays();
-                        panel.read_controls();
-                        panel.refresh();
-                        cx.notify();
-                    })),
-            );
+            .child(div().text_xl().child(PAGES[self.page]));
+        if self.page != 5 {
+            for (i, device) in self.devices.iter().enumerate() {
+                content = content.child(
+                    div()
+                        .id(("gpu", i))
+                        .cursor_pointer()
+                        .px_3()
+                        .py_1()
+                        .bg(rgb(if self.selected == i {
+                            0x713e47
+                        } else {
+                            0x292d34
+                        }))
+                        .child(device.name.clone())
+                        .on_click(cx.listener(move |panel, _, _, cx| {
+                            panel.finish_preview(false);
+                            panel.selected = i;
+                            panel.reset_tuning_editor();
+                            panel.read_device_details();
+                            panel.read_displays();
+                            panel.read_controls();
+                            panel.refresh();
+                            cx.notify();
+                        })),
+                );
+            }
+            if !self.message.is_empty() {
+                content = content.child(self.message.clone());
+            }
         }
-        if !self.message.is_empty() {
-            content = content.child(self.message.clone());
+        if matches!(self.page, 0 | 1 | 2 | 6) {
+            let mut grid = div().flex().flex_wrap();
+            for item in &self.metrics {
+                let value = item
+                    .value
+                    .map(|n| format!("{n} {}", item.unit))
+                    .unwrap_or_else(|| "—".into());
+                grid = grid.child(
+                    div()
+                        .w(gpui::relative(0.2))
+                        .flex()
+                        .flex_col()
+                        .py_1()
+                        .child(item.label)
+                        .child(value),
+                );
+            }
+            content = content.child(grid);
         }
-        for item in &self.metrics {
-            let value = item
-                .value
-                .map(|n| format!("{n} {}", item.unit))
-                .unwrap_or_else(|| "—".into());
-            content = content.child(
-                div()
-                    .flex()
-                    .justify_between()
-                    .child(item.label)
-                    .child(value),
-            );
-        }
-        if !self.controls.is_empty() {
-            content = content.child(div().text_xl().child("调校与风扇曲线"));
+        if matches!(self.page, 0 | 1) && !self.controls.is_empty() {
             content = content.child(self.render_tuning_profiles(cx));
             for (i, control) in self.controls.iter().enumerate() {
-                if !self.show_control(control.id) {
+                if ((control.id == 15 || (19..=28).contains(&control.id)) != (self.page == 1))
+                    || !self.show_control(control.id)
+                {
                     continue;
                 }
                 let mut row = div()
@@ -173,37 +190,95 @@ impl Render for Panel {
                     })),
             );
         }
-        if !self.tuning_status.is_empty() {
+        if matches!(self.page, 0 | 1) && !self.tuning_status.is_empty() {
             content = content.child(self.tuning_status.clone());
         }
-        content = content.child(self.render_displays(cx));
-        content = content.child(self.render_video(cx));
-        content = content.child(div().text_xl().child("窗口设置"));
-        for (key, label, on) in [
-            ("StartWindowVisible", "启动时打开面板", self.start_visible),
-            ("CloseTray", "关闭面板后驻留托盘", self.close_tray),
-        ] {
-            content = content.child(
+        match self.page {
+            2 => content = content.child(self.render_graphics(cx)),
+            3 => content = content.child(self.render_displays(cx)),
+            4 => content = content.child(self.render_video(cx)),
+            6 => {
+                for line in &self.info {
+                    content = content.child(line.clone());
+                }
+            }
+            _ => {}
+        }
+        if self.page == 5 {
+            for (key, label, on) in [
+                ("StartWindowVisible", "启动时打开面板", self.start_visible),
+                ("CloseTray", "关闭面板后驻留托盘", self.close_tray),
+                ("ShowExperimental", "显示实验性设置", self.experimental),
+                (
+                    "SkipSupportCheckGraphics",
+                    "跳过图形功能支持检查",
+                    self.skip_graphics_check,
+                ),
+            ] {
+                content = content.child(
+                    div()
+                        .id(key)
+                        .cursor_pointer()
+                        .p_2()
+                        .bg(rgb(0x292d34))
+                        .flex()
+                        .justify_between()
+                        .child(label)
+                        .child(if on { "开" } else { "关" })
+                        .on_click(cx.listener(move |panel, _, _, cx| {
+                            match panel.settings.set_flag(key, !on) {
+                                Ok(()) if key == "ShowExperimental" => panel.experimental = !on,
+                                Ok(()) if key == "SkipSupportCheckGraphics" => {
+                                    panel.skip_graphics_check = !on;
+                                    panel.read_device_details();
+                                }
+                                Ok(()) if key == "CloseTray" => panel.close_tray = !on,
+                                Ok(()) => panel.start_visible = !on,
+                                Err(err) => panel.message = format!("保存失败：{err}"),
+                            }
+                            cx.notify();
+                        })),
+                );
+            }
+            if !self.message.is_empty() && self.driver.is_some() {
+                content = content.child(self.message.clone());
+            }
+        }
+        let mut nav = div()
+            .w(px(110.))
+            .flex_shrink_0()
+            .p_2()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .bg(rgb(0x202328));
+        for (i, label) in PAGES.iter().enumerate() {
+            nav = nav.child(
                 div()
-                    .id(key)
+                    .id(("nav", i))
+                    .px_3()
+                    .py_2()
                     .cursor_pointer()
-                    .p_2()
-                    .bg(rgb(0x292d34))
-                    .flex()
-                    .justify_between()
-                    .child(label)
-                    .child(if on { "开" } else { "关" })
-                    .on_click(cx.listener(move |panel, _, _, cx| {
-                        match panel.settings.set_flag(key, !on) {
-                            Ok(()) if key == "CloseTray" => panel.close_tray = !on,
-                            Ok(()) => panel.start_visible = !on,
-                            Err(err) => panel.message = format!("保存失败：{err}"),
+                    .bg(rgb(if i == self.page { 0x713e47 } else { 0x202328 }))
+                    .child(*label)
+                    .on_click(cx.listener(move |p, _, _, cx| {
+                        if p.page == 3 && i != 3 {
+                            p.finish_preview(false);
+                        }
+                        p.page = i;
+                        if let Err(err) = p.settings.set("MenuIndex", serde_json::json!(i)) {
+                            p.message = err.to_string();
                         }
                         cx.notify();
                     })),
             );
         }
-        content
+        div()
+            .size_full()
+            .flex()
+            .text_color(rgb(0xe4e6eb))
+            .child(nav)
+            .child(content)
     }
 }
 
@@ -212,6 +287,15 @@ pub fn run() -> Result<()> {
     let start_visible = settings.flag("StartWindowVisible", false)?;
     let close_tray = settings.flag("CloseTray", true)?;
     let mut panel = Panel {
+        page: usize::try_from(settings.integer("MenuIndex", 0)?)
+            .ok()
+            .filter(|i| *i < PAGES.len())
+            .unwrap_or(0),
+        experimental: settings.flag("ShowExperimental", false)?,
+        skip_graphics_check: settings.flag("SkipSupportCheckGraphics", false)?,
+        info: Vec::new(),
+        graphics: Vec::new(),
+        graphics_status: String::new(),
         tuning: Default::default(),
         display: Default::default(),
         video: Vec::new(),
@@ -234,6 +318,7 @@ pub fn run() -> Result<()> {
             }
             panel.devices = devices;
             panel.driver = Some(driver);
+            panel.read_device_details();
             panel.read_displays();
             panel.read_controls();
             panel.refresh();

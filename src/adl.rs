@@ -36,6 +36,7 @@ struct LogData {
 }
 
 pub struct Device {
+    pub registry_path: String,
     pub profile_key: String,
     pub index: i32,
     pub name: String,
@@ -124,6 +125,7 @@ impl Driver {
                 let profile_key = id.split('\\').nth(1).unwrap_or_default().to_owned();
                 if id.is_empty() || ids.insert(id) {
                     devices.push(Device {
+                        registry_path: string(&adapter.path_ext),
                         profile_key,
                         index: adapter.index,
                         name: string(&adapter.name),
@@ -196,5 +198,7 @@ impl<T> Drop for Allocation<T> {
 }
 
 pub mod display;
+pub mod graphics;
+mod info;
 pub mod multimedia;
 pub mod overdrive;
