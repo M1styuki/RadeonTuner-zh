@@ -1,5 +1,7 @@
 #pragma once
 #include "pch.h"
+#include <map>
+#include <set>
 #include "MainPage.h"
 #include "MainVariables.h"
 
@@ -295,8 +297,40 @@ namespace winrt::RadeonTuner::implementation
 			//Deserialize profiles
 			displaySettingsCache = jsonstring_to_struct<std::deque<DisplaySettings>>(jsonStringW);
 
-			//Set Global profile as using
-			DisplaySettings_Profile_Set_UsingGlobal();
+			//0.72 identified a monitor by manufacturer and model alone. Carry its settings
+            //to connected serial-numbered displays, preferring an existing exact profile.
+            if (!displaySettingsCache.empty())
+            {
+                std::map<std::wstring, std::set<std::wstring>> connected;
+                for (const auto& display : AdlGetDisplayAll())
+                {
+                    const auto& id = display.displayID;
+                    const auto full = AdlxGetDisplayIdentifier(id.iDisplayLogicalAdapterIndex, id.iDisplayLogicalIndex);
+                    auto split = full.rfind(L' ');
+                    if (split != std::wstring::npos) { connected[full.substr(0, split)].insert(full); }
+                }
+                std::deque<DisplaySettings> migrated;
+                for (const auto& profile : displaySettingsCache)
+                {
+                    auto targets = connected.find(profile.DeviceId.value_or(L""));
+                    if (targets == connected.end()) { migrated.push_back(profile); continue; }
+                    for (const auto& target : targets->second)
+                    {
+                        auto exact = std::find_if(displaySettingsCache.begin(), displaySettingsCache.end(), [&](const auto& row) {
+                            return row.DeviceId == target && row.Application == profile.Application;
+                        });
+                        if (exact == displaySettingsCache.end())
+                        {
+                            auto copy = profile;
+                            copy.DeviceId = target;
+                            migrated.push_back(std::move(copy));
+                        }
+                    }
+                }
+                displaySettingsCache.swap(migrated);
+            }
+            //Set Global profile as using
+            DisplaySettings_Profile_Set_UsingGlobal();
 
 			AVDebugWriteLine("Loaded display profiles: " << displaySettingsCache.size());
 			return true;

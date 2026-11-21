@@ -32,6 +32,7 @@
 #include <winrt/Windows.UI.Xaml.Media.h>
 #include <winrt/Windows.UI.Xaml.Media.Imaging.h>
 #include <winrt/Windows.UI.Xaml.Input.h>
+#include <winrt/Windows.UI.ViewManagement.h>
 
 //Namespaces
 namespace winrt
@@ -50,6 +51,7 @@ namespace winrt
 	using namespace Windows::UI::Xaml::Media;
 	using namespace Windows::UI::Xaml::Media::Imaging;
 	using namespace Windows::UI::Xaml::Input;
+	using namespace Windows::UI::ViewManagement;
 }
 
 //UI helpers

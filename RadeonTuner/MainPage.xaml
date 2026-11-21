@@ -2804,7 +2804,7 @@
                                             <StackPanel VerticalAlignment="Center" Margin="4,0,0,0" Orientation="Horizontal">
                                                 <Image Style="{ThemeResource FlatHelpIcon}" Source="{ThemeResource ThemeImageInformation}" ToolTipService.ToolTip="将 RadeonTuner 添加到 Windows 桌面右键菜单。" Margin="2,0" />
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
-                                                    <Image Style="{ThemeResource FlatHelpIcon}" x:Name="toggleswitch_Shortcut_ContextMenu_AdminShield" Source="{ThemeResource ThemeImageShield}" ToolTipService.ToolTip="更改此设置需要管理员权限；启用后，你可以继续以普通用户身份使用 RadeonTuner。" />
+                                                    <Image Style="{ThemeResource FlatHelpIcon}" x:Name="toggleswitch_Shortcut_ContextMenu_AdminShield" Source="{ThemeResource ThemeImageShield}" ToolTipService.ToolTip="更改此设置需要管理员权限。" />
                                                 </StackPanel>
                                             </StackPanel>
                                         </StackPanel>
@@ -2970,7 +2970,7 @@
                                             <TextBlock Style="{ThemeResource FlatSettingLabel}" Text="Radeon 服务" Margin="0" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="252" />
                                             <StackPanel VerticalAlignment="Center" Margin="4,0,0,0" Orientation="Horizontal">
                                                 <Image Style="{ThemeResource FlatHelpIcon}" Source="{ThemeResource ThemeImageInformation}" ToolTipService.ToolTip="手动禁用或启用 Radeon 后台服务，以释放资源并减少日志。" Margin="2,0" />
-                                                <Image Style="{ThemeResource FlatHelpIcon}" Source="/Assets/WarningOrange.png" ToolTipService.ToolTip="* 禁用服务可能导致流体运动帧（AFMF）和 Radeon Boost 等显卡功能无法使用。&#xA;&#xA;* 更新或重新安装驱动程序会重新启用服务。&#xA;&#xA;* 此操作不会自动执行，只有在点击按钮时才会更改服务状态。" Margin="2,0" />
+                                                <Image Style="{ThemeResource FlatHelpIcon}" Source="/Assets/WarningOrange.png" ToolTipService.ToolTip="* 禁用服务可能导致流体运动帧（AFMF）和 Radeon Boost 等显卡功能无法使用，也可能导致部分游戏卡顿。&#xA;&#xA;* 更新或重新安装驱动程序会重新启用服务。&#xA;&#xA;* 此操作不会自动执行，只有在点击按钮时才会更改服务状态。" Margin="2,0" />
                                             </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
@@ -3008,11 +3008,31 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center" MinWidth="0" Grid.Column="0">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Style="{ThemeResource FlatSettingLabel}" Text="禁用多平面叠加（MPO）" Margin="0" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="252" />
+                                            <StackPanel VerticalAlignment="Center" Margin="4,0,0,0" Orientation="Horizontal">
+                                                <Image Style="{ThemeResource FlatHelpIcon}" Source="{ThemeResource ThemeImageInformation}" ToolTipService.ToolTip="MPO 让显卡在输出画面前合成多个图层。如果出现闪屏、卡顿或输入延迟，可尝试禁用；修改后需重启电脑。" Margin="2,0" />
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
+                                                    <Image Style="{ThemeResource FlatHelpIcon}" x:Name="toggleswitch_DisableMPO_AdminShield" Source="{ThemeResource ThemeImageShield}" ToolTipService.ToolTip="更改此设置需要管理员权限。" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <ToggleSwitch Loaded="toggle_Loaded" Style="{ThemeResource FlatToggleSwitch}" x:Name="toggleswitch_DisableMPO" OnContent="" OffContent="" AutomationProperties.Name="禁用多平面叠加（MPO）" Toggled="toggleswitch_DisableMPO_Toggled" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Grid.Column="1" Width="44" Height="32" MinWidth="0" Padding="0" />
+                                </Grid>
+                            </Border>
+                            <Border Style="{ThemeResource FlatSettingRow}">
+                                <Grid MinWidth="0" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="300" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" MinWidth="0" Grid.Column="0">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock Style="{ThemeResource FlatSettingLabel}" Text="从 Windows 更新中排除驱动程序" Margin="0" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="252" />
                                             <StackPanel VerticalAlignment="Center" Margin="4,0,0,0" Orientation="Horizontal">
                                                 <Image Style="{ThemeResource FlatHelpIcon}" Source="{ThemeResource ThemeImageInformation}" ToolTipService.ToolTip="启用此设置可防止 Windows 更新安装并覆盖你手动安装的 AMD Radeon 及其他设备驱动程序。" Margin="2,0" />
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
-                                                    <Image Style="{ThemeResource FlatHelpIcon}" x:Name="toggleswitch_UpdateExcludeDrivers_AdminShield" Source="{ThemeResource ThemeImageShield}" ToolTipService.ToolTip="更改此设置需要管理员权限；启用后，你可以继续以普通用户身份使用 RadeonTuner。" />
+                                                    <Image Style="{ThemeResource FlatHelpIcon}" x:Name="toggleswitch_UpdateExcludeDrivers_AdminShield" Source="{ThemeResource ThemeImageShield}" ToolTipService.ToolTip="更改此设置需要管理员权限。" />
                                                 </StackPanel>
                                             </StackPanel>
                                         </StackPanel>

@@ -1,5 +1,6 @@
 #pragma once
 #include "MainPage.g.h"
+#include "SettingEnumerators.h"
 #include <unordered_map>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.UI.Xaml.Media.Animation.h>
@@ -226,8 +227,10 @@ namespace winrt::RadeonTuner::implementation
 		void ShowExperimentalSettings(BOOL silent);
 		void ShowNotification(std::wstring text);
 
+		RADT_THEME_STYLE_ENUM ThemeGetStyle();
 		void ThemeAdjustStyle();
 		std::wstring ThemeGetImagePath(std::wstring imageName, bool includeAppx);
+		void ThemeColorValuesChanged(UISettings const& sender, IInspectable const& e);
 
 		static void AdlxLoopMetrics();
 		static void AdlxLoopProfile();
@@ -419,6 +422,7 @@ namespace winrt::RadeonTuner::implementation
 		void combobox_FanControlMode_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
 		void slider_FanRanged_ValueChanged(IInspectable const& sender, RangeBaseValueChangedEventArgs const& e);
 		void combobox_FanRangedCurve_SelectionChanged(IInspectable const& sender, SelectionChangedEventArgs const& e);
+		void toggleswitch_DisableMPO_Toggled(IInspectable const& sender, RoutedEventArgs const& e);
 
 #ifdef RADEONTUNER_UI_VALIDATION
 		size_t UiValidationAnimationCount() const { return dependentAnimations.size(); }
@@ -457,7 +461,9 @@ namespace winrt::RadeonTuner::implementation
 			bool previous;
 		};
 
-		bool valueHintsInitialized = false;
+		Windows::UI::ViewManagement::UISettings themeSettings{ nullptr };
+        Windows::UI::ViewManagement::UISettings::ColorValuesChanged_revoker themeSubscription{};
+        bool valueHintsInitialized = false;
 		std::unordered_map<void*, bool> toggleKnobInitialized;
 		bool comboVisualsInitialized = false;
 		bool suppressDependentFoldAnimation = false;
