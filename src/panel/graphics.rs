@@ -3,6 +3,9 @@ use gpui::{Context, Div, div, prelude::*};
 impl Panel {
     pub(super) fn render_graphics(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_3();
+        for game in &self.fsr_activity {
+            section = section.child(game.clone());
+        }
         for (i, s) in self.graphics.iter().enumerate() {
             if s.choice.experimental && !self.experimental {
                 continue;

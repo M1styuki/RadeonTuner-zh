@@ -82,6 +82,41 @@ pub struct Setting {
     pub step: i32,
 }
 
+impl Feature {
+    pub fn profile_name(self) -> &'static str {
+        match self {
+            Pixel => "PixelFormat",
+            Hdr => "HdrEnabled",
+            Depth => "ColorDepth",
+            FreeSync => "FreeSyncMode",
+            Enhancement => "ColorEnhancement",
+            TemperatureSource => "ColorTemperatureControl",
+            Color(1) => "Brightness",
+            Color(2) => "Contrast",
+            Color(4) => "Saturation",
+            Color(8) => "Hue",
+            Color(16) => "ColorTemperatureKelvin",
+            Correction(0) => "CVDCControl",
+            Correction(1) => "CVDCProtanopia",
+            Correction(2) => "CVDCDeuteranopia",
+            Correction(3) => "CVDCTritanopia",
+            Vsr => "VsrEnabled",
+            GpuScaling => "GpuScalingEnabled",
+            IntegerScaling => "IntegerScalingEnabled",
+            Scaling => "ScalingMode",
+            Hdcp => "HDCPEnabled",
+            VariBright => "VariBrightEnabled",
+            VariBrightLevel => "VariBrightLevel",
+            Color(_) | Correction(_) => unreachable!("unsupported display feature ID"),
+        }
+    }
+    pub fn per_app(self) -> bool {
+        matches!(
+            self,
+            FreeSync | Enhancement | TemperatureSource | Color(_) | Correction(_)
+        )
+    }
+}
 impl Setting {
     pub fn text(&self) -> String {
         let choices: &[&str] = match self.feature {

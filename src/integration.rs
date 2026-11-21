@@ -132,3 +132,45 @@ impl Link {
         Ok(())
     }
 }
+
+const DWM: &str = r"Software\Microsoft\Windows\Dwm";
+const OVERLAY: &str = "OverlayTestMode";
+
+pub fn mpo_disabled() -> bool {
+    unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            wide(DWM).as_ptr(),
+            wide(OVERLAY).as_ptr(),
+            RRF_RT_REG_DWORD,
+            ptr::null_mut(),
+            ptr::null_mut(),
+            ptr::null_mut(),
+        ) == ERROR_SUCCESS
+    }
+}
+
+pub fn set_mpo_disabled(disabled: bool) -> Result<()> {
+    use windows_sys::Win32::Foundation::ERROR_FILE_NOT_FOUND;
+    let path = wide(DWM);
+    let value = wide(OVERLAY);
+    let result = if disabled {
+        let mode = 5u32;
+        unsafe {
+            RegSetKeyValueW(
+                HKEY_LOCAL_MACHINE,
+                path.as_ptr(),
+                value.as_ptr(),
+                REG_DWORD,
+                (&mode as *const u32).cast(),
+                size_of::<u32>() as u32,
+            )
+        }
+    } else {
+        unsafe { RegDeleteKeyValueW(HKEY_LOCAL_MACHINE, path.as_ptr(), value.as_ptr()) }
+    };
+    if result != ERROR_SUCCESS && (disabled || result != ERROR_FILE_NOT_FOUND) {
+        return Err(io::Error::from_raw_os_error(result as i32).into());
+    }
+    Ok(())
+}

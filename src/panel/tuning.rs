@@ -164,9 +164,9 @@ impl Panel {
                     .cursor_pointer()
                     .px_2()
                     .bg(rgb(if app == &self.tuning.app {
-                        0x713e47
+                        self.palette.selected
                     } else {
-                        0x292d34
+                        self.palette.control
                     }))
                     .child(if app == "Global" {
                         "全局".to_string()
@@ -263,9 +263,9 @@ impl Panel {
                     .px_2()
                     .cursor_pointer()
                     .bg(rgb(if self.tuning.mode == i {
-                        0x713e47
+                        self.palette.selected
                     } else {
-                        0x292d34
+                        self.palette.control
                     }))
                     .child(label)
                     .on_click(cx.listener(move |p, _, _, cx| {

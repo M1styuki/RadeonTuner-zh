@@ -43,7 +43,7 @@ impl Panel {
                         .id("video-upscale")
                         .cursor_pointer()
                         .px_3()
-                        .bg(rgb(0x292d34))
+                        .bg(rgb(self.palette.control))
                         .child(if control.draft == 0 { "关" } else { "开" })
                         .on_click(cx.listener(move |panel, _, _, cx| {
                             panel.video[i].draft = i32::from(panel.video[i].draft == 0);
@@ -68,7 +68,11 @@ impl Panel {
                 for (key, label, delta) in [("video-down", "−", -1), ("video-up", "+", 1)] {
                     let enabled = (control.feature != Feature::Sharpness || upscale)
                         && (min..=max).contains(&(control.draft.saturating_add(delta)));
-                    let button = div().id((key, i)).px_3().bg(rgb(0x292d34)).child(label);
+                    let button = div()
+                        .id((key, i))
+                        .px_3()
+                        .bg(rgb(self.palette.control))
+                        .child(label);
                     row = row.child(if enabled {
                         button
                             .cursor_pointer()

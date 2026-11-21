@@ -168,7 +168,7 @@ impl Driver {
             ("已用显存", used, "MB"),
             ("核心频率", sensor(1), "MHz"),
             ("显存频率", sensor(2), "MHz"),
-            ("功耗", sensor(73).or(sensor(30)), "W"),
+            ("功耗", sensor(73).or(sensor(23)).or(sensor(30)), "W"),
             ("核心电压", sensor(21), "mV"),
             ("风扇转速", sensor(14), "RPM"),
             ("风扇转速比", sensor(15), "%"),

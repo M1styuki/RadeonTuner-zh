@@ -40,6 +40,17 @@ pub struct Mode {
     mask: i32,
     value: i32,
 }
+#[repr(C)]
+struct DdcInfo {
+    size: i32,
+    supported: i32,
+    manufacturer: i32,
+    product: i32,
+    name: [u8; 256],
+    timing_and_format: [i32; 9],
+    serial: i32,
+    color_hdr_and_reserved: [i32; 26],
+}
 #[derive(Clone)]
 pub struct Display {
     pub adapter: i32,
@@ -62,6 +73,25 @@ impl<T: Copy> Allocation<T> {
     }
 }
 impl Driver {
+    pub fn display_profile_key(&self, display: &Display) -> Option<String> {
+        type Get = unsafe extern "C" fn(Handle, i32, i32, *mut DdcInfo) -> i32;
+        let mut info: DdcInfo = unsafe { std::mem::zeroed() };
+        info.size = size_of::<DdcInfo>() as i32;
+        let ret = unsafe {
+            self.library
+                .get::<Get>(b"ADL2_Display_DDCInfo2_Get\0")
+                .ok()?(self.context, display.adapter, display.logical, &mut info)
+        };
+        if ret != 0 || info.manufacturer == 0 {
+            return None;
+        }
+        Some(format!(
+            "{} {} {}",
+            info.manufacturer,
+            string(&info.name),
+            info.serial
+        ))
+    }
     pub fn displays(&self, adapter: i32) -> Result<Vec<Display>> {
         let mut count = 0;
         let mut data = Allocation(ptr::null_mut());

@@ -98,16 +98,20 @@ impl Panel {
             .flex()
             .justify_center()
             .items_center()
-            .bg(rgb(0x292d34))
+            .bg(rgb(self.palette.control))
             .rounded_md();
         if let Some(edit) = self.edit.as_ref().filter(|e| e.field == field) {
             let (l, r) = (edit.anchor.min(edit.cursor), edit.anchor.max(edit.cursor));
             return base
                 .track_focus(&edit.focus)
                 .child(edit.text[..l].to_owned())
-                .child(div().bg(rgb(0x80525b)).child(edit.text[l..r].to_owned()))
+                .child(
+                    div()
+                        .bg(rgb(self.palette.selection))
+                        .child(edit.text[l..r].to_owned()),
+                )
                 .when(l == r, |d| {
-                    d.child(div().w(px(1.)).h(px(17.)).bg(rgb(0xffffff)))
+                    d.child(div().w(px(1.)).h(px(17.)).bg(rgb(self.palette.text)))
                 })
                 .child(edit.text[r..].to_owned())
                 .on_mouse_down_out(cx.listener(|p, _, _, cx| {

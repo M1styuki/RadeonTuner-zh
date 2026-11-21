@@ -1,3 +1,4 @@
+pub mod activity;
 use super::{Device, Driver, Handle, ReadInt};
 use anyhow::{Result, ensure};
 use std::{ffi::CString, ptr};

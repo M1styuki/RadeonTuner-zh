@@ -123,11 +123,14 @@ impl Panel {
                     .cursor_pointer()
                     .px_3()
                     .bg(rgb(if index == page.display_index {
-                        0x713e47
+                        self.palette.selected
                     } else {
-                        0x292d34
+                        self.palette.control
                     }))
-                    .child(format!("{} · {}", display.name, display.logical + 1))
+                    .child(format!(
+                        "{} ({}/{})",
+                        display.name, display.adapter, display.logical
+                    ))
                     .on_click(cx.listener(move |panel, _, _, cx| {
                         panel.display.display_index = index;
                         panel.display.status.clear();
@@ -168,9 +171,9 @@ impl Panel {
                         .cursor_pointer()
                         .px_2()
                         .bg(rgb(if page.angle == angle {
-                            0x713e47
+                            self.palette.selected
                         } else {
-                            0x292d34
+                            self.palette.control
                         }))
                         .child(format!("{angle}°"))
                         .on_click(cx.listener(move |panel, _, _, cx| {

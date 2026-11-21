@@ -15,14 +15,21 @@ mod display;
 mod graphics;
 mod multimedia;
 mod numeric;
+mod theme;
 const PAGES: [&str; 7] = ["调校", "风扇", "图形", "显示器", "多媒体", "设置", "信息"];
 mod tuning;
 struct Panel {
+    style: i64,
+    palette: theme::Palette,
+    mpo: bool,
+    admin: bool,
     edit: Option<numeric::Edit>,
     page: usize,
     info: Vec<String>,
     graphics: Vec<crate::adl::graphics::Setting>,
     graphics_status: String,
+    fsr_activity: Vec<String>,
+    settings_message: String,
     experimental: bool,
     skip_graphics_check: bool,
     topmost: bool,
@@ -63,6 +70,9 @@ impl Panel {
     }
     fn refresh(&mut self) {
         self.expire_preview();
+        if self.page == 2 {
+            self.fsr_activity = crate::adl::graphics::activity::active_games();
+        }
         self.metrics.clear();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
             match driver.metrics(device.index) {
@@ -77,7 +87,14 @@ impl Panel {
 }
 
 impl Render for Panel {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.palette = theme::Palette::resolve(
+            self.style,
+            matches!(
+                window.appearance(),
+                gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight
+            ),
+        );
         let mut content = div()
             .id(("content", self.page))
             .size_full()
@@ -86,8 +103,8 @@ impl Render for Panel {
             .flex_col()
             .gap_3()
             .p_5()
-            .bg(rgb(0x171a20))
-            .text_color(rgb(0xe4e6eb))
+            .bg(rgb(self.palette.canvas))
+            .text_color(rgb(self.palette.text))
             .child(div().text_xl().child(PAGES[self.page]));
         if self.page != 5 {
             for (i, device) in self.devices.iter().enumerate() {
@@ -98,11 +115,11 @@ impl Render for Panel {
                         .px_3()
                         .py_1()
                         .bg(rgb(if self.selected == i {
-                            0x713e47
+                            self.palette.selected
                         } else {
-                            0x292d34
+                            self.palette.control
                         }))
-                        .child(device.name.clone())
+                        .child(format!("{} ({})", device.name, device.index))
                         .on_click(cx.listener(move |panel, _, _, cx| {
                             panel.finish_preview(false);
                             panel.selected = i;
@@ -170,7 +187,7 @@ impl Render for Panel {
                             .id((key, i))
                             .cursor_pointer()
                             .px_3()
-                            .bg(rgb(0x292d34))
+                            .bg(rgb(self.palette.control))
                             .child(label)
                             .on_click(cx.listener(move |panel, _, _, cx| {
                                 let c = &mut panel.controls[i];
@@ -223,6 +240,64 @@ impl Render for Panel {
             _ => {}
         }
         if self.page == 5 {
+            let mut choices = div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .child(div().flex_1().child("应用主题"));
+            for (i, name) in ["灰色", "黑色", "白色", "跟随系统"].into_iter().enumerate()
+            {
+                choices = choices.child(
+                    div()
+                        .id(("theme", i))
+                        .cursor_pointer()
+                        .px_2()
+                        .bg(rgb(if self.style == i as i64 {
+                            self.palette.selected
+                        } else {
+                            self.palette.control
+                        }))
+                        .child(name)
+                        .on_click(cx.listener(move |p, _, _, cx| {
+                            match p.settings.set("ThemeStyle", serde_json::json!(i)) {
+                                Ok(()) => p.style = i as i64,
+                                Err(e) => p.settings_message = e.to_string(),
+                            }
+                            cx.notify();
+                        })),
+                );
+            }
+            content = content.child(choices);
+            if !self.settings_message.is_empty() {
+                content = content.child(self.settings_message.clone());
+            }
+            let mpo = div()
+                .id("mpo")
+                .p_2()
+                .flex()
+                .justify_between()
+                .child("禁用多平面叠加（MPO）")
+                .child(if self.mpo { "开" } else { "关" });
+            content = content
+                .child(if self.admin {
+                    mpo.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+                        match crate::integration::set_mpo_disabled(!p.mpo) {
+                            Ok(()) => {
+                                p.mpo = !p.mpo;
+                                p.settings_message = "MPO 设置已保存，重启电脑后生效".into();
+                            }
+                            Err(err) => p.settings_message = err.to_string(),
+                        }
+                        cx.notify();
+                    }))
+                } else {
+                    mpo.opacity(0.5)
+                })
+                .child(if self.admin {
+                    "更改 MPO 后需重启电脑"
+                } else {
+                    "更改 MPO 需要管理员权限，重启电脑后生效"
+                });
             for (key, label, on) in [
                 ("StartWindowVisible", "启动时打开面板", self.start_visible),
                 ("CloseTray", "关闭面板后驻留托盘", self.close_tray),
@@ -241,7 +316,7 @@ impl Render for Panel {
                         .id(key)
                         .cursor_pointer()
                         .p_2()
-                        .bg(rgb(0x292d34))
+                        .bg(rgb(self.palette.control))
                         .flex()
                         .justify_between()
                         .child(label)
@@ -316,7 +391,7 @@ impl Render for Panel {
             .flex()
             .flex_col()
             .gap_1()
-            .bg(rgb(0x202328));
+            .bg(rgb(self.palette.sidebar));
         for (i, label) in PAGES.iter().enumerate() {
             nav = nav.child(
                 div()
@@ -324,13 +399,20 @@ impl Render for Panel {
                     .px_3()
                     .py_2()
                     .cursor_pointer()
-                    .bg(rgb(if i == self.page { 0x713e47 } else { 0x202328 }))
+                    .bg(rgb(if i == self.page {
+                        self.palette.selected
+                    } else {
+                        self.palette.sidebar
+                    }))
                     .child(*label)
                     .on_click(cx.listener(move |p, _, _, cx| {
                         if p.page == 3 && i != 3 {
                             p.finish_preview(false);
                         }
                         p.page = i;
+                        if i == 2 {
+                            p.fsr_activity = crate::adl::graphics::activity::active_games();
+                        }
                         if let Err(err) = p.settings.set("MenuIndex", serde_json::json!(i)) {
                             p.message = err.to_string();
                         }
@@ -355,7 +437,7 @@ impl Render for Panel {
         div()
             .size_full()
             .flex()
-            .text_color(rgb(0xe4e6eb))
+            .text_color(rgb(self.palette.text))
             .child(nav)
             .child(content)
     }
@@ -365,7 +447,12 @@ pub fn run() -> Result<()> {
     let settings = Settings::open()?;
     let start_visible = settings.flag("StartWindowVisible", false)?;
     let close_tray = settings.flag("CloseTray", true)?;
+    let style = settings.integer("ThemeStyle", 0)?;
     let mut panel = Panel {
+        style,
+        palette: theme::Palette::resolve(style, false),
+        admin: unsafe { windows_sys::Win32::UI::Shell::IsUserAnAdmin() != 0 },
+        mpo: crate::integration::mpo_disabled(),
         edit: None,
         page: usize::try_from(settings.integer("MenuIndex", 0)?)
             .ok()
@@ -385,6 +472,8 @@ pub fn run() -> Result<()> {
         info: Vec::new(),
         graphics: Vec::new(),
         graphics_status: String::new(),
+        fsr_activity: Vec::new(),
+        settings_message: String::new(),
         tuning: Default::default(),
         display: Default::default(),
         video: Vec::new(),

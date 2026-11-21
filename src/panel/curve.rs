@@ -3,6 +3,7 @@ use gpui::{Context, Div, PathBuilder, canvas, div, point, prelude::*, px, rgb};
 
 impl Panel {
     pub(super) fn render_curve(&self, _cx: &mut Context<Self>) -> Div {
+        let palette = self.palette;
         let points = self.curve_points();
         let mut section = div().flex().flex_col().gap_1();
         if points.len() != 5 {
@@ -27,7 +28,7 @@ impl Panel {
                     grid.line_to(coord(1., f));
                 }
                 if let Ok(path) = grid.build() {
-                    window.paint_path(path, rgb(0x3c424a));
+                    window.paint_path(path, rgb(palette.grid));
                 }
                 let mut line = PathBuilder::stroke(px(2.5));
                 for (i, (temp, speed)) in points.iter().enumerate() {
@@ -42,14 +43,19 @@ impl Panel {
                     }
                 }
                 if let Ok(path) = line.build() {
-                    window.paint_path(path, rgb(0xc85c63));
+                    window.paint_path(path, rgb(palette.accent));
                 }
             },
         )
         .w_full()
         .h(px(145.));
         section
-            .child(div().border_1().border_color(rgb(0x555b63)).child(plot))
+            .child(
+                div()
+                    .border_1()
+                    .border_color(rgb(palette.border))
+                    .child(plot),
+            )
             .child(
                 div()
                     .flex()
