@@ -51,6 +51,14 @@ impl Feature {
         }
     }
 
+    pub fn profile_key(self) -> &'static str {
+        match self {
+            Self::Upscale => "VideoUpscaling.Current",
+            Self::Sharpness => "VideoSharpening.Current",
+            Self::Brightness => "VideoBrightness.Current",
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Upscale => "视频超分辨率",
@@ -71,6 +79,7 @@ impl Feature {
 pub struct VideoControl {
     pub feature: Feature,
     pub current: i32,
+    pub saved: i32,
     pub draft: i32,
 }
 
@@ -116,6 +125,7 @@ impl Driver {
                 Some(VideoControl {
                     feature,
                     current,
+                    saved: current,
                     draft: current,
                 })
             })
