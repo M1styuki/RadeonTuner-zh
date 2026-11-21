@@ -82,15 +82,11 @@ impl Driver {
                 .get::<Get>(b"ADL2_Display_DDCInfo2_Get\0")
                 .ok()?(self.context, display.adapter, display.logical, &mut info)
         };
-        if ret != 0 || info.manufacturer == 0 {
+        let name = string(&info.name);
+        if ret != 0 || name.is_empty() {
             return None;
         }
-        Some(format!(
-            "{} {} {}",
-            info.manufacturer,
-            string(&info.name),
-            info.serial
-        ))
+        Some(format!("{} {} {}", info.manufacturer, name, info.serial))
     }
     pub fn displays(&self, adapter: i32) -> Result<Vec<Display>> {
         let mut count = 0;

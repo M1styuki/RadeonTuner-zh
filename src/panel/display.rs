@@ -3,13 +3,20 @@ use crate::{
     adl::display::{Display, Mode},
     mode_preview::{Preview, TIMEOUT},
 };
+use crate::{profile_store, profiles};
+use anyhow::{Context as _, Result};
 use gpui::{Context, Div, div, prelude::*, rgb};
+use serde_json::{Value, json};
 
 #[derive(Default)]
 pub(super) struct DisplayPage {
     settings: Vec<crate::adl::display::settings::Setting>,
     displays: Vec<Display>,
     display_index: usize,
+    key: Option<String>,
+    app: String,
+    apps: Vec<String>,
+    saved: Vec<i32>,
     modes: Vec<Mode>,
     choice: usize,
     current: Option<Mode>,
@@ -43,6 +50,7 @@ impl Panel {
         page.settings.clear();
         if let (Some(driver), Some(display)) = (&self.driver, page.displays.get(page.display_index))
         {
+            page.key = driver.display_profile_key(display);
             page.settings = driver.display_settings(display);
             match driver
                 .current_mode(display)
@@ -67,6 +75,149 @@ impl Panel {
                 Err(err) => page.status = err.to_string(),
             }
         }
+        if let Err(err) = self.load_display_profile() {
+            self.display.status = err.to_string();
+        }
+    }
+
+    fn load_display_profile(&mut self) -> Result<()> {
+        let page = &mut self.display;
+        if page.app.is_empty() {
+            page.app = "Global".into();
+        }
+        page.apps = vec!["Global".into()];
+        if let Some(key) = &page.key {
+            let path = self.settings.profiles_path("DisplayProfiles.json")?;
+            let rows = profile_store::load(&path)?;
+            let candidates = profiles::display_profiles(&rows, key);
+            for app in candidates.iter().filter_map(|p| p["Application"].as_str()) {
+                if !page.apps.iter().any(|name| name.eq_ignore_ascii_case(app)) {
+                    page.apps.push(app.to_string());
+                }
+            }
+            if !page
+                .apps
+                .iter()
+                .any(|app| app.eq_ignore_ascii_case(&page.app))
+            {
+                page.apps.push(page.app.clone());
+            }
+            if let Some(row) = candidates.into_iter().find(|p| {
+                p["Application"]
+                    .as_str()
+                    .is_some_and(|app| app.eq_ignore_ascii_case(&page.app))
+            }) {
+                profiles::display_draft(&mut page.settings, row, page.app != "Global")?;
+            }
+        }
+        page.saved = page.settings.iter().map(|s| s.draft).collect();
+        Ok(())
+    }
+    fn save_display_profile(&mut self) -> Result<()> {
+        let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
+        let page = &self.display;
+        let display = page
+            .displays
+            .get(page.display_index)
+            .context("未选择显示器")?;
+        let Some(key) = &page.key else {
+            return driver.apply_display(display, &page.settings);
+        };
+        let path = self.settings.profiles_path("DisplayProfiles.json")?;
+        let rows = profile_store::load(&path)?;
+        let profiles = profiles::display_profiles(&rows, key);
+        let mut record = json!({"DeviceId":key,"Application":page.app});
+        // Carry unknown fields forward when converting a profile without a serial number.
+        if let Some(old) = profiles.iter().find(|p| {
+            p["Application"]
+                .as_str()
+                .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
+        }) {
+            record = (*old).clone();
+            record["DeviceId"] = json!(key);
+        }
+        if page.app != "Global"
+            && !profiles
+                .iter()
+                .any(|p| p["Application"].as_str() == Some("Global"))
+        {
+            let mut baseline = json!({"DeviceId":key,"Application":"Global"});
+            for s in &page.settings {
+                baseline[format!("{}.Current", s.feature.profile_name())] = Value::from(s.current);
+            }
+            profile_store::save(&path, key, "Global", &baseline)?;
+        }
+        for s in page
+            .settings
+            .iter()
+            .filter(|s| page.app == "Global" || s.feature.per_app())
+        {
+            record[format!("{}.Current", s.feature.profile_name())] = Value::from(s.draft);
+        }
+        profile_store::save(&path, key, &page.app, &record)?;
+        let rows = profile_store::load(&path)?;
+        let candidates = profiles::display_profiles(&rows, key);
+        let active = profiles::active_display(&candidates, &profiles::process_names()?);
+        if active.is_some_and(|p| {
+            p["Application"]
+                .as_str()
+                .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
+        }) {
+            driver.apply_display(display, &page.settings)?;
+        }
+        Ok(())
+    }
+    fn render_display_profiles(&self, cx: &mut Context<Self>) -> Div {
+        let page = &self.display;
+        let mut row = div().flex().flex_wrap().gap_2();
+        let Some(key) = page.key.clone() else {
+            return row;
+        };
+        for (i, app) in page.apps.iter().enumerate() {
+            let name = app.clone();
+            row = row.child(
+                div()
+                    .id(("display-app", i))
+                    .px_2()
+                    .cursor_pointer()
+                    .bg(rgb(if page.app.eq_ignore_ascii_case(app) {
+                        self.palette.selected
+                    } else {
+                        self.palette.control
+                    }))
+                    .child(if app == "Global" {
+                        "全局".to_owned()
+                    } else {
+                        app.clone()
+                    })
+                    .on_click(cx.listener(move |p, _, _, cx| {
+                        p.display.app = name.clone();
+                        p.read_modes();
+                        cx.notify();
+                    })),
+            );
+        }
+        row.child(
+            div()
+                .id("pick-display-app")
+                .cursor_pointer()
+                .child("选择应用…")
+                .on_click(cx.listener(move |_, _, _, cx| {
+                    let key = key.clone();
+                    Self::pick_profile_app(cx, move |p, result| {
+                        if p.display.key.as_ref() == Some(&key) {
+                            match result {
+                                Ok(Some(app)) => {
+                                    p.display.app = app;
+                                    p.read_modes();
+                                }
+                                Err(err) => p.display.status = err.to_string(),
+                                Ok(None) => {}
+                            }
+                        }
+                    });
+                })),
+        )
     }
 
     pub(super) fn finish_preview(&mut self, keep: bool) {
@@ -133,13 +284,19 @@ impl Panel {
                     ))
                     .on_click(cx.listener(move |panel, _, _, cx| {
                         panel.display.display_index = index;
+                        panel.display.app = "Global".into();
                         panel.display.status.clear();
                         panel.read_modes();
                         cx.notify();
                     })),
             );
         }
-        if let (Some(mode), Some(current)) = (page.modes.get(page.choice), page.current) {
+        section = section.child(self.render_display_profiles(cx));
+        if let (Some(mode), Some(current), true) = (
+            page.modes.get(page.choice),
+            page.current,
+            page.app == "Global",
+        ) {
             let mut row = div().flex().gap_3().items_center().child(format!(
                 "{} × {} · {:.2} Hz",
                 mode.width, mode.height, mode.refresh
@@ -209,6 +366,9 @@ impl Panel {
             }
         }
         for (i, setting) in page.settings.iter().enumerate() {
+            if page.app != "Global" && !setting.feature.per_app() {
+                continue;
+            }
             let mut row = div()
                 .flex()
                 .gap_3()
@@ -260,30 +420,37 @@ impl Panel {
                     .cursor_pointer()
                     .child("载入显示默认值")
                     .on_click(cx.listener(|p, _, _, cx| {
-                        for s in &mut p.display.settings {
+                        for s in p
+                            .display
+                            .settings
+                            .iter_mut()
+                            .filter(|s| p.display.app == "Global" || s.feature.per_app())
+                        {
                             s.draft = s.default.clamp(s.min, s.max);
                         }
                         cx.notify();
                     })),
             );
         }
-        if page.settings.iter().any(|s| s.current != s.draft) {
+        if page
+            .settings
+            .iter()
+            .zip(&page.saved)
+            .any(|(s, saved)| s.draft != *saved)
+            || (page.app == "Global" && page.settings.iter().any(|s| s.draft != s.current))
+        {
             section = section.child(
                 div()
                     .id("display-apply")
                     .cursor_pointer()
                     .child("应用显示设置")
                     .on_click(cx.listener(|p, _, _, cx| {
-                        if let (Some(driver), Some(display)) =
-                            (&p.driver, p.display.displays.get(p.display.display_index))
-                        {
-                            let result = driver.apply_display(display, &p.display.settings);
-                            p.read_modes();
-                            p.display.status = match result {
-                                Ok(()) => "显示设置已应用".into(),
-                                Err(err) => err.to_string(),
-                            };
-                        }
+                        let result = p.save_display_profile();
+                        p.read_modes();
+                        p.display.status = match result {
+                            Ok(()) => "显示设置已保存".into(),
+                            Err(err) => err.to_string(),
+                        };
                         cx.notify();
                     })),
             );

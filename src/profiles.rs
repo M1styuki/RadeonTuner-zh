@@ -59,6 +59,69 @@ pub fn select_profile<'a>(
     global
 }
 
+pub fn display_profiles<'a>(rows: &'a [Value], key: &str) -> Vec<&'a Value> {
+    let legacy = key.rsplit_once(' ').map(|v| v.0);
+    let mut profiles: Vec<&Value> = rows
+        .iter()
+        .filter(|row| row["DeviceId"].as_str() == Some(key))
+        .collect();
+    let exact = profiles.len();
+    for row in rows
+        .iter()
+        .filter(|row| legacy.is_some() && row["DeviceId"].as_str() == legacy)
+    {
+        if let Some(name) = row["Application"].as_str() {
+            if !profiles[..exact].iter().any(|p| {
+                p["Application"]
+                    .as_str()
+                    .is_some_and(|s| s.eq_ignore_ascii_case(name))
+            }) {
+                profiles.push(row);
+            }
+        }
+    }
+    profiles
+}
+
+pub fn active_display<'a>(profiles: &[&'a Value], running: &HashSet<String>) -> Option<&'a Value> {
+    profiles
+        .iter()
+        .copied()
+        .find(|p| {
+            p["Application"].as_str().is_some_and(|s| {
+                !s.eq_ignore_ascii_case("Global") && running.contains(&s.to_lowercase())
+            })
+        })
+        .or_else(|| {
+            profiles.iter().copied().find(|p| {
+                p["Application"]
+                    .as_str()
+                    .is_some_and(|s| s.eq_ignore_ascii_case("Global"))
+            })
+        })
+}
+
+pub fn display_draft(
+    settings: &mut [crate::adl::display::settings::Setting],
+    profile: &Value,
+    per_app: bool,
+) -> Result<()> {
+    for setting in settings
+        .iter_mut()
+        .filter(|s| !per_app || s.feature.per_app())
+    {
+        if let Some(value) = number(profile, setting.feature.profile_name())? {
+            ensure!(
+                (setting.min..=setting.max).contains(&value),
+                "{} 超出显示器支持范围",
+                setting.label
+            );
+            setting.draft = value;
+        }
+    }
+    Ok(())
+}
+
 fn number(profile: &Value, name: &str) -> Result<Option<i32>> {
     let value = &profile[format!("{name}.Current")];
     if value.is_null() {
@@ -147,6 +210,9 @@ pub fn tuning_draft(controls: &mut [Control], profile: &Value) -> Result<()> {
 pub struct Background {
     path: PathBuf,
     profiles: Vec<Value>,
+    display_path: PathBuf,
+    display_rows: Vec<Value>,
+    applied_display: HashMap<(i32, i32, String), Value>,
     driver: Option<Driver>,
     applied: HashMap<i32, Value>,
 }
@@ -156,21 +222,27 @@ impl Background {
         Ok(Self {
             path: settings.profiles_path("TuningProfiles.json")?,
             profiles: Vec::new(),
+            display_path: settings.profiles_path("DisplayProfiles.json")?,
+            display_rows: Vec::new(),
+            applied_display: HashMap::new(),
             driver: None,
             applied: HashMap::new(),
         })
     }
     pub fn reload(&mut self) -> Result<()> {
         self.applied.clear();
+        self.applied_display.clear();
+        self.display_rows.clear();
         self.profiles.clear();
         self.profiles = crate::profile_store::load(&self.path)?;
+        self.display_rows = crate::profile_store::load(&self.display_path)?;
         Ok(())
     }
     pub fn active(&self) -> bool {
-        !self.profiles.is_empty()
+        !self.profiles.is_empty() || !self.display_rows.is_empty()
     }
     pub fn tick(&mut self) -> Result<()> {
-        if self.profiles.is_empty() {
+        if !self.active() {
             return Ok(());
         }
         if self.driver.is_none() {
@@ -178,9 +250,35 @@ impl Background {
         }
         let driver = self.driver.as_ref().context("无法打开 AMD 驱动")?;
         let running = process_names()?;
+        let devices = driver.devices()?;
+        if !self.display_rows.is_empty() {
+            let mut connected = HashSet::new();
+            for device in &devices {
+                for display in driver.displays(device.index)? {
+                    let Some(key) = driver.display_profile_key(&display) else {
+                        continue;
+                    };
+                    let candidates = display_profiles(&self.display_rows, &key);
+                    let Some(profile) = active_display(&candidates, &running) else {
+                        continue;
+                    };
+                    let target = (device.index, display.logical, key);
+                    connected.insert(target.clone());
+                    if self.applied_display.get(&target) == Some(profile) {
+                        continue;
+                    }
+                    let mut settings = driver.display_settings(&display);
+                    display_draft(&mut settings, profile, true)?;
+                    driver.apply_display(&display, &settings)?;
+                    self.applied_display.insert(target, profile.clone());
+                }
+            }
+            self.applied_display
+                .retain(|key, _| connected.contains(key));
+        }
         for Device {
             index, profile_key, ..
-        } in driver.devices()?
+        } in devices
         {
             if profile_key.is_empty() {
                 continue;
@@ -228,6 +326,23 @@ mod tests {
         assert_eq!(select_profile(&profiles, "C", &running), None);
     }
 
+    #[test]
+    fn monitor_serial_overrides_only_the_matching_application() {
+        let rows = [
+            json!({"DeviceId":"23 TV","Application":"Global"}),
+            json!({"DeviceId":"23 TV","Application":"Game.exe"}),
+            json!({"DeviceId":"23 TV 17","Application":"game.exe"}),
+            json!({"DeviceId":"23 TV 18","Application":"Other.exe"}),
+        ];
+        let running = ["game.exe".to_string()].into_iter().collect();
+        let exact = display_profiles(&rows, "23 TV 17");
+        assert_eq!(active_display(&exact, &running), Some(&rows[2]));
+        assert_eq!(active_display(&exact, &HashSet::new()), Some(&rows[0]));
+        assert_eq!(
+            active_display(&display_profiles(&rows, "23 TV 18"), &running),
+            Some(&rows[1])
+        );
+    }
     #[test]
     fn legacy_fan_curve_interpolation() {
         assert_eq!(curve(25, 75, false), [25, 38, 50, 63, 75]);

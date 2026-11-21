@@ -153,6 +153,42 @@ impl Panel {
         Ok(())
     }
 
+    pub(super) fn pick_profile_app(
+        cx: &mut Context<Self>,
+        on_pick: impl FnOnce(&mut Panel, Result<Option<String>>) + 'static,
+    ) {
+        let pick = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: Some("选择应用程序".into()),
+        });
+        cx.spawn(async move |view, cx| {
+            let result: Result<Option<String>> = async {
+                let Some(paths) = pick.await?? else {
+                    return Ok(None);
+                };
+                let path = paths.first().context("未选择文件")?;
+                ensure!(
+                    path.extension()
+                        .is_some_and(|s| s.eq_ignore_ascii_case("exe")),
+                    "请选择 EXE 程序"
+                );
+                Ok(Some(
+                    path.file_name()
+                        .context("文件名无效")?
+                        .to_string_lossy()
+                        .into_owned(),
+                ))
+            }
+            .await;
+            let _ = view.update(cx, |panel, cx| {
+                on_pick(panel, result);
+                cx.notify();
+            });
+        })
+        .detach();
+    }
     pub(super) fn render_tuning_profiles(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_2();
         let mut choices = div().flex().flex_wrap().gap_2();
@@ -187,50 +223,22 @@ impl Panel {
                 .child("选择应用…")
                 .on_click(cx.listener(|panel, _, _, cx| {
                     let device = panel.devices[panel.selected].profile_key.clone();
-                    let pick = cx.prompt_for_paths(PathPromptOptions {
-                        files: true,
-                        directories: false,
-                        multiple: false,
-                        prompt: Some("选择应用程序".into()),
-                    });
-                    cx.spawn(async move |view, cx| {
-                        let result: Result<Option<String>> = async {
-                            let Some(paths) = pick.await?? else {
-                                return Ok(None);
-                            };
-                            let path = paths.first().context("未选择文件")?;
-                            ensure!(
-                                path.extension()
-                                    .is_some_and(|s| s.eq_ignore_ascii_case("exe")),
-                                "请选择 EXE 程序"
-                            );
-                            Ok(Some(
-                                path.file_name()
-                                    .context("文件名无效")?
-                                    .to_string_lossy()
-                                    .into_owned(),
-                            ))
-                        }
-                        .await;
-                        let _ = view.update(cx, |panel, cx| {
-                            if panel
-                                .devices
-                                .get(panel.selected)
-                                .is_some_and(|d| d.profile_key == device)
-                            {
-                                match result {
-                                    Ok(Some(name)) => {
-                                        panel.tuning.app = name;
-                                        panel.read_controls();
-                                    }
-                                    Ok(None) => {}
-                                    Err(err) => panel.tuning_status = err.to_string(),
+                    Self::pick_profile_app(cx, move |panel, result| {
+                        if panel
+                            .devices
+                            .get(panel.selected)
+                            .is_some_and(|d| d.profile_key == device)
+                        {
+                            match result {
+                                Ok(Some(name)) => {
+                                    panel.tuning.app = name;
+                                    panel.read_controls();
                                 }
-                                cx.notify();
+                                Ok(None) => {}
+                                Err(err) => panel.tuning_status = err.to_string(),
                             }
-                        });
-                    })
-                    .detach();
+                        }
+                    });
                 })),
         );
         section = section.child(choices);
