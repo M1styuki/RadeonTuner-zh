@@ -197,15 +197,10 @@ fn registry_text(kind: u32, buffer: &[u8]) -> Option<String> {
 
 fn read_registry(path: &str, name: &str) -> Option<i32> {
     let (kind, buffer) = registry_data(path, name)?;
-    if kind != REG_DWORD {
-        if let Some(number) = registry_text(kind, &buffer).and_then(|s| s.trim().parse().ok()) {
-            return Some(number);
-        }
-    }
-    if matches!(kind, REG_BINARY | REG_DWORD) {
+    if kind == REG_DWORD || (kind == REG_BINARY && buffer.len() == 4 && buffer[2] == 0) {
         return Some(i32::from_le_bytes(buffer.as_slice().try_into().ok()?));
     }
-    None
+    registry_text(kind, &buffer)?.trim().parse().ok()
 }
 
 impl Driver {

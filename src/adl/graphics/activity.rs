@@ -19,9 +19,8 @@ fn active_features(data: &str) -> Vec<&'static str> {
     FEATURES
         .iter()
         .filter_map(|(key, label)| {
-            data.split('*')
-                .filter_map(|field| field.split_once('?'))
-                .any(|(name, value)| name == *key && value.starts_with("1_"))
+            data.split_once(&format!("{key}?"))
+                .is_some_and(|(_, value)| value.starts_with("1_"))
                 .then_some(*label)
         })
         .collect()
@@ -64,11 +63,16 @@ pub fn active_games() -> Vec<String> {
             );
             if code == ERROR_MORE_DATA {
                 // Windows limits a value name to 16,383 UTF-16 characters.
+                let old_name_len = name.len();
+                let old_data_len = data.len();
                 if name.len() < 16384 {
                     name.resize((name.len() * 2).min(16384), 0);
                 }
                 if data_len as usize > data.len() * 2 {
                     data.resize((data_len as usize).div_ceil(2), 0);
+                }
+                if name.len() == old_name_len && data.len() == old_data_len {
+                    break;
                 }
                 continue;
             }
