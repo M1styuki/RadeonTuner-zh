@@ -16,9 +16,11 @@ mod graphics;
 mod multimedia;
 mod numeric;
 mod theme;
+mod transfer;
 const PAGES: [&str; 7] = ["调校", "风扇", "图形", "显示器", "多媒体", "设置", "信息"];
 mod tuning;
 struct Panel {
+    pending_import: Option<transfer::Pending>,
     style: i64,
     palette: theme::Palette,
     mpo: bool,
@@ -451,6 +453,7 @@ pub fn run() -> Result<()> {
     let close_tray = settings.flag("CloseTray", true)?;
     let style = settings.integer("ThemeStyle", 0)?;
     let mut panel = Panel {
+        pending_import: None,
         style,
         palette: theme::Palette::resolve(style, false),
         admin: unsafe { windows_sys::Win32::UI::Shell::IsUserAnAdmin() != 0 },

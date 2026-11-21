@@ -17,12 +17,19 @@ pub(super) struct DisplayPage {
     app: String,
     apps: Vec<String>,
     saved: Vec<i32>,
+    imported: Option<Value>,
     modes: Vec<Mode>,
     choice: usize,
     current: Option<Mode>,
     angle: i32,
     preview: Option<Preview>,
     status: String,
+}
+
+impl DisplayPage {
+    pub(super) fn set_status(&mut self, status: String) {
+        self.status = status;
+    }
 }
 
 impl Panel {
@@ -46,6 +53,7 @@ impl Panel {
     fn read_modes(&mut self) {
         let page = &mut self.display;
         page.current = None;
+        page.imported = None;
         page.modes.clear();
         page.settings.clear();
         if let (Some(driver), Some(display)) = (&self.driver, page.displays.get(page.display_index))
@@ -113,6 +121,49 @@ impl Panel {
         page.saved = page.settings.iter().map(|s| s.draft).collect();
         Ok(())
     }
+    pub(super) fn display_target(&self) -> Option<(String, String)> {
+        Some((self.display.key.clone()?, self.display.app.clone()))
+    }
+    pub(super) fn stage_display(&mut self, row: &Value) -> Result<()> {
+        let page = &mut self.display;
+        let mut settings = page.settings.clone();
+        profiles::display_draft(&mut settings, row, page.app != "Global")?;
+        page.settings = settings;
+        page.imported = Some(row.clone());
+        Ok(())
+    }
+    pub(super) fn display_record(&self) -> Result<Value> {
+        let page = &self.display;
+        let key = page.key.as_ref().context("未选择显示器")?;
+        let rows = profile_store::load(&self.settings.profiles_path("DisplayProfiles.json")?)?;
+        let profiles = profiles::display_profiles(&rows, key);
+        let mut record = json!({"DeviceId":key,"Application":page.app});
+        // Carry unknown fields forward when converting a profile without a serial number.
+        if let Some(old) = profiles.iter().find(|p| {
+            p["Application"]
+                .as_str()
+                .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
+        }) {
+            record = (*old).clone();
+            record["DeviceId"] = json!(key);
+        }
+        if let Some(imported) = &page.imported {
+            record
+                .as_object_mut()
+                .context("配置格式无效")?
+                .extend(imported.as_object().context("配置格式无效")?.clone());
+        }
+        record["DeviceId"] = json!(key);
+        record["Application"] = json!(page.app);
+        for s in page
+            .settings
+            .iter()
+            .filter(|s| page.app == "Global" || s.feature.per_app())
+        {
+            record[format!("{}.Current", s.feature.profile_name())] = Value::from(s.draft);
+        }
+        Ok(record)
+    }
     fn save_display_profile(&mut self) -> Result<()> {
         let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
         let page = &self.display;
@@ -126,16 +177,6 @@ impl Panel {
         let path = self.settings.profiles_path("DisplayProfiles.json")?;
         let rows = profile_store::load(&path)?;
         let profiles = profiles::display_profiles(&rows, key);
-        let mut record = json!({"DeviceId":key,"Application":page.app});
-        // Carry unknown fields forward when converting a profile without a serial number.
-        if let Some(old) = profiles.iter().find(|p| {
-            p["Application"]
-                .as_str()
-                .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
-        }) {
-            record = (*old).clone();
-            record["DeviceId"] = json!(key);
-        }
         if page.app != "Global"
             && !profiles
                 .iter()
@@ -147,13 +188,7 @@ impl Panel {
             }
             profile_store::save(&path, key, "Global", &baseline)?;
         }
-        for s in page
-            .settings
-            .iter()
-            .filter(|s| page.app == "Global" || s.feature.per_app())
-        {
-            record[format!("{}.Current", s.feature.profile_name())] = Value::from(s.draft);
-        }
+        let record = self.display_record()?;
         profile_store::save(&path, key, &page.app, &record)?;
         let rows = profile_store::load(&path)?;
         let candidates = profiles::display_profiles(&rows, key);
@@ -292,6 +327,9 @@ impl Panel {
             );
         }
         section = section.child(self.render_display_profiles(cx));
+        if page.key.is_some() {
+            section = section.child(self.transfer_buttons(super::transfer::Kind::Display, cx));
+        }
         if let (Some(mode), Some(current), true) = (
             page.modes.get(page.choice),
             page.current,
@@ -432,11 +470,12 @@ impl Panel {
                     })),
             );
         }
-        if page
-            .settings
-            .iter()
-            .zip(&page.saved)
-            .any(|(s, saved)| s.draft != *saved)
+        if page.imported.is_some()
+            || page
+                .settings
+                .iter()
+                .zip(&page.saved)
+                .any(|(s, saved)| s.draft != *saved)
             || (page.app == "Global" && page.settings.iter().any(|s| s.draft != s.current))
         {
             section = section.child(

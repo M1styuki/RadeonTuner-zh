@@ -71,6 +71,7 @@ const FEATURES: &[(Feature, &str)] = &[
     (VariBrightLevel, "Vari-Bright 级别"),
 ];
 
+#[derive(Clone)]
 pub struct Setting {
     pub feature: Feature,
     pub label: &'static str,

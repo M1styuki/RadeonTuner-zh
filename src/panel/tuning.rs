@@ -11,6 +11,7 @@ pub(super) struct Editor {
     quiet: bool,
     keep: bool,
     dirty: bool,
+    source: Value,
 }
 impl Default for Editor {
     fn default() -> Self {
@@ -21,6 +22,7 @@ impl Default for Editor {
             quiet: false,
             keep: false,
             dirty: false,
+            source: json!({}),
         }
     }
 }
@@ -97,20 +99,66 @@ impl Panel {
         else {
             return Ok(());
         };
-        self.tuning.mode = row["FanControlMode.Current"].as_u64().unwrap_or(0).min(3) as usize;
-        self.tuning.quiet = row["FanRangedCurve.Current"].as_i64() == Some(1);
-        self.tuning.keep = row["KeepActive.Current"].as_i64() == Some(1)
-            || row["KeepActive.Current"].as_bool() == Some(true);
-        for c in &mut self.controls {
-            let k = match (self.tuning.mode, c.id) {
+        self.stage_tuning(row)?;
+        self.tuning.dirty = false;
+        Ok(())
+    }
+
+    pub(super) fn tuning_target(&self) -> Option<(String, String)> {
+        Some((
+            self.devices.get(self.selected)?.profile_key.clone(),
+            self.tuning.app.clone(),
+        ))
+    }
+    pub(super) fn stage_tuning(&mut self, row: &Value) -> Result<()> {
+        let mode = row["FanControlMode.Current"]
+            .as_i64()
+            .unwrap_or(self.tuning.mode as i64);
+        ensure!((0..=3).contains(&mode), "风扇模式无效");
+        let flag = |key: &str, prev: bool| -> Result<bool> {
+            Ok(match &row[key] {
+                Value::Null => prev,
+                Value::Bool(b) => *b,
+                v => match v.as_i64() {
+                    Some(0) => false,
+                    Some(1) => true,
+                    _ => anyhow::bail!("开关数值无效"),
+                },
+            })
+        };
+        let quiet = flag("FanRangedCurve.Current", self.tuning.quiet)?;
+        let keep = flag("KeepActive.Current", self.tuning.keep)?;
+        let mut drafts = Vec::new();
+        for c in &self.controls {
+            let name = match (mode, c.id) {
                 (2, 20) => "FanSpeedMin.Current".into(),
                 (2, 28) => "FanSpeedMax.Current".into(),
                 _ => key(c.id).context("调校项目未知")?,
             };
-            if let Some(value) = row[k].as_i64().and_then(|n| i32::try_from(n).ok()) {
-                c.draft = value.clamp(c.min, c.max);
+            if !row[&name].is_null() {
+                let value = row[&name]
+                    .as_i64()
+                    .or_else(|| row[&name].as_bool().map(i64::from))
+                    .context("调校数值无效")?;
+                drafts.push(Some(value.clamp(i64::from(c.min), i64::from(c.max)) as i32));
+            } else {
+                drafts.push(None);
             }
         }
+        for (control, value) in self.controls.iter_mut().zip(drafts) {
+            if let Some(value) = value {
+                control.draft = value;
+            }
+        }
+        self.tuning
+            .source
+            .as_object_mut()
+            .context("配置格式无效")?
+            .extend(row.as_object().context("配置格式无效")?.clone());
+        self.tuning.mode = mode as usize;
+        self.tuning.quiet = quiet;
+        self.tuning.keep = keep;
+        self.tuning.dirty = true;
         Ok(())
     }
 
@@ -122,11 +170,14 @@ impl Panel {
         }
     }
 
-    pub(super) fn save_tuning(&mut self) -> Result<()> {
-        let device = &self.devices[self.selected];
-        let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
-        let path = self.settings.profiles_path("TuningProfiles.json")?;
-        let mut row = json!({"DeviceId":device.profile_key,"Application":self.tuning.app, "KeepActive.Current":i32::from(self.tuning.keep), "FanControlMode.Current":self.tuning.mode,"FanRangedCurve.Current":i32::from(self.tuning.quiet)});
+    pub(super) fn tuning_record(&self) -> Result<Value> {
+        let device = self.devices.get(self.selected).context("未选择显卡")?;
+        let mut row = self.tuning.source.clone();
+        row["DeviceId"] = json!(device.profile_key);
+        row["Application"] = json!(self.tuning.app);
+        row["KeepActive.Current"] = json!(i32::from(self.tuning.keep));
+        row["FanControlMode.Current"] = json!(self.tuning.mode);
+        row["FanRangedCurve.Current"] = json!(i32::from(self.tuning.quiet));
         for c in &self.controls {
             if self.show_control(c.id) {
                 let name = match (self.tuning.mode, c.id) {
@@ -137,6 +188,13 @@ impl Panel {
                 row[name] = json!(c.draft);
             }
         }
+        Ok(row)
+    }
+    pub(super) fn save_tuning(&mut self) -> Result<()> {
+        let device = &self.devices[self.selected];
+        let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
+        let path = self.settings.profiles_path("TuningProfiles.json")?;
+        let row = self.tuning_record()?;
         let mut controls = driver.controls(device.index)?;
         profiles::tuning_draft(&mut controls, &row)?;
         profile_store::save(&path, &device.profile_key, &self.tuning.app, &row)?;
@@ -241,7 +299,9 @@ impl Panel {
                     });
                 })),
         );
-        section = section.child(choices);
+        section = section
+            .child(choices)
+            .child(self.transfer_buttons(super::transfer::Kind::Tuning, cx));
         section = section.child(
             div()
                 .id("keep-tuning")
