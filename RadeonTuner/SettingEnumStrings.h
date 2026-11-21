@@ -79,9 +79,9 @@ const std::vector<std::wstring> ADL_FREESYNC_MODE =
 	L"已禁用", L"可变", L"静态"
 };
 
-const std::vector<std::wstring> RADT_THEME_STYLE =
+const std::vector<std::wstring> RADT_THEME_STYLE_STRING =
 {
-	L"灰色", L"黑色", L"白色"
+	L"灰色", L"黑色", L"白色", L"跟随系统"
 };
 
 const std::vector<std::wstring> ADL_FANCONTROL_MODES_STRING =

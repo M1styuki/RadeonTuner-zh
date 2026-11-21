@@ -196,6 +196,7 @@
     <ClInclude Include="NativeTheme.h" />
     <ClInclude Include="SingleInstanceRecall.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="SettingEnumerators.h" />
     <ClInclude Include="SettingEnumStrings.h" />
     <ClInclude Include="SettingAdmin.h" />
     <ClInclude Include="SettingCheck.h" />

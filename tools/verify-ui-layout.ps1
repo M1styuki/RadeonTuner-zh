@@ -1034,8 +1034,8 @@ if ($null -eq $RangedCurve -or $null -eq $RangedSection -or $null -eq $RangedSec
 foreach ($ServiceButton in @('button_DisableRadeonServices', 'button_EnableRadeonServices', 'button_DisableRadeonServices_AdminShield')) {
     if ($null -eq $Xaml.SelectSingleNode("//*[@x:Name='$ServiceButton']", $Namespace)) { Add-Failure "Missing manual service control $ServiceButton." }
 }
-if ($RowCount -ne 106) { Add-Failure "Expected 106 setting rows, found $RowCount." }
-if ($ToggleCount -ne 46) { Add-Failure "Expected 46 toggle rows, found $ToggleCount." }
+if ($RowCount -ne 107) { Add-Failure "Expected 107 setting rows, found $RowCount." }
+if ($ToggleCount -ne 47) { Add-Failure "Expected 47 toggle rows, found $ToggleCount." }
 if ($ComboCount -ne 24) { Add-Failure "Expected 24 combo rows, found $ComboCount." }
 if ($SliderRowCount -ne 26) { Add-Failure "Expected 26 ordinary visible slider rows, found $SliderRowCount." }
 if ($FanPairRowCount -ne 5) { Add-Failure "Expected 5 input-only fan curve rows, found $FanPairRowCount." }

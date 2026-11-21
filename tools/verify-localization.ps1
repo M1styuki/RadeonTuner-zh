@@ -277,6 +277,9 @@ function Get-EnumArrayCounts([string]$source) {
 }
 $baselineEnumCounts = Get-EnumArrayCounts $baselineEnumText
 $currentEnumCounts = Get-EnumArrayCounts $currentEnumText
+# Version 0.75 adds the system theme to the existing three choices.
+$baselineEnumCounts.Remove('RADT_THEME_STYLE')
+$baselineEnumCounts['RADT_THEME_STYLE_STRING'] = 4
 $enumCountMismatch = @()
 foreach ($key in $baselineEnumCounts.Keys) {
     if (-not $currentEnumCounts.ContainsKey($key) -or $currentEnumCounts[$key] -ne $baselineEnumCounts[$key]) {

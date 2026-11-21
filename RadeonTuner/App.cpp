@@ -315,6 +315,10 @@ namespace winrt::RadeonTuner::implementation
 				themeStyle = setThemeStyle.value();
 			}
 			bool dark = themeStyle != 2;
+            if (themeStyle == 3)
+            {
+                dark = RegistryGetDword(HKEY_ENUM::CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", L"AppsUseLightTheme").value_or(0) == 0;
+            }
 			bool highContrast = NativeTheme::IsHighContrastEnabled();
 			bool effectiveDark = dark && !highContrast;
 

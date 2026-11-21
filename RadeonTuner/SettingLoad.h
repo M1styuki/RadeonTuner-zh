@@ -80,6 +80,18 @@ namespace winrt::RadeonTuner::implementation
 			bool contextShortcut = RegistryCheck(HKEY_ENUM::CLASSES_ROOT, std::wstring(L"Directory\\background\\shell\\") + RadeonTunerSystemIntegration::ContextMenuKey);
 			toggleswitch_Shortcut_ContextMenu().IsOn(contextShortcut);
 
+			//Check Windows MPO setting
+			//System\CurrentControlSet\Control\GraphicsDrivers DisableOverlays
+			std::optional<DWORD> mpoDisabled = RegistryGetDword(HKEY_ENUM::LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\Dwm", L"OverlayTestMode");
+			if (mpoDisabled.has_value())
+			{
+				toggleswitch_DisableMPO().IsOn(true);
+			}
+			else
+			{
+				toggleswitch_DisableMPO().IsOn(false);
+			}
+
 			//Check Windows update driver exclude setting
 			std::optional<DWORD> updateExcludeDrivers = RegistryGetDword(HKEY_ENUM::LOCAL_MACHINE, L"Software\\Policies\\Microsoft\\Windows\\WindowsUpdate", L"ExcludeWUDriversInQualityUpdate");
 			if (updateExcludeDrivers.has_value())
