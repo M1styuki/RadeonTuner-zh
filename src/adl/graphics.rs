@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod fsr;
 use super::{Device, Driver, Handle, ReadInt};
 use anyhow::{Result, ensure};
 use std::{ffi::CString, ptr};
@@ -152,7 +153,7 @@ pub struct Setting {
     pub draft: usize,
 }
 
-fn read_registry(path: &str, name: &str) -> Option<i32> {
+fn registry_data(path: &str, name: &str) -> Option<(u32, Vec<u8>)> {
     let path: Vec<_> = format!("SYSTEM\\CurrentControlSet\\Control\\Class\\{path}\\UMD")
         .encode_utf16()
         .chain(Some(0))
@@ -178,10 +179,11 @@ fn read_registry(path: &str, name: &str) -> Option<i32> {
     if read(buffer.as_mut_ptr().cast(), &mut kind, &mut bytes) != ERROR_SUCCESS {
         return None;
     }
-    let buffer = &buffer[..bytes as usize];
-    if kind == REG_DWORD || (kind == REG_BINARY && buffer.len() == 4 && buffer[2] == 0) {
-        return Some(i32::from_le_bytes(buffer.try_into().ok()?));
-    }
+    buffer.truncate(bytes as usize);
+    Some((kind, buffer))
+}
+
+fn registry_text(kind: u32, buffer: &[u8]) -> Option<String> {
     if !matches!(kind, REG_BINARY | REG_SZ) || buffer.len() % 2 != 0 {
         return None;
     }
@@ -190,7 +192,20 @@ fn read_registry(path: &str, name: &str) -> Option<i32> {
         .map(|b| u16::from_le_bytes([b[0], b[1]]))
         .take_while(|v| *v != 0)
         .collect();
-    String::from_utf16(&wide).ok()?.trim().parse().ok()
+    String::from_utf16(&wide).ok()
+}
+
+fn read_registry(path: &str, name: &str) -> Option<i32> {
+    let (kind, buffer) = registry_data(path, name)?;
+    if kind != REG_DWORD {
+        if let Some(number) = registry_text(kind, &buffer).and_then(|s| s.trim().parse().ok()) {
+            return Some(number);
+        }
+    }
+    if matches!(kind, REG_BINARY | REG_DWORD) {
+        return Some(i32::from_le_bytes(buffer.as_slice().try_into().ok()?));
+    }
+    None
 }
 
 impl Driver {
@@ -224,14 +239,32 @@ impl Driver {
             })
             .collect()
     }
-    pub fn apply_graphics(&self, d: &Device, settings: &[Setting]) -> Result<()> {
+    fn set_umd_string(&self, d: &Device, name: &str, text: &str) -> Result<()> {
         type Set =
             unsafe extern "C" fn(Handle, i32, i32, *const i8, *const i8, i32, *const u16) -> i32;
-        type Notify = unsafe extern "C" fn(Handle, i32, i32, i32) -> i32;
+
         let set = unsafe {
             self.library
                 .get::<Set>(b"ADL2_Adapter_RegValueString_Set\0")?
         };
+        let value: Vec<_> = text.encode_utf16().chain(Some(0)).collect();
+        let key = CString::new(name)?;
+        let code = unsafe {
+            set(
+                self.context,
+                d.index,
+                1,
+                c"UMD".as_ptr(),
+                key.as_ptr(),
+                ((value.len() - 1) * 2) as i32,
+                value.as_ptr(),
+            )
+        };
+        ensure!(code == 0, "设置{}失败 ({code})", name);
+        Ok(())
+    }
+    pub fn apply_graphics(&self, d: &Device, settings: &[Setting]) -> Result<()> {
+        type Notify = unsafe extern "C" fn(Handle, i32, i32, i32) -> i32;
         for s in settings.iter().filter(|s| s.current != s.draft) {
             ensure!(
                 read_registry(&d.registry_path, s.choice.key)
@@ -239,25 +272,7 @@ impl Driver {
                 "{}已改变，请刷新",
                 s.choice.label
             );
-            let value: Vec<_> = s.choice.entries[s.draft]
-                .1
-                .to_string()
-                .encode_utf16()
-                .chain(Some(0))
-                .collect();
-            let key = CString::new(s.choice.key)?;
-            let code = unsafe {
-                set(
-                    self.context,
-                    d.index,
-                    1,
-                    c"UMD".as_ptr(),
-                    key.as_ptr(),
-                    ((value.len() - 1) * 2) as i32,
-                    value.as_ptr(),
-                )
-            };
-            ensure!(code == 0, "设置{}失败 ({code})", s.choice.label);
+            self.set_umd_string(d, s.choice.key, &s.choice.entries[s.draft].1.to_string())?;
             if s.choice.key == "TurboSync" {
                 let status = unsafe {
                     self.library.get::<Notify>(b"ADL2_User_Settings_Notify\0")?(
