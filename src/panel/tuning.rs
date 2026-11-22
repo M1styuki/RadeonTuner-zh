@@ -11,6 +11,7 @@ pub(super) struct Editor {
     quiet: bool,
     keep: bool,
     dirty: bool,
+    confirm_reset: bool,
     source: Value,
 }
 impl Default for Editor {
@@ -22,6 +23,7 @@ impl Default for Editor {
             quiet: false,
             keep: false,
             dirty: false,
+            confirm_reset: false,
             source: json!({}),
         }
     }
@@ -245,6 +247,25 @@ impl Panel {
         self.read_controls();
         crate::tray::settings_changed()
     }
+    fn reset_tuning_profile(&mut self) -> Result<()> {
+        let device = self.devices.get(self.selected).context("未选择显卡")?;
+        let path = self.settings.profiles_path("TuningProfiles.json")?;
+        let mut rows = profile_store::load(&path)?;
+        let running = profiles::process_names()?;
+        let active = profiles::select_profile(&rows, &device.profile_key, &running)
+            .map(|row| profile_store::matches(row, &device.profile_key, &self.tuning.app))
+            .unwrap_or_else(|| self.tuning.app == "Global");
+        if active {
+            self.driver
+                .as_ref()
+                .context("显卡驱动不可用")?
+                .reset_tuning(device.index)?;
+        }
+        rows.retain(|row| !profile_store::matches(row, &device.profile_key, &self.tuning.app));
+        profile_store::write_json(&path, &json!(rows))?;
+        self.read_controls();
+        crate::tray::settings_changed()
+    }
     pub(super) fn render_tuning_profiles(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_2();
         let mut choices = div().flex().flex_wrap().gap_2();
@@ -291,6 +312,41 @@ impl Panel {
                     cx.notify();
                 })),
         );
+        section = section.child(
+            div()
+                .id("reset-tuning-profile")
+                .px_2()
+                .cursor_pointer()
+                .child(if self.tuning.confirm_reset {
+                    "确认重置此配置的调校与风扇设置"
+                } else {
+                    "重置调校与风扇设置"
+                })
+                .on_click(cx.listener(|p, _, _, cx| {
+                    if p.tuning.confirm_reset {
+                        p.tuning.confirm_reset = false;
+                        p.tuning_status = p
+                            .reset_tuning_profile()
+                            .map(|()| "调校与风扇设置已重置".to_owned())
+                            .unwrap_or_else(|e| e.to_string());
+                    } else {
+                        p.tuning.confirm_reset = true;
+                    }
+                    cx.notify();
+                })),
+        );
+        if self.tuning.confirm_reset {
+            section = section.child(
+                div()
+                    .id("cancel-tuning-reset")
+                    .cursor_pointer()
+                    .child("取消")
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        p.tuning.confirm_reset = false;
+                        cx.notify();
+                    })),
+            );
+        }
         if self.page != 1 {
             return section;
         }

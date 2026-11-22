@@ -224,6 +224,14 @@ impl Driver {
         Ok(())
     }
 
+    pub fn reset_tuning(&self, index: i32) -> Result<()> {
+        let mut request = Requests {
+            count: (COUNT - 1) as i32,
+            entries: [[0; 3]; COUNT],
+        };
+        request.entries[..COUNT - 1].fill([0, 1, 1]);
+        self.set_overdrive(index, &request)
+    }
     fn set_overdrive(&self, index: i32, request: &Requests) -> Result<()> {
         let mut result = Values {
             count: (COUNT - 1) as i32,

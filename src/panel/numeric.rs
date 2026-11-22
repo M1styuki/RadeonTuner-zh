@@ -74,25 +74,133 @@ impl Panel {
             return;
         }
         if let Some(value) = edit.value() {
-            match edit.field {
-                Field::Tuning(i) => {
-                    if let Some(c) = self.controls.get_mut(i) {
-                        c.draft = value;
-                    }
+            self.set_number(edit.field, value);
+        }
+    }
+    fn set_number(&mut self, field: Field, value: i32) {
+        match field {
+            Field::Tuning(i) => {
+                if let Some(c) = self.controls.get_mut(i) {
+                    c.draft = value;
                 }
-                Field::Video(i) => {
-                    if let Some(c) = self.video.get_mut(i) {
-                        c.draft = value;
-                    }
-                }
-                Field::Gamma(i) => self.set_gamma(i, value),
-                Field::Custom(i) => self.custom_number(i, value),
-                Field::Display(i) => self.set_display_draft(i, value),
-                Field::Frame(i) => self.change_frame(i, value),
             }
+            Field::Video(i) => {
+                if let Some(c) = self.video.get_mut(i) {
+                    c.draft = value;
+                }
+            }
+            Field::Gamma(i) => self.set_gamma(i, value),
+            Field::Custom(i) => self.custom_number(i, value),
+            Field::Display(i) => self.set_display_draft(i, value),
+            Field::Frame(i) => self.change_frame(i, value),
         }
     }
     pub(super) fn number(
+        &self,
+        field: Field,
+        value: i32,
+        min: i32,
+        max: i32,
+        step: i32,
+        unit: &'static str,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let text = self.number_text(field, value, min, max, step, unit, cx);
+        let mut input = div().flex().flex_col().w(px(160.)).child(text);
+        if matches!(field, Field::Custom(_)) || max <= min {
+            return input;
+        }
+        let position = |fraction: f32| {
+            let range = i64::from(max) - i64::from(min);
+            let step = i64::from(step.max(1));
+            (i64::from(min)
+                + ((fraction.clamp(0., 1.) as f64 * range as f64 / step as f64).round() as i64)
+                    * step)
+                .clamp(i64::from(min), i64::from(max)) as i32
+        };
+        let slot = std::rc::Rc::new(std::cell::Cell::new(None::<gpui::Bounds<gpui::Pixels>>));
+        let geometry = slot.clone();
+        let palette = self.palette;
+        let entity = cx.entity();
+        let track = gpui::canvas(
+            |_, _, _| (),
+            move |bounds, _, window, _| {
+                geometry.set(Some(bounds));
+                let ratio =
+                    ((value as f64 - min as f64) / (max as f64 - min as f64)).clamp(0., 1.) as f32;
+                let x = bounds.origin.x + bounds.size.width * ratio;
+                let y = bounds.origin.y + bounds.size.height * 0.5;
+                for (from, to, width, color) in [
+                    (
+                        gpui::point(bounds.origin.x, y),
+                        gpui::point(bounds.right(), y),
+                        3.,
+                        palette.grid,
+                    ),
+                    (
+                        gpui::point(bounds.origin.x, y),
+                        gpui::point(x, y),
+                        3.,
+                        palette.accent,
+                    ),
+                    (
+                        gpui::point(x, y - px(4.)),
+                        gpui::point(x, y + px(4.)),
+                        5.,
+                        palette.accent,
+                    ),
+                ] {
+                    let mut line = gpui::PathBuilder::stroke(px(width));
+                    line.move_to(from);
+                    line.line_to(to);
+                    if let Ok(path) = line.build() {
+                        window.paint_path(path, rgb(color));
+                    }
+                }
+                let dragged = entity.clone();
+                window.on_mouse_event(move |ev: &gpui::MouseMoveEvent, phase, _, cx| {
+                    if !phase.bubble() || !ev.dragging() || dragged.read(cx).slider != Some(field) {
+                        return;
+                    }
+                    let v = position((ev.position.x - bounds.origin.x) / bounds.size.width);
+                    dragged.update(cx, |p, cx| {
+                        p.set_number(field, v);
+                        cx.notify();
+                    });
+                });
+                window.on_mouse_event(move |ev: &gpui::MouseUpEvent, _, _, cx| {
+                    if ev.button == gpui::MouseButton::Left && entity.read(cx).slider == Some(field)
+                    {
+                        entity.update(cx, |p, _| p.slider = None);
+                    }
+                });
+            },
+        )
+        .size_full();
+        input = input.child(
+            div()
+                .w_full()
+                .h(px(16.))
+                .cursor_pointer()
+                .on_mouse_down(
+                    gpui::MouseButton::Left,
+                    cx.listener(move |p, ev: &gpui::MouseDownEvent, _, cx| {
+                        if let Some(bounds) = slot.get() {
+                            p.finish_edit(true);
+                            p.slider = Some(field);
+                            p.set_number(
+                                field,
+                                position((ev.position.x - bounds.origin.x) / bounds.size.width),
+                            );
+                            cx.notify();
+                        }
+                    }),
+                )
+                .child(track),
+        );
+        input
+    }
+    fn number_text(
         &self,
         field: Field,
         value: i32,

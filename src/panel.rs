@@ -33,6 +33,7 @@ struct Panel {
     excludes_drivers: bool,
     admin: bool,
     edit: Option<numeric::Edit>,
+    slider: Option<numeric::Field>,
     page: usize,
     info: Vec<String>,
     games: graphics::apps::Games,
@@ -567,6 +568,7 @@ pub fn run() -> Result<()> {
         mpo: crate::integration::mpo_disabled(),
         excludes_drivers: crate::integration::excludes_drivers(),
         edit: None,
+        slider: None,
         page: usize::try_from(settings.integer("MenuIndex", 0)?)
             .ok()
             .filter(|i| *i < PAGES.len())
