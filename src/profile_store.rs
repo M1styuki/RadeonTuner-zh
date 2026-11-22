@@ -23,12 +23,23 @@ pub fn matches(row: &Value, key: &str, app: &str) -> bool {
 }
 
 pub fn save(path: &Path, device: &str, app: &str, update: &Value) -> Result<()> {
+    save_row(path, device, app, update, false)
+}
+
+pub fn replace(path: &Path, device: &str, app: &str, update: &Value) -> Result<()> {
+    save_row(path, device, app, update, true)
+}
+fn save_row(path: &Path, device: &str, app: &str, update: &Value, replace: bool) -> Result<()> {
     ensure!(!device.is_empty() && !app.is_empty(), "配置身份无效");
     let mut rows = load(path)?;
     if let Some(row) = rows.iter_mut().find(|row| matches(row, device, app)) {
-        let object = row.as_object_mut().context("配置格式无效")?;
-        for (key, value) in update.as_object().context("配置格式无效")? {
-            object.insert(key.clone(), value.clone());
+        if replace {
+            *row = update.clone();
+        } else {
+            let object = row.as_object_mut().context("配置格式无效")?;
+            for (key, value) in update.as_object().context("配置格式无效")? {
+                object.insert(key.clone(), value.clone());
+            }
         }
     } else {
         rows.push(update.clone());

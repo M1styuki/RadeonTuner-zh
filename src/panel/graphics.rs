@@ -114,6 +114,7 @@ impl Panel {
     fn read_graphics_profile(&mut self) -> Result<()> {
         self.graphics_profile = json!({});
         self.graphics_dirty = false;
+        self.confirm_graphics_reset = false;
         let Some((key, app)) = self.graphics_target() else {
             return Ok(());
         };
@@ -136,12 +137,48 @@ impl Panel {
         Ok(())
     }
 
-    fn save_graphics(&mut self) -> Result<()> {
+    fn reset_graphics(&mut self) -> Result<()> {
+        use crate::adl::graphics::frames::Field::{DeepColor, Desktop};
+        self.confirm_graphics_reset = false;
+        let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
+        let d = self.devices.get(self.selected).context("未选择显卡")?;
+        self.graphics = driver.graphics(d, self.skip_graphics_check);
+        self.frames = driver.frame_controls(d, self.skip_graphics_check);
+        self.fsr_library = driver.fsr_library(d, self.skip_graphics_check);
+        let ris2 = self.frames.iter().any(|c| c.field == Desktop);
+        let deep = if self.frames.iter().any(|c| c.field == DeepColor) {
+            driver.deep_color(d).context("无法读取驱动的默认色深")?.0
+        } else {
+            0
+        };
+        for c in &mut self.frames {
+            c.draft = c.field.default_value(ris2, deep).clamp(c.min, c.max);
+        }
+        for s in &mut self.graphics {
+            s.draft = match s.choice.profile_key {
+                "VerticalSync.Current" | "TextureFilteringQuality.Current" => 1,
+                "TessellationLevel.Current" => 7,
+                _ => 0,
+            };
+        }
+        if let Some(fsr) = &mut self.fsr_library {
+            fsr.select(String::new());
+        }
+        self.graphics_profile = json!({});
+        self.save_graphics(true)
+    }
+
+    fn save_graphics(&mut self, reset: bool) -> Result<()> {
         crate::adl::graphics::frames::validate(&self.frames)?;
         let (key, app) = self.graphics_target().context("未选择显卡")?;
         let row = self.graphics_record()?;
         if !key.is_empty() {
-            profile_store::save(
+            let write = if reset {
+                profile_store::replace
+            } else {
+                profile_store::save
+            };
+            write(
                 &self.settings.profiles_path("GraphicsProfiles.json")?,
                 &key,
                 &app,
@@ -329,6 +366,50 @@ impl Panel {
         if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
             section = section.child("当前显卡没有可读取的图形设置");
         }
+        if !self.graphics.is_empty() || !self.frames.is_empty() || self.fsr_library.is_some() {
+            if self.confirm_graphics_reset {
+                section = section.child(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child("恢复这张显卡的全局图形默认设置？")
+                        .child(
+                            div()
+                                .id("confirm-graphics-reset")
+                                .cursor_pointer()
+                                .child("重置")
+                                .on_click(cx.listener(|p, _, _, cx| {
+                                    p.graphics_status = match p.reset_graphics() {
+                                        Ok(()) => "图形设置已重置".into(),
+                                        Err(err) => err.to_string(),
+                                    };
+                                    cx.notify();
+                                })),
+                        )
+                        .child(
+                            div()
+                                .id("cancel-graphics-reset")
+                                .cursor_pointer()
+                                .child("取消")
+                                .on_click(cx.listener(|p, _, _, cx| {
+                                    p.confirm_graphics_reset = false;
+                                    cx.notify();
+                                })),
+                        ),
+                );
+            } else {
+                section = section.child(
+                    div()
+                        .id("graphics-reset")
+                        .cursor_pointer()
+                        .child("重置全局图形设置")
+                        .on_click(cx.listener(|p, _, _, cx| {
+                            p.confirm_graphics_reset = true;
+                            cx.notify();
+                        })),
+                );
+            }
+        }
         if self.graphics_dirty
             || self
                 .frames
@@ -346,7 +427,7 @@ impl Panel {
                     .cursor_pointer()
                     .child("应用图形设置")
                     .on_click(cx.listener(|p, _, _, cx| {
-                        p.graphics_status = match p.save_graphics() {
+                        p.graphics_status = match p.save_graphics(false) {
                             Ok(()) => "图形设置已应用".into(),
                             Err(err) => err.to_string(),
                         };

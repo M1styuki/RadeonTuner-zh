@@ -78,6 +78,18 @@ impl Field {
             _ => &[],
         }
     }
+    pub fn default_value(self, ris2: bool, deep_color: i32) -> i32 {
+        match self {
+            Low => 75,
+            High => 140,
+            Target => 60,
+            MinResolution => 84,
+            Sharpness if ris2 => 50,
+            Sharpness => 80,
+            DeepColor => deep_color,
+            _ => 0,
+        }
+    }
     pub fn experimental(self) -> bool {
         matches!(
             self,

@@ -80,14 +80,18 @@ impl Driver {
         if let Some(method) = self.aa_method(d) {
             push(AntiAliasing, method as i32, 0, 2, 1);
         }
-        let (mut default, mut current) = (0, 0);
-        if unsafe {
-            self.library
-                .get::<Pair>(b"ADL2_Workstation_DeepBitDepthX2_Get\0")
-                .is_ok_and(|get| get(self.context, d.index, &mut default, &mut current) == 0)
-        } {
+        if let Some((_, current)) = self.deep_color(d) {
             push(DeepColor, current, 0, 1, 1);
         }
+    }
+    pub fn deep_color(&self, d: &Device) -> Option<(i32, i32)> {
+        let (mut default, mut current) = (0, 0);
+        let code = unsafe {
+            self.library
+                .get::<Pair>(b"ADL2_Workstation_DeepBitDepthX2_Get\0")
+                .ok()?(self.context, d.index, &mut default, &mut current)
+        };
+        (code == 0).then_some((default, current))
     }
     pub(super) fn apply_extras(&self, d: &Device, controls: &[Control]) -> Result<()> {
         let change = |field| {
