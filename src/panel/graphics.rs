@@ -249,7 +249,9 @@ impl Panel {
             }
         }
         for (i, control) in self.frames.iter().enumerate() {
-            if !control.field.enabled(&self.frames) {
+            if !control.field.enabled(&self.frames)
+                || (control.field.experimental() && !self.experimental)
+            {
                 continue;
             }
             let mut row = div()

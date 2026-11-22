@@ -1,3 +1,4 @@
+mod extras;
 mod quality;
 use super::{Device, Driver, Handle, ReadInt};
 use anyhow::{Context, Result, ensure};
@@ -17,6 +18,10 @@ pub enum Field {
     Sharpen,
     Sharpness,
     Desktop,
+    Watermark,
+    Swapchain,
+    AntiAliasing,
+    DeepColor,
 }
 use Field::*;
 
@@ -36,6 +41,10 @@ impl Field {
             Sharpen => "RisEnabled.Current",
             Sharpness => "RisSharpeningDegree.Current",
             Desktop => "RisDesktopEnabled.Current",
+            Watermark => "FsrShowInformation.Current",
+            Swapchain => "FsrDisableMLSwapchain.Current",
+            AntiAliasing => "AntiAliasingMethod.Current",
+            DeepColor => "OpenGL10BitPixelFormat.Current",
         }
     }
     pub fn label(self) -> &'static str {
@@ -53,15 +62,27 @@ impl Field {
             Sharpen => "Radeon 图像锐化",
             Sharpness => "锐化强度",
             Desktop => "桌面锐化",
+            Watermark => "显示 FSR 信息",
+            Swapchain => "禁用 FSR 机器学习交换链",
+            AntiAliasing => "抗锯齿方法",
+            DeepColor => "OpenGL 10 位像素格式",
         }
     }
     pub fn entries(self) -> &'static [&'static str] {
         match self {
-            Chill | Cap | Generate | AntiLag | Sharpen | Desktop => &["关", "开"],
+            Chill | Cap | Generate | AntiLag | Sharpen | Desktop | DeepColor | Watermark
+            | Swapchain => &["关", "开"],
             Algorithm => &["自动", "增强", "标准"],
+            AntiAliasing => &["多重采样", "自适应多重采样", "超级采样"],
             Boost => &["关闭", "基于输入", "基于场景", "多模式"],
             _ => &[],
         }
+    }
+    pub fn experimental(self) -> bool {
+        matches!(
+            self,
+            Watermark | Swapchain | Generate | Algorithm | Boost | MinResolution
+        )
     }
     pub fn unit(self) -> &'static str {
         if matches!(self, Sharpness | MinResolution) {
@@ -233,6 +254,7 @@ impl Driver {
             }
         }
         self.read_quality(i, &mut push);
+        self.read_extras(d, &mut push);
         controls
     }
 
@@ -338,7 +360,8 @@ impl Driver {
             };
             ensure!(code == 0, "应用流体运动帧设置失败 ({code})");
         }
-        self.apply_quality(i, values)
+        self.apply_quality(i, values)?;
+        self.apply_extras(d, values)
     }
 }
 
