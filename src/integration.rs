@@ -17,6 +17,9 @@ fn wide(value: &str) -> Vec<u16> {
 pub mod cache;
 pub mod games;
 pub mod services;
+pub fn system_folder() -> Result<PathBuf> {
+    known_folder(&FOLDERID_System)
+}
 fn known_folder(id: &windows_sys::core::GUID) -> Result<PathBuf> {
     let mut value = ptr::null_mut();
     let status = unsafe { SHGetKnownFolderPath(id, 0, ptr::null_mut(), &mut value) };

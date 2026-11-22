@@ -18,10 +18,13 @@ mod numeric;
 mod picker;
 mod theme;
 mod transfer;
+mod updates;
 const PAGES: [&str; 7] = ["调校", "风扇", "图形", "显示器", "多媒体", "设置", "信息"];
 mod tuning;
 struct Panel {
     picker: Option<picker::Picker>,
+    updates: updates::Updates,
+    start_check_update: bool,
     picker_generation: u64,
     pending_import: Option<transfer::Pending>,
     style: i64,
@@ -124,6 +127,7 @@ impl Render for Panel {
             .bg(rgb(self.palette.canvas))
             .text_color(rgb(self.palette.text))
             .child(div().text_xl().child(PAGES[self.page]));
+        content = content.child(self.update_controls(cx));
         if self.page != 5 {
             for (i, device) in self.devices.iter().enumerate() {
                 content = content.child(
@@ -395,6 +399,11 @@ impl Render for Panel {
             content = content.child(services);
             for (key, label, on) in [
                 ("StartWindowVisible", "启动时打开面板", self.start_visible),
+                (
+                    "StartCheckUpdate",
+                    "启动时检查更新",
+                    self.start_check_update,
+                ),
                 ("CloseTray", "关闭面板后驻留托盘", self.close_tray),
                 ("SetTopMost", "窗口置顶", self.topmost),
                 ("HideTrayIcon", "隐藏托盘图标", self.hide_tray),
@@ -438,6 +447,9 @@ impl Render for Panel {
                                 Ok(()) if key == "SkipSupportCheckGraphics" => {
                                     panel.skip_graphics_check = !on;
                                     panel.read_device_details();
+                                }
+                                Ok(()) if key == "StartCheckUpdate" => {
+                                    panel.start_check_update = !on
                                 }
                                 Ok(()) if key == "CloseTray" => panel.close_tray = !on,
                                 Ok(()) => panel.start_visible = !on,
@@ -545,6 +557,8 @@ pub fn run() -> Result<()> {
     let style = settings.integer("ThemeStyle", 0)?;
     let mut panel = Panel {
         picker: None,
+        updates: Default::default(),
+        start_check_update: settings.flag("StartCheckUpdate", true)?,
         picker_generation: 0,
         pending_import: None,
         style,
@@ -626,6 +640,10 @@ pub fn run() -> Result<()> {
                     }
                 }
                 cx.new(|cx: &mut Context<Panel>| {
+                    if panel.start_check_update && std::env::args_os().any(|a| a == "--first-panel")
+                    {
+                        panel.check_updates(false, cx);
+                    }
                     cx.spawn(async move |view, cx| {
                         loop {
                             Timer::after(Duration::from_secs(2)).await;

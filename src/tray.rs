@@ -17,6 +17,7 @@ use windows_sys::Win32::{
 };
 
 const OPTIONS: &str = "Local\\RadeonTuner.Rust.Options";
+const RESTART: &str = "Local\\RadeonTuner.Rust.Restart";
 const EXIT: &str = "Local\\RadeonTuner.Rust.Exit";
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
@@ -41,6 +42,9 @@ fn signal(name: &str) -> Result<()> {
 }
 pub fn settings_changed() -> Result<()> {
     signal(OPTIONS)
+}
+pub fn restart_after_update() -> Result<()> {
+    signal(RESTART)
 }
 pub fn request_exit() -> Result<()> {
     signal(EXIT)
@@ -100,11 +104,14 @@ fn open_panel(child: &mut Option<Child>) -> Result<()> {
             return Ok(());
         }
     }
-    *child = Some(
-        Command::new(std::env::current_exe()?)
-            .arg("--panel")
-            .spawn()?,
-    );
+    static FIRST: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+    let mut cmd = Command::new(std::env::current_exe()?);
+    cmd.arg("--panel");
+    if FIRST.load(std::sync::atomic::Ordering::Relaxed) {
+        cmd.arg("--first-panel");
+    }
+    *child = Some(cmd.spawn()?);
+    FIRST.store(false, std::sync::atomic::Ordering::Relaxed);
     Ok(())
 }
 
@@ -129,6 +136,9 @@ pub fn run() -> Result<()> {
     }
     let options_changed = event(OPTIONS)?;
     let exit_request = event(EXIT)?;
+    let restart_request = event(RESTART)?;
+    let installed = std::env::current_exe()?;
+    let mut restarting = false;
     let settings = Settings::open()?;
     let menu = Menu::new();
     let open = MenuItem::new("打开设置", true, None);
@@ -161,7 +171,10 @@ pub fn run() -> Result<()> {
     show_status(background.reload());
     let mut next_check = std::time::Instant::now() + std::time::Duration::from_secs(2);
     let mut child = None;
-    if settings.flag("FirstLaunch", true)? || settings.flag("StartWindowVisible", false)? {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--updated"))
+        || settings.flag("FirstLaunch", true)?
+        || settings.flag("StartWindowVisible", false)?
+    {
         open_panel(&mut child)?;
     }
     'host: loop {
@@ -179,6 +192,7 @@ pub fn run() -> Result<()> {
             recall.as_raw_handle(),
             options_changed.as_raw_handle(),
             exit_request.as_raw_handle(),
+            restart_request.as_raw_handle(),
         ];
         if let Some(process) = child.as_ref() {
             handles.push(process.as_raw_handle());
@@ -216,7 +230,11 @@ pub fn run() -> Result<()> {
         if event == WAIT_OBJECT_0 + 2 {
             break;
         }
-        if handles.len() == 4 && event == WAIT_OBJECT_0 + 3 {
+        if event == WAIT_OBJECT_0 + 3 {
+            restarting = true;
+            break;
+        }
+        if handles.len() == 5 && event == WAIT_OBJECT_0 + 4 {
             child.take().context("面板进程已丢失")?.wait()?;
             if !settings.flag("CloseTray", true)? {
                 break;
@@ -273,6 +291,10 @@ pub fn run() -> Result<()> {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
         process.wait()?;
+    }
+    if restarting {
+        drop(recall);
+        Command::new(installed).arg("--updated").spawn()?;
     }
     Ok(())
 }

@@ -8,6 +8,7 @@ mod profile_store;
 mod profiles;
 mod settings;
 mod tray;
+mod update;
 
 fn main() {
     // ADL reads this switch when configuring Eyefinity on large displays.
