@@ -43,6 +43,9 @@ impl Panel {
         for s in &self.graphics {
             row[s.choice.profile_key] = json!(s.draft);
         }
+        for c in &self.frames {
+            row[c.field.name()] = json!(c.draft);
+        }
         if let Some(fsr) = &self.fsr_library {
             row["FsrOvrDLLPath.Current"] = json!(if fsr.draft.trim().is_empty() {
                 " "
@@ -55,6 +58,26 @@ impl Panel {
 
     pub(super) fn stage_graphics(&mut self, row: &Value) -> Result<()> {
         let indices = setting_indices(&self.graphics, row)?;
+        let mut frames = self.frames.clone();
+        for c in &mut frames {
+            let v = &row[c.field.name()];
+            if !v.is_null() {
+                let value = v
+                    .as_i64()
+                    .or_else(|| v.as_bool().map(i64::from))
+                    .context("帧率配置数值无效")?;
+                if c.field == crate::adl::graphics::frames::Field::Target && value == 0 {
+                    continue;
+                }
+                ensure!(
+                    (i64::from(c.min)..=i64::from(c.max)).contains(&value),
+                    "{} 超出驱动范围",
+                    c.field.label()
+                );
+                c.draft = value as i32;
+            }
+        }
+        crate::adl::graphics::frames::validate(&frames)?;
         let path = &row["FsrOvrDLLPath.Current"];
         ensure!(path.is_null() || path.is_string(), "FSR 库路径无效");
         let fields = row.as_object().context("图形配置格式无效")?;
@@ -68,6 +91,7 @@ impl Panel {
         if let (Some(path), Some(fsr)) = (path.as_str(), &mut self.fsr_library) {
             fsr.select(path.trim().to_string());
         }
+        self.frames = frames;
         self.graphics_dirty = true;
         Ok(())
     }
@@ -78,7 +102,9 @@ impl Panel {
         let Some((key, app)) = self.graphics_target() else {
             return Ok(());
         };
-        if key.is_empty() || (self.graphics.is_empty() && self.fsr_library.is_none()) {
+        if key.is_empty()
+            || (self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty())
+        {
             return Ok(());
         }
         let path = self.settings.profiles_path("GraphicsProfiles.json")?;
@@ -96,6 +122,7 @@ impl Panel {
     }
 
     fn save_graphics(&mut self) -> Result<()> {
+        crate::adl::graphics::frames::validate(&self.frames)?;
         let (key, app) = self.graphics_target().context("未选择显卡")?;
         let row = self.graphics_record()?;
         if !key.is_empty() {
@@ -110,11 +137,13 @@ impl Panel {
         let device = &self.devices[self.selected];
         let result = driver
             .apply_graphics(device, &self.graphics)
+            .and_then(|()| driver.apply_frames(device, &self.frames))
             .and_then(|()| match &self.fsr_library {
                 Some(f) => driver.apply_fsr_override(device, f),
                 None => Ok(()),
             });
         self.graphics = driver.graphics(device, self.skip_graphics_check);
+        self.frames = driver.frame_controls(device, self.skip_graphics_check);
         self.fsr_library = driver.fsr_library(device, self.skip_graphics_check);
         self.read_graphics_profile()?;
         result
@@ -122,7 +151,7 @@ impl Panel {
 
     pub(super) fn render_graphics(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_3();
-        if !self.graphics.is_empty() || self.fsr_library.is_some() {
+        if !self.graphics.is_empty() || self.fsr_library.is_some() || !self.frames.is_empty() {
             section = section.child(self.transfer_buttons(super::transfer::Kind::Graphics, cx));
         }
         for game in &self.fsr_activity {
@@ -204,6 +233,52 @@ impl Panel {
                 section = section.child(fsr.path().display().to_string());
             }
         }
+        for (i, control) in self.frames.iter().enumerate() {
+            if !control.field.enabled(&self.frames) {
+                continue;
+            }
+            let mut row = div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .child(div().flex_1().child(control.field.label()));
+            let entries = control.field.entries();
+            if entries.is_empty() {
+                row = row.child(self.number(
+                    super::numeric::Field::Frame(i),
+                    control.draft,
+                    control.min,
+                    control.max,
+                    control.step,
+                    "FPS",
+                    cx,
+                ));
+            } else {
+                row = row.child(entries[control.draft as usize]);
+            }
+            for (id, label, delta) in [
+                ("frame-prev", "−", -control.step),
+                ("frame-next", "+", control.step),
+            ] {
+                let next = control
+                    .draft
+                    .saturating_add(delta)
+                    .clamp(control.min, control.max);
+                let button = div().id((id, i)).px_2().child(label);
+                row = row.child(if next != control.draft {
+                    button
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |p, _, _, cx| {
+                            p.frames[i].draft = next;
+                            p.graphics_dirty = true;
+                            cx.notify();
+                        }))
+                } else {
+                    button.opacity(0.45)
+                });
+            }
+            section = section.child(row);
+        }
         for (i, s) in self.graphics.iter().enumerate() {
             if s.choice.experimental && !self.experimental {
                 continue;
@@ -234,10 +309,14 @@ impl Panel {
             }
             section = section.child(row);
         }
-        if self.graphics.is_empty() && self.fsr_library.is_none() {
+        if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
             section = section.child("当前显卡没有可读取的图形设置");
         }
         if self.graphics_dirty
+            || self
+                .frames
+                .iter()
+                .any(|c| c.field.enabled(&self.frames) && c.current != c.draft)
             || self.graphics.iter().any(|s| s.draft != s.current)
             || self
                 .fsr_library
@@ -263,11 +342,13 @@ impl Panel {
     pub(super) fn read_device_details(&mut self) {
         self.read_video();
         self.graphics.clear();
+        self.frames.clear();
         self.fsr_library = None;
         self.info.clear();
         self.graphics_status.clear();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
             self.graphics = driver.graphics(device, self.skip_graphics_check);
+            self.frames = driver.frame_controls(device, self.skip_graphics_check);
             self.fsr_library = driver.fsr_library(device, self.skip_graphics_check);
             self.info = driver.information(device);
         }
