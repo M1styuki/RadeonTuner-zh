@@ -43,6 +43,21 @@ impl Panel {
         for s in &self.graphics {
             row[s.choice.profile_key] = json!(s.draft);
         }
+        if self
+            .frames
+            .iter()
+            .any(|c| c.field == crate::adl::graphics::frames::Field::Sharpen)
+        {
+            row["RisVersion.Version"] = json!(if self
+                .frames
+                .iter()
+                .any(|c| c.field == crate::adl::graphics::frames::Field::Desktop)
+            {
+                2
+            } else {
+                1
+            });
+        }
         for c in &self.frames {
             row[c.field.name()] = json!(c.draft);
         }
@@ -250,7 +265,7 @@ impl Panel {
                     control.min,
                     control.max,
                     control.step,
-                    "FPS",
+                    control.field.unit(),
                     cx,
                 ));
             } else {

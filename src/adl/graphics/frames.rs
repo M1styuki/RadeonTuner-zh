@@ -1,3 +1,4 @@
+mod quality;
 use super::{Device, Driver, Handle, ReadInt};
 use anyhow::{Context, Result, ensure};
 
@@ -10,6 +11,12 @@ pub enum Field {
     Target,
     Generate,
     Algorithm,
+    AntiLag,
+    Boost,
+    MinResolution,
+    Sharpen,
+    Sharpness,
+    Desktop,
 }
 use Field::*;
 
@@ -23,6 +30,12 @@ impl Field {
             Target => "FrtcFrameRateTarget.Current",
             Generate => "FrameGenEnabled.Current",
             Algorithm => "FrameGenAlgorithm.Current",
+            AntiLag => "DeLagEnabled.Current",
+            Boost => "BoostMode.Current",
+            MinResolution => "BoostMinResolution.Current",
+            Sharpen => "RisEnabled.Current",
+            Sharpness => "RisSharpeningDegree.Current",
+            Desktop => "RisDesktopEnabled.Current",
         }
     }
     pub fn label(self) -> &'static str {
@@ -34,13 +47,27 @@ impl Field {
             Target => "帧率上限",
             Generate => "AMD 流体运动帧",
             Algorithm => "帧生成算法",
+            AntiLag => "FSR 延迟降低",
+            Boost => "Radeon Boost",
+            MinResolution => "最低渲染分辨率",
+            Sharpen => "Radeon 图像锐化",
+            Sharpness => "锐化强度",
+            Desktop => "桌面锐化",
         }
     }
     pub fn entries(self) -> &'static [&'static str] {
         match self {
-            Chill | Cap | Generate => &["关", "开"],
+            Chill | Cap | Generate | AntiLag | Sharpen | Desktop => &["关", "开"],
             Algorithm => &["自动", "增强", "标准"],
+            Boost => &["关闭", "基于输入", "基于场景", "多模式"],
             _ => &[],
+        }
+    }
+    pub fn unit(self) -> &'static str {
+        if matches!(self, Sharpness | MinResolution) {
+            "%"
+        } else {
+            "FPS"
         }
     }
     pub fn enabled(self, settings: &[Control]) -> bool {
@@ -48,6 +75,8 @@ impl Field {
             Low | High => Chill,
             Target => Cap,
             Algorithm => Generate,
+            MinResolution => Boost,
+            Sharpness | Desktop => Sharpen,
             _ => return true,
         };
         settings.iter().any(|c| c.field == parent && c.draft != 0)
@@ -203,6 +232,7 @@ impl Driver {
                 push(Algorithm, mode.value, 0, 2, 1);
             }
         }
+        self.read_quality(i, &mut push);
         controls
     }
 
@@ -257,11 +287,7 @@ impl Driver {
                 )
             };
             ensure!(code == 0, "应用 Chill 设置失败 ({code})");
-            type Notify = unsafe extern "C" fn(Handle, i32, i32, i32) -> i32;
-            let code = unsafe {
-                self.library.get::<Notify>(b"ADL2_User_Settings_Notify\0")?(self.context, i, 2, 1)
-            };
-            ensure!(code == 0, "Chill 已保存，通知驱动失败 ({code})");
+            self.notify_graphics(i, 2)?;
         }
         if changed(Cap) || changed(Target) {
             let on = latest
@@ -312,7 +338,7 @@ impl Driver {
             };
             ensure!(code == 0, "应用流体运动帧设置失败 ({code})");
         }
-        Ok(())
+        self.apply_quality(i, values)
     }
 }
 
