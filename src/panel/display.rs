@@ -1,3 +1,4 @@
+mod custom;
 use super::Panel;
 use crate::{
     adl::display::{Display, Mode},
@@ -10,6 +11,7 @@ use serde_json::{Value, json};
 
 #[derive(Default)]
 pub(super) struct DisplayPage {
+    custom: Option<custom::Editor>,
     settings: Vec<crate::adl::display::settings::Setting>,
     displays: Vec<Display>,
     display_index: usize,
@@ -53,6 +55,7 @@ impl Panel {
     fn read_modes(&mut self) {
         let page = &mut self.display;
         page.current = None;
+        page.custom = None;
         page.imported = None;
         page.modes.clear();
         page.settings.clear();
@@ -258,6 +261,8 @@ impl Panel {
     pub(super) fn finish_preview(&mut self, keep: bool) {
         if let Some(mut preview) = self.display.preview.take() {
             self.display.status = match preview.finish(keep) {
+                Ok(true) if preview.custom => "已保留自定义分辨率".into(),
+                Ok(false) if preview.custom => "已撤销自定义时序".into(),
                 Ok(true) => "已保留显示模式".into(),
                 Ok(false) => "已还原显示模式".into(),
                 Err(err) => err.to_string(),
@@ -286,10 +291,15 @@ impl Panel {
             .child(div().text_xl().child("显示器"));
         if let Some(preview) = &page.preview {
             section = section.child(format!(
-                "将在 {} 秒后还原显示模式",
+                "将在 {} 秒后{}",
                 TIMEOUT
                     .as_secs()
-                    .saturating_sub(preview.started.elapsed().as_secs())
+                    .saturating_sub(preview.started.elapsed().as_secs()),
+                if preview.custom {
+                    "撤销自定义时序"
+                } else {
+                    "还原显示模式"
+                }
             ));
             for (id, text, keep) in [("keep-mode", "保留", true), ("revert-mode", "还原", false)]
             {
@@ -301,6 +311,9 @@ impl Panel {
                 ));
             }
             return section;
+        }
+        if let Some(editor) = &page.custom {
+            return self.render_custom(editor, cx);
         }
         for (index, display) in page.displays.iter().enumerate() {
             section = section.child(
@@ -335,6 +348,18 @@ impl Panel {
             page.current,
             page.app == "Global",
         ) {
+            section = section.child(
+                div()
+                    .id("custom-editor")
+                    .cursor_pointer()
+                    .child("管理自定义分辨率…")
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        if let Err(err) = p.open_custom() {
+                            p.display.status = err.to_string();
+                        }
+                        cx.notify();
+                    })),
+            );
             let mut row = div().flex().gap_3().items_center().child(format!(
                 "{} × {} · {:.2} Hz",
                 mode.width, mode.height, mode.refresh

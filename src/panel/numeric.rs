@@ -8,6 +8,7 @@ pub(super) enum Field {
     Tuning(usize),
     Video(usize),
     Display(usize),
+    Custom(usize),
     Frame(usize),
 }
 
@@ -73,6 +74,7 @@ impl Panel {
                         c.draft = value;
                     }
                 }
+                Field::Custom(i) => self.custom_number(i, value),
                 Field::Display(i) => self.set_display_draft(i, value),
                 Field::Frame(i) => {
                     if let Some(c) = self.frames.get_mut(i) {
@@ -97,6 +99,7 @@ impl Panel {
             Field::Tuning(i) => ("tuning-number", i),
             Field::Video(i) => ("video-number", i),
             Field::Display(i) => ("display-number", i),
+            Field::Custom(i) => ("custom-number", i),
             Field::Frame(i) => ("frame-number", i),
         };
         let base = div()

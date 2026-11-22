@@ -144,7 +144,7 @@ impl Setting {
     }
 }
 impl Display {
-    fn id(&self) -> DisplayId {
+    pub(super) fn id(&self) -> DisplayId {
         DisplayId {
             logical: self.logical,
             physical: 0,
