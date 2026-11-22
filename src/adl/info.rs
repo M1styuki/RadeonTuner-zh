@@ -13,9 +13,50 @@ struct Memory {
     bitrate: i64,
 }
 
+fn vendor(id: i64) -> &'static str {
+    match id {
+        1 => "Samsung",
+        2 => "Infineon",
+        3 => "Elpida",
+        4 => "Etron",
+        5 => "Nanya",
+        6 => "Hynix",
+        7 => "Mosel",
+        8 => "Winbond",
+        9 => "Esmt",
+        15 => "Micron",
+        _ => "未知",
+    }
+}
+fn connector(id: i32) -> &'static str {
+    match id {
+        1 => "VGA",
+        2 => "DVI-D",
+        3 => "DVI-I",
+        4 => "NTSC",
+        5 => "JPN",
+        6 => "非 I2C JPN",
+        7 => "非 I2C NTSC",
+        8 => "专有",
+        10 => "HDMI A 型",
+        11 => "HDMI B 型",
+        12 => "S-Video",
+        13 => "复合视频",
+        14 => "RCA",
+        15 => "DisplayPort",
+        16 => "eDP",
+        17 => "无线显示",
+        18 => "USB Type-C",
+        _ => "未知",
+    }
+}
+
 impl Driver {
     pub fn information(&self, device: &Device) -> Vec<String> {
-        let mut lines = vec![device.name.clone(), device.profile_key.clone()];
+        let mut lines = vec![
+            format!("设备名称：{}", device.name),
+            format!("设备标识符：{}", device.profile_key),
+        ];
         macro_rules! read {
             ($ty:ty,$symbol:literal) => {{
                 let mut value: $ty = unsafe { std::mem::zeroed() };
@@ -48,9 +89,14 @@ impl Driver {
         }
         if let Some(v) = read!(Memory, "ADL2_Adapter_MemoryInfoX4_Get") {
             lines.push(format!(
-                "显存：{} MB {}",
+                "显存：{} MB {}{}",
                 v.bytes / 1024 / 1024,
-                string(&v.kind)
+                string(&v.kind),
+                if v.vendor > 0 {
+                    format!("（{}）", vendor(v.vendor))
+                } else {
+                    String::new()
+                }
             ));
             if v.bandwidth > 0 {
                 lines.push(format!("显存带宽：{} MB/s", v.bandwidth));
@@ -67,6 +113,28 @@ impl Driver {
                 }
             }
         }
+        if let Some(bus) = read!([i32; 6], "ADL2_Adapter_ChipSetInfo_Get") {
+            let kind = match bus[0] {
+                0 => "PCI".into(),
+                1 => "AGP".into(),
+                2..=11 => format!("PCIe {}.0", bus[0] - 1),
+                _ => "未知".into(),
+            };
+            if bus[3] > 0 {
+                lines.push(format!(
+                    "总线类型：{kind}（当前 ×{} / 最大 ×{}）",
+                    bus[3], bus[2]
+                ));
+            } else {
+                lines.push(format!("总线类型：{kind}"));
+            }
+        }
+        if let Some(on) = crate::integration::hags_enabled() {
+            lines.push(format!(
+                "GPU 硬件加速调度（HAGS）：{}",
+                if on { "已启用" } else { "已禁用" }
+            ));
+        }
         if let Some(v) = read!([i32; 2], "ADL2_SmartAccessMemory_Mode_Get") {
             lines.push(format!(
                 "可变基址寄存器（SAM）：{}",
@@ -74,11 +142,18 @@ impl Driver {
             ));
         }
         if let Ok(displays) = self.displays(device.index) {
+            if displays.is_empty() {
+                lines.push("所选 GPU 上没有已连接的显示器".into());
+            }
             for display in displays {
                 if let Ok(mode) = self.current_mode(&display) {
                     lines.push(format!(
-                        "{} · {} × {} · {:.2} Hz",
-                        display.name, mode.width, mode.height, mode.refresh
+                        "{}（{}） · {} × {} · {:.2} Hz",
+                        display.name,
+                        connector(display.connector),
+                        mode.width,
+                        mode.height,
+                        mode.refresh
                     ));
                 }
             }

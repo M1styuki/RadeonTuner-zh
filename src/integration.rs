@@ -136,6 +136,23 @@ impl Link {
 const DWM: &str = r"Software\Microsoft\Windows\Dwm";
 const OVERLAY: &str = "OverlayTestMode";
 
+pub fn hags_enabled() -> Option<bool> {
+    let mut mode = 0u32;
+    let mut bytes = size_of::<u32>() as u32;
+    let code = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            wide(r"SYSTEM\CurrentControlSet\Control\GraphicsDrivers").as_ptr(),
+            wide("HwSchMode").as_ptr(),
+            RRF_RT_REG_DWORD,
+            ptr::null_mut(),
+            (&mut mode as *mut u32).cast(),
+            &mut bytes,
+        )
+    };
+    (code == ERROR_SUCCESS).then_some(mode == 2)
+}
+
 pub fn mpo_disabled() -> bool {
     unsafe {
         RegGetValueW(

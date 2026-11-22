@@ -53,6 +53,7 @@ struct DdcInfo {
 }
 #[derive(Clone)]
 pub struct Display {
+    pub connector: i32,
     pub adapter: i32,
     pub logical: i32,
     pub name: String,
@@ -106,6 +107,7 @@ impl Driver {
             .into_iter()
             .filter(|d| d.flags & 3 == 3 && d.id.logical >= 0)
             .map(|d| Display {
+                connector: d.connector,
                 adapter,
                 logical: d.id.logical,
                 name: string(&d.name),

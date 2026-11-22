@@ -241,6 +241,36 @@ impl Render for Panel {
             3 => content = content.child(self.render_displays(cx)),
             4 => content = content.child(self.render_video(cx)),
             6 => {
+                let mut links = div().flex().flex_wrap().gap_3();
+                for (i, (label, url)) in [
+                    ("访问项目网站", "https://projects.arnoldvink.com"),
+                    ("打开捐赠页面", "https://donation.arnoldvink.com"),
+                    (
+                        "获取 FpsOverlayer",
+                        "https://github.com/dumbie/FpsOverlayer",
+                    ),
+                ]
+                .into_iter()
+                .enumerate()
+                {
+                    links = links.child(
+                        div()
+                            .id(("info-link", i))
+                            .px_2()
+                            .cursor_pointer()
+                            .child(label)
+                            .on_click(cx.listener(move |p, _, _, cx| {
+                                if let Err(err) = crate::integration::open(url) {
+                                    p.message = err.to_string();
+                                    cx.notify();
+                                }
+                            })),
+                    );
+                }
+                content = content.child(links).child(format!(
+                    "RadeonTuner · 原作者 Arnold Vink · Rust 版 {}",
+                    env!("CARGO_PKG_VERSION")
+                ));
                 for line in &self.info {
                     content = content.child(line.clone());
                 }
