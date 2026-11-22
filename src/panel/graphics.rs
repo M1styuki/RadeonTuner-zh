@@ -1,3 +1,4 @@
+pub(super) mod apps;
 use super::Panel;
 use crate::adl::graphics::Setting;
 use crate::profile_store;
@@ -31,7 +32,7 @@ impl Panel {
     pub(super) fn graphics_target(&self) -> Option<(String, String)> {
         Some((
             self.devices.get(self.selected)?.profile_key.clone(),
-            "Global".into(),
+            self.game_name(),
         ))
     }
 
@@ -138,6 +139,14 @@ impl Panel {
     }
 
     fn reset_graphics(&mut self) -> Result<()> {
+        if self.games.selected.is_some() {
+            self.confirm_graphics_reset = false;
+            crate::adl::graphics::apps::settings::defaults(&mut self.graphics, &mut self.frames);
+            if let Some(f) = &mut self.fsr_library {
+                f.select(String::new());
+            }
+            return self.save_game(true);
+        }
         use crate::adl::graphics::frames::Field::{DeepColor, Desktop};
         self.confirm_graphics_reset = false;
         let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
@@ -170,6 +179,9 @@ impl Panel {
 
     fn save_graphics(&mut self, reset: bool) -> Result<()> {
         crate::adl::graphics::frames::validate(&self.frames)?;
+        if self.games.selected.is_some() {
+            return self.save_game(reset);
+        }
         let (key, app) = self.graphics_target().context("未选择显卡")?;
         let row = self.graphics_record()?;
         if !key.is_empty() {
@@ -202,7 +214,11 @@ impl Panel {
     }
 
     pub(super) fn render_graphics(&self, cx: &mut Context<Self>) -> Div {
-        let mut section = div().flex().flex_col().gap_3();
+        let mut section = div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .child(self.game_controls(cx));
         if !self.graphics.is_empty() || self.fsr_library.is_some() || !self.frames.is_empty() {
             section = section.child(self.transfer_buttons(super::transfer::Kind::Graphics, cx));
         }
@@ -223,6 +239,7 @@ impl Panel {
                     .child("选择 DLL…")
                     .on_click(cx.listener(|p, _, _, cx| {
                         let device = p.devices[p.selected].index;
+                        let game = p.games.selected.clone();
                         let picker = cx.prompt_for_paths(gpui::PathPromptOptions {
                             files: true,
                             directories: false,
@@ -232,7 +249,9 @@ impl Panel {
                         cx.spawn(async move |view, cx| {
                             let selected = async { Ok::<_, anyhow::Error>(picker.await??) }.await;
                             let _ = view.update(cx, |p, cx| {
-                                if p.devices.get(p.selected).is_none_or(|d| d.index != device) {
+                                if p.games.selected != game
+                                    || p.devices.get(p.selected).is_none_or(|d| d.index != device)
+                                {
                                     return;
                                 }
                                 match selected {
@@ -372,7 +391,11 @@ impl Panel {
                     div()
                         .flex()
                         .gap_2()
-                        .child("恢复这张显卡的全局图形默认设置？")
+                        .child(if self.games.selected.is_some() {
+                            "恢复所选游戏的图形默认设置？"
+                        } else {
+                            "恢复这张显卡的全局图形默认设置？"
+                        })
                         .child(
                             div()
                                 .id("confirm-graphics-reset")
@@ -402,7 +425,11 @@ impl Panel {
                     div()
                         .id("graphics-reset")
                         .cursor_pointer()
-                        .child("重置全局图形设置")
+                        .child(if self.games.selected.is_some() {
+                            "重置游戏图形设置"
+                        } else {
+                            "重置全局图形设置"
+                        })
                         .on_click(cx.listener(|p, _, _, cx| {
                             p.confirm_graphics_reset = true;
                             cx.notify();
@@ -444,6 +471,7 @@ impl Panel {
         self.fsr_library = None;
         self.info.clear();
         self.graphics_status.clear();
+        self.refresh_games();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
             self.graphics = driver.graphics(device, self.skip_graphics_check);
             self.frames = driver.frame_controls(device, self.skip_graphics_check);

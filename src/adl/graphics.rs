@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod apps;
 pub mod frames;
 pub mod fsr;
 use super::{Device, Driver, Handle, ReadInt};
