@@ -207,6 +207,7 @@ impl Panel {
                 driver.apply(device.index, &controls)?;
             }
         }
+        crate::tray::settings_changed()?;
         self.read_controls();
         Ok(())
     }

@@ -1,4 +1,5 @@
 mod custom;
+mod eyefinity;
 use super::Panel;
 use crate::{
     adl::display::{Display, Mode},
@@ -12,6 +13,9 @@ use serde_json::{Value, json};
 #[derive(Default)]
 pub(super) struct DisplayPage {
     custom: Option<custom::Editor>,
+    eyefinity: Option<eyefinity::Editor>,
+    auto_eye: bool,
+    saved_eye: bool,
     settings: Vec<crate::adl::display::settings::Setting>,
     displays: Vec<Display>,
     display_index: usize,
@@ -56,6 +60,8 @@ impl Panel {
         let page = &mut self.display;
         page.current = None;
         page.custom = None;
+        page.eyefinity = None;
+        page.auto_eye = false;
         page.imported = None;
         page.modes.clear();
         page.settings.clear();
@@ -119,8 +125,10 @@ impl Panel {
                     .is_some_and(|app| app.eq_ignore_ascii_case(&page.app))
             }) {
                 profiles::display_draft(&mut page.settings, row, page.app != "Global")?;
+                page.auto_eye = profiles::automatic_eye(row);
             }
         }
+        page.saved_eye = page.auto_eye;
         page.saved = page.settings.iter().map(|s| s.draft).collect();
         Ok(())
     }
@@ -132,6 +140,9 @@ impl Panel {
         let mut settings = page.settings.clone();
         profiles::display_draft(&mut settings, row, page.app != "Global")?;
         page.settings = settings;
+        if row.get("EyefinityAutomatic.Current").is_some() {
+            page.auto_eye = profiles::automatic_eye(row);
+        }
         page.imported = Some(row.clone());
         Ok(())
     }
@@ -164,6 +175,9 @@ impl Panel {
             .filter(|s| page.app == "Global" || s.feature.per_app())
         {
             record[format!("{}.Current", s.feature.profile_name())] = Value::from(s.draft);
+        }
+        if page.app != "Global" {
+            record["EyefinityAutomatic.Current"] = json!(i32::from(page.auto_eye));
         }
         Ok(record)
     }
@@ -203,7 +217,7 @@ impl Panel {
         }) {
             driver.apply_display(display, &page.settings)?;
         }
-        Ok(())
+        crate::tray::settings_changed()
     }
     fn render_display_profiles(&self, cx: &mut Context<Self>) -> Div {
         let page = &self.display;
@@ -312,6 +326,9 @@ impl Panel {
             }
             return section;
         }
+        if let Some(editor) = &page.eyefinity {
+            return self.render_eyefinity(editor, cx);
+        }
         if let Some(editor) = &page.custom {
             return self.render_custom(editor, cx);
         }
@@ -340,6 +357,35 @@ impl Panel {
             );
         }
         section = section.child(self.render_display_profiles(cx));
+        if page.app == "Global" && !page.displays.is_empty() {
+            section = section.child(
+                div()
+                    .id("manage-eye")
+                    .cursor_pointer()
+                    .child("管理 Eyefinity 多屏拼接")
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        if let Err(e) = p.open_eyefinity() {
+                            p.display.status = e.to_string();
+                        }
+                        cx.notify();
+                    })),
+            );
+        } else if page.key.is_some() && page.app != "Global" {
+            section = section.child(
+                div()
+                    .id("auto-eye")
+                    .cursor_pointer()
+                    .child(if page.auto_eye {
+                        "自动 Eyefinity　已开启"
+                    } else {
+                        "自动 Eyefinity　已关闭"
+                    })
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        p.display.auto_eye = !p.display.auto_eye;
+                        cx.notify();
+                    })),
+            );
+        }
         if page.key.is_some() {
             section = section.child(self.transfer_buttons(super::transfer::Kind::Display, cx));
         }
@@ -483,6 +529,7 @@ impl Panel {
                     .cursor_pointer()
                     .child("载入显示默认值")
                     .on_click(cx.listener(|p, _, _, cx| {
+                        p.display.auto_eye = false;
                         for s in p
                             .display
                             .settings
@@ -495,7 +542,8 @@ impl Panel {
                     })),
             );
         }
-        if page.imported.is_some()
+        if page.auto_eye != page.saved_eye
+            || page.imported.is_some()
             || page
                 .settings
                 .iter()

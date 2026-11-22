@@ -166,7 +166,7 @@ pub fn run() -> Result<()> {
     }
     'host: loop {
         let mut timeout = INFINITE;
-        if child.is_none() && background.active() {
+        if background.active() {
             if std::time::Instant::now() >= next_check {
                 show_status(background.tick());
                 next_check = std::time::Instant::now() + std::time::Duration::from_secs(10);
@@ -203,6 +203,8 @@ pub fn run() -> Result<()> {
             continue;
         }
         if event == WAIT_OBJECT_0 + 1 {
+            show_status(background.reload());
+            next_check = std::time::Instant::now();
             let new_mono = settings.flag("ThemeIconMono", false)?;
             if new_mono != mono {
                 tray.set_icon(Some(icon(new_mono)?))?;

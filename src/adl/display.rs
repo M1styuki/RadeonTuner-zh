@@ -1,5 +1,6 @@
 use super::{Allocation, Driver, Handle, string};
 pub mod custom;
+pub mod eyefinity;
 pub mod settings;
 use anyhow::{Context, Result, ensure};
 use std::{ptr, slice};
@@ -91,6 +92,13 @@ impl Driver {
         Some(format!("{} {} {}", info.manufacturer, name, info.serial))
     }
     pub fn displays(&self, adapter: i32) -> Result<Vec<Display>> {
+        Ok(self
+            .display_connections(adapter)?
+            .into_iter()
+            .filter(|d| self.current_mode(d).is_ok())
+            .collect())
+    }
+    pub fn display_connections(&self, adapter: i32) -> Result<Vec<Display>> {
         let mut count = 0;
         let mut data = Allocation(ptr::null_mut());
         let code = unsafe {
@@ -113,7 +121,6 @@ impl Driver {
                 logical: d.id.logical,
                 name: string(&d.name),
             })
-            .filter(|d| self.current_mode(d).is_ok())
             .collect())
     }
     pub fn current_mode(&self, display: &Display) -> Result<Mode> {

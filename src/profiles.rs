@@ -83,6 +83,28 @@ pub fn display_profiles<'a>(rows: &'a [Value], key: &str) -> Vec<&'a Value> {
     profiles
 }
 
+pub fn automatic_eye(profile: &Value) -> bool {
+    let v = &profile["EyefinityAutomatic.Current"];
+    v.as_bool()
+        .unwrap_or_else(|| v.as_i64().is_some_and(|n| n != 0))
+}
+
+fn wanted_eyefinity(profiles: &[&Value], running: &HashSet<String>) -> Option<bool> {
+    let mut result = None;
+    for row in profiles.iter().filter(|r| automatic_eye(r)) {
+        if let Some(app) = row["Application"]
+            .as_str()
+            .filter(|s| !s.eq_ignore_ascii_case("Global"))
+        {
+            if running.contains(&app.to_lowercase()) {
+                return Some(true);
+            }
+            result = Some(false);
+        }
+    }
+    result
+}
+
 pub fn active_display<'a>(profiles: &[&'a Value], running: &HashSet<String>) -> Option<&'a Value> {
     profiles
         .iter()
@@ -230,12 +252,16 @@ impl Background {
         })
     }
     pub fn reload(&mut self) -> Result<()> {
-        self.applied.clear();
-        self.applied_display.clear();
-        self.display_rows.clear();
-        self.profiles.clear();
-        self.profiles = crate::profile_store::load(&self.path)?;
-        self.display_rows = crate::profile_store::load(&self.display_path)?;
+        let tuning = crate::profile_store::load(&self.path)?;
+        let displays = crate::profile_store::load(&self.display_path)?;
+        if tuning != self.profiles {
+            self.applied.clear();
+            self.profiles = tuning;
+        }
+        if displays != self.display_rows {
+            self.applied_display.clear();
+            self.display_rows = displays;
+        }
         Ok(())
     }
     pub fn active(&self) -> bool {
@@ -251,14 +277,19 @@ impl Background {
         let driver = self.driver.as_ref().context("无法打开 AMD 驱动")?;
         let running = process_names()?;
         let devices = driver.devices()?;
+        let mut eye_error = None;
         if !self.display_rows.is_empty() {
             let mut connected = HashSet::new();
             for device in &devices {
+                let mut eyefinity = None;
                 for display in driver.displays(device.index)? {
                     let Some(key) = driver.display_profile_key(&display) else {
                         continue;
                     };
                     let candidates = display_profiles(&self.display_rows, &key);
+                    if let Some(wanted) = wanted_eyefinity(&candidates, &running) {
+                        eyefinity = Some(eyefinity.unwrap_or(false) || wanted);
+                    }
                     let Some(profile) = active_display(&candidates, &running) else {
                         continue;
                     };
@@ -271,6 +302,11 @@ impl Background {
                     display_draft(&mut settings, profile, true)?;
                     driver.apply_display(&display, &settings)?;
                     self.applied_display.insert(target, profile.clone());
+                }
+                if let Some(wanted) = eyefinity {
+                    if let Err(e) = driver.set_eyefinity(device.index, wanted) {
+                        eye_error = Some(e);
+                    }
                 }
             }
             self.applied_display
@@ -298,6 +334,9 @@ impl Background {
             }
             self.applied.insert(index, profile.clone());
         }
+        if let Some(e) = eye_error {
+            return Err(e);
+        }
         Ok(())
     }
 }
@@ -307,6 +346,16 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    #[test]
+    fn automatic_eyefinity_tracks_only_enabled_application_profiles() {
+        let global = json!({"Application":"Global","EyefinityAutomatic.Current":1});
+        let game = json!({"Application":"Game.EXE","EyefinityAutomatic.Current":1});
+        let disabled = json!({"Application":"other.exe","EyefinityAutomatic.Current":0});
+        let running = HashSet::from(["game.exe".into()]);
+        assert_eq!(wanted_eyefinity(&[&global, &disabled], &running), None);
+        assert_eq!(wanted_eyefinity(&[&game], &HashSet::new()), Some(false));
+        assert_eq!(wanted_eyefinity(&[&global, &game], &running), Some(true));
+    }
     #[test]
     fn legacy_profile_order_and_global_fallback() {
         let profiles = [

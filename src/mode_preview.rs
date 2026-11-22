@@ -86,7 +86,7 @@ fn run() -> Result<bool> {
     let logical: i32 = args[1].parse()?;
     let driver = Driver::open()?;
     let display = driver
-        .displays(adapter)?
+        .display_connections(adapter)?
         .into_iter()
         .find(|d| d.logical == logical && d.name == args[2])
         .context("显示器连接已变化")?;
@@ -107,7 +107,7 @@ fn run() -> Result<bool> {
         let keep = await_confirmation();
         if !keep {
             let connected = driver
-                .displays(adapter)?
+                .display_connections(adapter)?
                 .into_iter()
                 .find(identity)
                 .context("原显示器已断开")?;
@@ -143,7 +143,7 @@ fn run() -> Result<bool> {
     if !keep {
         ensure!(
             driver
-                .displays(adapter)?
+                .display_connections(adapter)?
                 .iter()
                 .any(|d| d.logical == logical && d.name == display.name),
             "原显示器已断开"

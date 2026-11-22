@@ -10,6 +10,9 @@ mod settings;
 mod tray;
 
 fn main() {
+    // ADL reads this switch when configuring Eyefinity on large displays.
+    // Set it before creating the driver or starting any application threads.
+    unsafe { std::env::set_var("ADL_4KWORKAROUND_CANCEL", "TRUE") };
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--preview-mode")) {
         std::process::exit(mode_preview::worker());
     }
