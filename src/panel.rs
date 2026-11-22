@@ -15,11 +15,14 @@ mod display;
 mod graphics;
 mod multimedia;
 mod numeric;
+mod picker;
 mod theme;
 mod transfer;
 const PAGES: [&str; 7] = ["调校", "风扇", "图形", "显示器", "多媒体", "设置", "信息"];
 mod tuning;
 struct Panel {
+    picker: Option<picker::Picker>,
+    picker_generation: u64,
     pending_import: Option<transfer::Pending>,
     style: i64,
     palette: theme::Palette,
@@ -107,6 +110,9 @@ impl Render for Panel {
                 gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight
             ),
         );
+        if self.picker.is_some() {
+            return self.render_picker(cx);
+        }
         let mut content = div()
             .id(("content", self.page))
             .size_full()
@@ -538,6 +544,8 @@ pub fn run() -> Result<()> {
     let close_tray = settings.flag("CloseTray", true)?;
     let style = settings.integer("ThemeStyle", 0)?;
     let mut panel = Panel {
+        picker: None,
+        picker_generation: 0,
         pending_import: None,
         style,
         palette: theme::Palette::resolve(style, false),

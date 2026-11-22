@@ -4,7 +4,6 @@ use crate::adl::graphics::apps::{App, settings};
 pub(in crate::panel) struct Games {
     list: Vec<App>,
     pub(super) selected: Option<App>,
-    remove: bool,
 }
 impl Panel {
     pub(super) fn game_name(&self) -> String {
@@ -42,14 +41,13 @@ impl Panel {
         self.frames = controls;
         self.fsr_library = library;
         self.games.selected = Some(app);
-        self.games.remove = false;
         self.graphics_profile = json!({});
         self.confirm_graphics_reset = false;
         self.graphics_dirty = false;
         self.graphics_status.clear();
         self.read_graphics_profile()
     }
-    fn add_game(&mut self, file: String) -> Result<()> {
+    pub(in crate::panel) fn add_game(&mut self, file: String) -> Result<()> {
         let driver = self.driver.as_ref().context("驱动不可用")?;
         let apps = driver.game_apps()?;
         if let Some(existing) = apps
@@ -111,19 +109,32 @@ impl Panel {
         profile_store::save(&path, &key, &name, &self.graphics_record()?)?;
         self.select_written_game(&selected)
     }
-    fn remove_game(&mut self) -> Result<()> {
-        let app = self.games.selected.as_ref().context("未选择游戏")?;
+    pub(in crate::panel) fn game_names(&self) -> Vec<String> {
+        self.games.list.iter().map(|a| a.file.clone()).collect()
+    }
+    pub(in crate::panel) fn remove_games(&mut self, names: &[String]) -> Result<()> {
         let driver = self.driver.as_ref().context("驱动不可用")?;
-        driver.delete_game_app(app)?;
         let path = self.settings.profiles_path("GraphicsProfiles.json")?;
         let mut rows = profile_store::load(&path)?;
+        let mut errors = Vec::new();
+        let apps = driver.game_apps()?;
+        for name in names {
+            for app in apps.iter().filter(|a| a.file.eq_ignore_ascii_case(name)) {
+                if let Err(e) = driver.delete_game_app(app) {
+                    errors.push(format!("{name}：{e}"));
+                }
+            }
+        }
+        let remaining = driver.game_apps()?;
         rows.retain(|r| {
-            !r["Application"]
-                .as_str()
-                .is_some_and(|s| s.eq_ignore_ascii_case(&app.file))
+            !r["Application"].as_str().is_some_and(|s| {
+                names.iter().any(|n| n.eq_ignore_ascii_case(s))
+                    && !remaining.iter().any(|a| a.file.eq_ignore_ascii_case(s))
+            })
         });
         profile_store::write_json(&path, &json!(rows))?;
         self.read_device_details();
+        ensure!(errors.is_empty(), "{}", errors.join("；"));
         Ok(())
     }
     pub(super) fn game_controls(&self, cx: &mut Context<Self>) -> Div {
@@ -169,61 +180,7 @@ impl Panel {
                     })),
             );
         }
-        let device = self.devices[self.selected].index;
-        row = row.child(
-            div()
-                .id("game-add")
-                .cursor_pointer()
-                .px_2()
-                .child("添加应用…")
-                .on_click(cx.listener(move |_, _, _, cx| {
-                    Self::pick_profile_app(cx, move |p, result| {
-                        if p.devices.get(p.selected).is_some_and(|d| d.index == device) {
-                            if let Err(e) = result.and_then(|name| match name {
-                                Some(n) => p.add_game(n),
-                                None => Ok(()),
-                            }) {
-                                p.graphics_status = e.to_string();
-                            }
-                        }
-                    });
-                })),
-        );
-        if self.games.selected.is_some() {
-            row = row.child(
-                div()
-                    .id("game-delete")
-                    .cursor_pointer()
-                    .px_2()
-                    .child(if self.games.remove {
-                        "确认删除此游戏配置"
-                    } else {
-                        "删除游戏配置"
-                    })
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        if p.games.remove {
-                            if let Err(e) = p.remove_game() {
-                                p.graphics_status = e.to_string();
-                            }
-                        } else {
-                            p.games.remove = true;
-                        }
-                        cx.notify();
-                    })),
-            );
-            if self.games.remove {
-                row = row.child(
-                    div()
-                        .id("game-cancel-delete")
-                        .cursor_pointer()
-                        .child("取消")
-                        .on_click(cx.listener(|p, _, _, cx| {
-                            p.games.remove = false;
-                            cx.notify();
-                        })),
-                );
-            }
-        }
+        row = row.child(self.app_picker_buttons(crate::panel::picker::Target::Graphics, cx));
         row
     }
 }

@@ -1,7 +1,7 @@
 use super::Panel;
 use crate::{adl::overdrive::ECC, profile_store, profiles};
 use anyhow::{Context as _, Result, ensure};
-use gpui::{Context, Div, PathPromptOptions, div, prelude::*, rgb};
+use gpui::{Context, Div, div, prelude::*, rgb};
 use serde_json::{Value, json};
 
 pub(super) struct Editor {
@@ -212,41 +212,38 @@ impl Panel {
         Ok(())
     }
 
-    pub(super) fn pick_profile_app(
-        cx: &mut Context<Self>,
-        on_pick: impl FnOnce(&mut Panel, Result<Option<String>>) + 'static,
-    ) {
-        let pick = cx.prompt_for_paths(PathPromptOptions {
-            files: true,
-            directories: false,
-            multiple: false,
-            prompt: Some("选择应用程序".into()),
-        });
-        cx.spawn(async move |view, cx| {
-            let result: Result<Option<String>> = async {
-                let Some(paths) = pick.await?? else {
-                    return Ok(None);
-                };
-                let path = paths.first().context("未选择文件")?;
-                ensure!(
-                    path.extension()
-                        .is_some_and(|s| s.eq_ignore_ascii_case("exe")),
-                    "请选择 EXE 程序"
-                );
-                Ok(Some(
-                    path.file_name()
-                        .context("文件名无效")?
-                        .to_string_lossy()
-                        .into_owned(),
-                ))
-            }
-            .await;
-            let _ = view.update(cx, |panel, cx| {
-                on_pick(panel, result);
-                cx.notify();
-            });
-        })
-        .detach();
+    pub(super) fn add_tuning_app(&mut self, name: &str) -> Result<()> {
+        let device = self.devices.get(self.selected).context("未选择显卡")?;
+        let path = self.settings.profiles_path("TuningProfiles.json")?;
+        let rows = profile_store::load(&path)?;
+        let key = device.profile_key.clone();
+        if !rows
+            .iter()
+            .any(|r| profile_store::matches(r, &key, "Global"))
+        {
+            self.tuning.app = "Global".into();
+            self.read_controls();
+            profile_store::save(&path, &key, "Global", &self.tuning_record()?)?;
+        }
+        self.tuning.app = name.into();
+        self.read_controls();
+        if !rows.iter().any(|r| profile_store::matches(r, &key, name)) {
+            profile_store::save(&path, &key, name, &self.tuning_record()?)?;
+        }
+        crate::tray::settings_changed()
+    }
+    pub(super) fn tuning_app_names(&self) -> Vec<String> {
+        self.tuning.apps.clone()
+    }
+    pub(super) fn remove_tuning_apps(&mut self, names: &[String]) -> Result<()> {
+        let (key, _) = self.tuning_target().context("未选择显卡")?;
+        let path = self.settings.profiles_path("TuningProfiles.json")?;
+        let mut rows = profile_store::load(&path)?;
+        rows.retain(|r| !names.iter().any(|n| profile_store::matches(r, &key, n)));
+        profile_store::write_json(&path, &json!(rows))?;
+        self.tuning.app = "Global".into();
+        self.read_controls();
+        crate::tray::settings_changed()
     }
     pub(super) fn render_tuning_profiles(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_2();
@@ -275,31 +272,7 @@ impl Panel {
                     })),
             );
         }
-        choices = choices.child(
-            div()
-                .id("pick-tuning-app")
-                .cursor_pointer()
-                .child("选择应用…")
-                .on_click(cx.listener(|panel, _, _, cx| {
-                    let device = panel.devices[panel.selected].profile_key.clone();
-                    Self::pick_profile_app(cx, move |panel, result| {
-                        if panel
-                            .devices
-                            .get(panel.selected)
-                            .is_some_and(|d| d.profile_key == device)
-                        {
-                            match result {
-                                Ok(Some(name)) => {
-                                    panel.tuning.app = name;
-                                    panel.read_controls();
-                                }
-                                Ok(None) => {}
-                                Err(err) => panel.tuning_status = err.to_string(),
-                            }
-                        }
-                    });
-                })),
-        );
+        choices = choices.child(self.app_picker_buttons(super::picker::Target::Tuning, cx));
         section = section
             .child(choices)
             .child(self.transfer_buttons(super::transfer::Kind::Tuning, cx));

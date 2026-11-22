@@ -245,12 +245,55 @@ impl Panel {
         }
         crate::tray::settings_changed()
     }
+    pub(super) fn display_app_names(&self) -> Vec<String> {
+        self.display.apps.clone()
+    }
+    pub(super) fn add_display_app(&mut self, name: &str) -> Result<()> {
+        let (key, _) = self.display_target().context("未选择显示器")?;
+        let path = self.settings.profiles_path("DisplayProfiles.json")?;
+        let rows = profile_store::load(&path)?;
+        let profiles = profiles::display_profiles(&rows, &key);
+        if !profiles
+            .iter()
+            .any(|r| r["Application"].as_str() == Some("Global"))
+        {
+            self.display.app = "Global".into();
+            self.read_modes();
+            profile_store::save(&path, &key, "Global", &self.display_record()?)?;
+        }
+        self.display.app = name.into();
+        self.read_modes();
+        if !profiles.iter().any(|r| {
+            r["Application"]
+                .as_str()
+                .is_some_and(|n| n.eq_ignore_ascii_case(name))
+        }) {
+            profile_store::save(&path, &key, name, &self.display_record()?)?;
+        }
+        crate::tray::settings_changed()
+    }
+    pub(super) fn remove_display_apps(&mut self, names: &[String]) -> Result<()> {
+        let (key, _) = self.display_target().context("未选择显示器")?;
+        let path = self.settings.profiles_path("DisplayProfiles.json")?;
+        let mut rows = profile_store::load(&path)?;
+        let legacy = key.rsplit_once(' ').map(|(s, _)| s);
+        rows.retain(|r| {
+            !names.iter().any(|n| {
+                profile_store::matches(r, &key, n)
+                    || legacy.is_some_and(|k| profile_store::matches(r, k, n))
+            })
+        });
+        profile_store::write_json(&path, &json!(rows))?;
+        self.display.app = "Global".into();
+        self.read_modes();
+        crate::tray::settings_changed()
+    }
     fn render_display_profiles(&self, cx: &mut Context<Self>) -> Div {
         let page = &self.display;
         let mut row = div().flex().flex_wrap().gap_2();
-        let Some(key) = page.key.clone() else {
+        if page.key.is_none() {
             return row;
-        };
+        }
         for (i, app) in page.apps.iter().enumerate() {
             let name = app.clone();
             row = row.child(
@@ -275,27 +318,7 @@ impl Panel {
                     })),
             );
         }
-        row.child(
-            div()
-                .id("pick-display-app")
-                .cursor_pointer()
-                .child("选择应用…")
-                .on_click(cx.listener(move |_, _, _, cx| {
-                    let key = key.clone();
-                    Self::pick_profile_app(cx, move |p, result| {
-                        if p.display.key.as_ref() == Some(&key) {
-                            match result {
-                                Ok(Some(app)) => {
-                                    p.display.app = app;
-                                    p.read_modes();
-                                }
-                                Err(err) => p.display.status = err.to_string(),
-                                Ok(None) => {}
-                            }
-                        }
-                    });
-                })),
-        )
+        row.child(self.app_picker_buttons(super::picker::Target::Display, cx))
     }
 
     pub(super) fn finish_preview(&mut self, keep: bool) {

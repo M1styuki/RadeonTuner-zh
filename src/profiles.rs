@@ -17,6 +17,12 @@ use windows_sys::Win32::{
 };
 
 pub fn process_names() -> Result<HashSet<String>> {
+    Ok(process_list()?
+        .into_iter()
+        .map(|(_, s)| s.to_lowercase())
+        .collect())
+}
+pub fn process_list() -> Result<Vec<(u32, String)>> {
     unsafe {
         let handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         ensure!(handle != INVALID_HANDLE_VALUE, "无法读取正在运行的应用");
@@ -24,14 +30,17 @@ pub fn process_names() -> Result<HashSet<String>> {
         let mut entry: PROCESSENTRY32W = mem::zeroed();
         entry.dwSize = size_of::<PROCESSENTRY32W>() as u32;
         let mut ok = Process32FirstW(handle, &mut entry);
-        let mut names = HashSet::new();
+        let mut names = Vec::new();
         while ok != 0 {
             let length = entry
                 .szExeFile
                 .iter()
                 .position(|c| *c == 0)
                 .unwrap_or(entry.szExeFile.len());
-            names.insert(String::from_utf16_lossy(&entry.szExeFile[..length]).to_lowercase());
+            names.push((
+                entry.th32ProcessID,
+                String::from_utf16_lossy(&entry.szExeFile[..length]),
+            ));
             ok = Process32NextW(handle, &mut entry);
         }
         ensure!(GetLastError() == ERROR_NO_MORE_FILES, "未能读完应用列表");

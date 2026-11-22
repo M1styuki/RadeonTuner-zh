@@ -15,6 +15,7 @@ fn wide(value: &str) -> Vec<u16> {
 }
 
 pub mod cache;
+pub mod games;
 pub mod services;
 fn known_folder(id: &windows_sys::core::GUID) -> Result<PathBuf> {
     let mut value = ptr::null_mut();
