@@ -20,6 +20,7 @@ pub(super) struct DisplayPage {
     gamma: Gamma,
     saved_gamma: Gamma,
     gamma_supported: bool,
+    confirm_reset: bool,
     settings: Vec<crate::adl::display::settings::Setting>,
     displays: Vec<Display>,
     display_index: usize,
@@ -67,6 +68,7 @@ impl Panel {
         let page = &mut self.display;
         page.current = None;
         page.custom = None;
+        page.confirm_reset = false;
         page.eyefinity = None;
         page.auto_eye = false;
         page.gamma = Gamma::default();
@@ -245,6 +247,62 @@ impl Panel {
         }
         crate::tray::settings_changed()
     }
+    fn reset_display_profile(&mut self) -> Result<()> {
+        let page = &self.display;
+        let d = page
+            .displays
+            .get(page.display_index)
+            .context("未选择显示器")?;
+        let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
+        let mut settings = driver.display_settings(d);
+        for setting in settings
+            .iter_mut()
+            .filter(|s| page.app == "Global" || s.feature.per_app())
+        {
+            setting.draft = setting.default.clamp(setting.min, setting.max);
+        }
+        if let Some(key) = &page.key {
+            let path = self.settings.profiles_path("DisplayProfiles.json")?;
+            let mut rows = profile_store::load(&path)?;
+            let candidates = profiles::display_profiles(&rows, key);
+            let running = profiles::process_names()?;
+            let active = profiles::active_display(&candidates, &running)
+                .map(|r| {
+                    r["Application"]
+                        .as_str()
+                        .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
+                })
+                .unwrap_or(page.app == "Global");
+            if active {
+                driver.apply_display(d, &settings)?;
+            }
+            let legacy = key.rsplit_once(' ').map(|(s, _)| s);
+            rows.retain(|r| !profile_store::matches(r, key, &page.app));
+            // A serial-specific reset must supersede an inherited legacy row.
+            if rows
+                .iter()
+                .any(|r| legacy.is_some_and(|s| profile_store::matches(r, s, &page.app)))
+            {
+                let mut defaults =
+                    json!({"DeviceId":key,"Application":page.app,"EyefinityAutomatic.Current":0});
+                Gamma::default().record(&mut defaults);
+                for s in settings
+                    .iter()
+                    .filter(|s| page.app == "Global" || s.feature.per_app())
+                {
+                    defaults[format!("{}.Current", s.feature.profile_name())] =
+                        json!(s.default.clamp(s.min, s.max));
+                }
+                rows.push(defaults);
+            }
+            profile_store::write_json(&path, &json!(rows))?;
+            crate::tray::settings_changed()?;
+        } else {
+            driver.apply_display(d, &settings)?;
+        }
+        self.read_modes();
+        Ok(())
+    }
     pub(super) fn display_app_names(&self) -> Vec<String> {
         self.display.apps.clone()
     }
@@ -277,12 +335,22 @@ impl Panel {
         let path = self.settings.profiles_path("DisplayProfiles.json")?;
         let mut rows = profile_store::load(&path)?;
         let legacy = key.rsplit_once(' ').map(|(s, _)| s);
-        rows.retain(|r| {
-            !names.iter().any(|n| {
-                profile_store::matches(r, &key, n)
-                    || legacy.is_some_and(|k| profile_store::matches(r, k, n))
-            })
-        });
+        rows.retain(|r| !names.iter().any(|n| profile_store::matches(r, &key, n)));
+        if let Some(legacy) = legacy {
+            for row in rows
+                .iter_mut()
+                .filter(|r| names.iter().any(|n| profile_store::matches(r, legacy, n)))
+            {
+                let mut excluded = row["ExcludedDisplayIds"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                if !excluded.iter().any(|v| v.as_str() == Some(key.as_str())) {
+                    excluded.push(json!(key));
+                }
+                row["ExcludedDisplayIds"] = Value::Array(excluded);
+            }
+        }
         profile_store::write_json(&path, &json!(rows))?;
         self.display.app = "Global".into();
         self.read_modes();
@@ -622,26 +690,41 @@ impl Panel {
             }
             section = section.child(row);
         }
-        if !page.settings.is_empty() {
+        if !page.settings.is_empty() || page.gamma_supported {
             section = section.child(
                 div()
                     .id("display-defaults")
                     .cursor_pointer()
-                    .child("载入显示默认值")
+                    .child(if page.confirm_reset {
+                        "确认重置所选显示配置"
+                    } else {
+                        "重置显示设置"
+                    })
                     .on_click(cx.listener(|p, _, _, cx| {
-                        p.display.auto_eye = false;
-                        p.display.gamma = Gamma::default();
-                        for s in p
-                            .display
-                            .settings
-                            .iter_mut()
-                            .filter(|s| p.display.app == "Global" || s.feature.per_app())
-                        {
-                            s.draft = s.default.clamp(s.min, s.max);
+                        if p.display.confirm_reset {
+                            p.display.confirm_reset = false;
+                            p.display.status = p
+                                .reset_display_profile()
+                                .map(|()| "显示设置已重置".to_owned())
+                                .unwrap_or_else(|e| e.to_string());
+                        } else {
+                            p.display.confirm_reset = true;
                         }
                         cx.notify();
                     })),
             );
+            if page.confirm_reset {
+                section = section.child(
+                    div()
+                        .id("cancel-display-reset")
+                        .cursor_pointer()
+                        .child("取消")
+                        .on_click(cx.listener(|p, _, _, cx| {
+                            p.display.confirm_reset = false;
+                            cx.notify();
+                        })),
+                );
+            }
         }
         if page.gamma != page.saved_gamma
             || page.auto_eye != page.saved_eye

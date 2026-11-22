@@ -76,10 +76,13 @@ pub fn display_profiles<'a>(rows: &'a [Value], key: &str) -> Vec<&'a Value> {
         .filter(|row| row["DeviceId"].as_str() == Some(key))
         .collect();
     let exact = profiles.len();
-    for row in rows
-        .iter()
-        .filter(|row| legacy.is_some() && row["DeviceId"].as_str() == legacy)
-    {
+    for row in rows.iter().filter(|row| {
+        legacy.is_some()
+            && row["DeviceId"].as_str() == legacy
+            && !row["ExcludedDisplayIds"]
+                .as_array()
+                .is_some_and(|ids| ids.iter().any(|id| id.as_str() == Some(key)))
+    }) {
         if let Some(name) = row["Application"].as_str() {
             if !profiles[..exact].iter().any(|p| {
                 p["Application"]
@@ -297,6 +300,7 @@ impl Background {
             for device in &devices {
                 let mut eyefinity = None;
                 let mut gamma = None;
+                let mut gamma_valid = true;
                 for display in driver.displays(device.index)? {
                     let Some(key) = driver.display_profile_key(&display) else {
                         continue;
@@ -320,7 +324,10 @@ impl Background {
                                 gamma = Some((rank, g));
                             }
                         }
-                        Err(e) => display_error = Some(e),
+                        Err(e) => {
+                            display_error = Some(e);
+                            gamma_valid = false;
+                        }
                     }
                     let target = (device.index, display.logical, key);
                     connected.insert(target.clone());
@@ -336,7 +343,7 @@ impl Background {
                     if let Err(e) = driver.sync_gamma(device, g, &mut self.gamma_owned) {
                         display_error = Some(e);
                     }
-                } else if self.display_rows.is_empty() {
+                } else if gamma_valid {
                     if let Err(e) =
                         driver.sync_gamma(device, Gamma::default(), &mut self.gamma_owned)
                     {
@@ -386,6 +393,14 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    #[test]
+    fn deleting_an_inherited_game_from_one_monitor_preserves_its_twin() {
+        let rows = [
+            json!({"DeviceId":"7 Panel","Application":"game.exe","ExcludedDisplayIds":["7 Panel 100"]}),
+        ];
+        assert!(display_profiles(&rows, "7 Panel 100").is_empty());
+        assert_eq!(display_profiles(&rows, "7 Panel 101").len(), 1);
+    }
     #[test]
     fn automatic_eyefinity_tracks_only_enabled_application_profiles() {
         let global = json!({"Application":"Global","EyefinityAutomatic.Current":1});
