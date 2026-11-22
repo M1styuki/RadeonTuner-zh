@@ -1,3 +1,4 @@
+use crate::adl::display::gamma::Gamma;
 use crate::{
     adl::{Device, Driver, overdrive::Control},
     settings::Settings,
@@ -230,6 +231,7 @@ pub fn tuning_draft(controls: &mut [Control], profile: &Value) -> Result<()> {
 }
 
 pub struct Background {
+    gamma_owned: HashSet<String>,
     path: PathBuf,
     profiles: Vec<Value>,
     display_path: PathBuf,
@@ -246,6 +248,7 @@ impl Background {
             profiles: Vec::new(),
             display_path: settings.profiles_path("DisplayProfiles.json")?,
             display_rows: Vec::new(),
+            gamma_owned: HashSet::new(),
             applied_display: HashMap::new(),
             driver: None,
             applied: HashMap::new(),
@@ -265,7 +268,7 @@ impl Background {
         Ok(())
     }
     pub fn active(&self) -> bool {
-        !self.profiles.is_empty() || !self.display_rows.is_empty()
+        !self.profiles.is_empty() || !self.display_rows.is_empty() || !self.gamma_owned.is_empty()
     }
     pub fn tick(&mut self) -> Result<()> {
         if !self.active() {
@@ -277,11 +280,14 @@ impl Background {
         let driver = self.driver.as_ref().context("无法打开 AMD 驱动")?;
         let running = process_names()?;
         let devices = driver.devices()?;
-        let mut eye_error = None;
-        if !self.display_rows.is_empty() {
+        let mut display_error = None;
+        self.gamma_owned
+            .retain(|id| devices.iter().any(|d| &d.gamma_key == id));
+        if !self.display_rows.is_empty() || !self.gamma_owned.is_empty() {
             let mut connected = HashSet::new();
             for device in &devices {
                 let mut eyefinity = None;
+                let mut gamma = None;
                 for display in driver.displays(device.index)? {
                     let Some(key) = driver.display_profile_key(&display) else {
                         continue;
@@ -293,6 +299,20 @@ impl Background {
                     let Some(profile) = active_display(&candidates, &running) else {
                         continue;
                     };
+                    let per_app = profile["Application"]
+                        .as_str()
+                        .is_some_and(|a| !a.eq_ignore_ascii_case("Global"));
+                    match Gamma::read(profile) {
+                        Ok(g) => {
+                            // The LUT is shared across an adapter. Running application
+                            // profiles take priority, then enabled global profiles.
+                            let rank = (per_app, g.enabled);
+                            if gamma.as_ref().is_none_or(|(priority, _)| rank > *priority) {
+                                gamma = Some((rank, g));
+                            }
+                        }
+                        Err(e) => display_error = Some(e),
+                    }
                     let target = (device.index, display.logical, key);
                     connected.insert(target.clone());
                     if self.applied_display.get(&target) == Some(profile) {
@@ -303,9 +323,20 @@ impl Background {
                     driver.apply_display(&display, &settings)?;
                     self.applied_display.insert(target, profile.clone());
                 }
+                if let Some((_, g)) = gamma {
+                    if let Err(e) = driver.sync_gamma(device, g, &mut self.gamma_owned) {
+                        display_error = Some(e);
+                    }
+                } else if self.display_rows.is_empty() {
+                    if let Err(e) =
+                        driver.sync_gamma(device, Gamma::default(), &mut self.gamma_owned)
+                    {
+                        display_error = Some(e);
+                    }
+                }
                 if let Some(wanted) = eyefinity {
                     if let Err(e) = driver.set_eyefinity(device.index, wanted) {
-                        eye_error = Some(e);
+                        display_error = Some(e);
                     }
                 }
             }
@@ -334,7 +365,7 @@ impl Background {
             }
             self.applied.insert(index, profile.clone());
         }
-        if let Some(e) = eye_error {
+        if let Some(e) = display_error {
             return Err(e);
         }
         Ok(())

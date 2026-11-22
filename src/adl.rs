@@ -36,6 +36,7 @@ struct LogData {
 }
 
 pub struct Device {
+    pub gamma_key: String,
     pub registry_path: String,
     pub profile_key: String,
     pub index: i32,
@@ -123,8 +124,18 @@ impl Driver {
                 }
                 let id = string(&adapter.pnp);
                 let profile_key = id.split('\\').nth(1).unwrap_or_default().to_owned();
+                let udid = string(&adapter.udid);
+                let gamma_key = if id.is_empty() && udid.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        "{id}|UDID={udid}|PCI={}:{}:{}|ADAPTER={}",
+                        adapter.bus, adapter.device, adapter.function, adapter.index
+                    )
+                };
                 if id.is_empty() || ids.insert(id) {
                     devices.push(Device {
+                        gamma_key,
                         registry_path: string(&adapter.path_ext),
                         profile_key,
                         index: adapter.index,

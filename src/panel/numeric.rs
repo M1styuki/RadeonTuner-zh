@@ -9,6 +9,7 @@ pub(super) enum Field {
     Video(usize),
     Display(usize),
     Custom(usize),
+    Gamma(usize),
     Frame(usize),
 }
 
@@ -31,11 +32,14 @@ impl Edit {
         let mut text = self.text.clone();
         text.replace_range(a..b, insert);
         if text.len() > 12
-            || !text
-                .strip_prefix('-')
-                .unwrap_or(&text)
-                .bytes()
-                .all(|c| c.is_ascii_digit())
+            || !(matches!(self.field, Field::Gamma(_))
+                && text.bytes().all(|c| c.is_ascii_digit() || c == b'.')
+                && text.matches('.').count() <= 1)
+                && !text
+                    .strip_prefix('-')
+                    .unwrap_or(&text)
+                    .bytes()
+                    .all(|c| c.is_ascii_digit())
         {
             return;
         }
@@ -44,6 +48,13 @@ impl Edit {
         self.text = text;
     }
     fn value(&self) -> Option<i32> {
+        if matches!(self.field, Field::Gamma(_)) {
+            return self
+                .text
+                .parse::<f64>()
+                .ok()
+                .map(|v| (v * 100.0).round().clamp(self.min as f64, self.max as f64) as i32);
+        }
         let value = self
             .text
             .parse::<i64>()
@@ -74,6 +85,7 @@ impl Panel {
                         c.draft = value;
                     }
                 }
+                Field::Gamma(i) => self.set_gamma(i, value),
                 Field::Custom(i) => self.custom_number(i, value),
                 Field::Display(i) => self.set_display_draft(i, value),
                 Field::Frame(i) => {
@@ -100,6 +112,7 @@ impl Panel {
             Field::Video(i) => ("video-number", i),
             Field::Display(i) => ("display-number", i),
             Field::Custom(i) => ("custom-number", i),
+            Field::Gamma(i) => ("gamma-number", i),
             Field::Frame(i) => ("frame-number", i),
         };
         let base = div()
@@ -182,8 +195,13 @@ impl Panel {
                     cx.notify();
                 }));
         }
+        let formatted = if matches!(field, Field::Gamma(_)) {
+            format!("{:.2}", value as f64 / 100.)
+        } else {
+            value.to_string()
+        };
         base.cursor_text()
-            .child(format!("{value} {unit}").trim_end().to_owned())
+            .child(format!("{formatted} {unit}").trim_end().to_owned())
             .on_click(cx.listener(move |p, _, window, cx| {
                 let focus = cx.focus_handle();
                 let blur = cx.on_blur(&focus, window, move |p, _, cx| {
@@ -193,7 +211,7 @@ impl Panel {
                     }
                 });
                 focus.focus(window);
-                let text = value.to_string();
+                let text = formatted.clone();
                 let cursor = text.len();
                 p.edit = Some(Edit {
                     field,

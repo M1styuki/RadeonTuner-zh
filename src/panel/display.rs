@@ -1,6 +1,7 @@
 mod custom;
 mod eyefinity;
 use super::Panel;
+use crate::adl::display::gamma::Gamma;
 use crate::{
     adl::display::{Display, Mode},
     mode_preview::{Preview, TIMEOUT},
@@ -16,6 +17,9 @@ pub(super) struct DisplayPage {
     eyefinity: Option<eyefinity::Editor>,
     auto_eye: bool,
     saved_eye: bool,
+    gamma: Gamma,
+    saved_gamma: Gamma,
+    gamma_supported: bool,
     settings: Vec<crate::adl::display::settings::Setting>,
     displays: Vec<Display>,
     display_index: usize,
@@ -39,6 +43,9 @@ impl DisplayPage {
 }
 
 impl Panel {
+    pub(super) fn set_gamma(&mut self, i: usize, value: i32) {
+        self.display.gamma.values[i] = value;
+    }
     pub(super) fn set_display_draft(&mut self, i: usize, value: i32) {
         if let Some(s) = self.display.settings.get_mut(i) {
             s.draft = value;
@@ -62,12 +69,15 @@ impl Panel {
         page.custom = None;
         page.eyefinity = None;
         page.auto_eye = false;
+        page.gamma = Gamma::default();
+        page.gamma_supported = false;
         page.imported = None;
         page.modes.clear();
         page.settings.clear();
         if let (Some(driver), Some(display)) = (&self.driver, page.displays.get(page.display_index))
         {
             page.key = driver.display_profile_key(display);
+            page.gamma_supported = page.key.is_some() && driver.supports_gamma(display.adapter);
             page.settings = driver.display_settings(display);
             match driver
                 .current_mode(display)
@@ -126,9 +136,11 @@ impl Panel {
             }) {
                 profiles::display_draft(&mut page.settings, row, page.app != "Global")?;
                 page.auto_eye = profiles::automatic_eye(row);
+                page.gamma = Gamma::read(row)?;
             }
         }
         page.saved_eye = page.auto_eye;
+        page.saved_gamma = page.gamma;
         page.saved = page.settings.iter().map(|s| s.draft).collect();
         Ok(())
     }
@@ -139,6 +151,17 @@ impl Panel {
         let page = &mut self.display;
         let mut settings = page.settings.clone();
         profiles::display_draft(&mut settings, row, page.app != "Global")?;
+        if row
+            .as_object()
+            .is_some_and(|o| o.keys().any(|k| k.starts_with("Gamma")))
+        {
+            let mut values = json!({});
+            page.gamma.record(&mut values);
+            for (k, v) in row.as_object().context("配置格式无效")? {
+                values[k] = v.clone();
+            }
+            page.gamma = Gamma::read(&values)?;
+        }
         page.settings = settings;
         if row.get("EyefinityAutomatic.Current").is_some() {
             page.auto_eye = profiles::automatic_eye(row);
@@ -178,6 +201,9 @@ impl Panel {
         }
         if page.app != "Global" {
             record["EyefinityAutomatic.Current"] = json!(i32::from(page.auto_eye));
+        }
+        if page.gamma_supported {
+            page.gamma.record(&mut record);
         }
         Ok(record)
     }
@@ -474,6 +500,57 @@ impl Panel {
                 );
             }
         }
+        if page.gamma_supported {
+            section = section.child(
+                div()
+                    .id("gamma-control")
+                    .cursor_pointer()
+                    .child(if page.gamma.enabled {
+                        "伽马调整　已开启"
+                    } else {
+                        "伽马调整　已关闭"
+                    })
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        p.display.gamma.enabled = !p.display.gamma.enabled;
+                        cx.notify();
+                    })),
+            );
+            if page.gamma.enabled {
+                for (i, label) in ["基础伽马", "红色", "绿色", "蓝色"].into_iter().enumerate()
+                {
+                    let val = page.gamma.values[i];
+                    let mut row = div()
+                        .flex()
+                        .gap_3()
+                        .items_center()
+                        .child(div().flex_1().child(label))
+                        .child(self.number(
+                            super::numeric::Field::Gamma(i),
+                            val,
+                            50,
+                            300,
+                            1,
+                            "",
+                            cx,
+                        ));
+                    for (id, text, delta) in [("gamma-down", "−", -1), ("gamma-up", "+", 1)] {
+                        row = row.child(
+                            div()
+                                .id((id, i))
+                                .px_2()
+                                .cursor_pointer()
+                                .child(text)
+                                .on_click(cx.listener(move |p, _, _, cx| {
+                                    p.display.gamma.values[i] =
+                                        (p.display.gamma.values[i] + delta).clamp(50, 300);
+                                    cx.notify();
+                                })),
+                        );
+                    }
+                    section = section.child(row);
+                }
+            }
+        }
         for (i, setting) in page.settings.iter().enumerate() {
             if page.app != "Global" && !setting.feature.per_app() {
                 continue;
@@ -530,6 +607,7 @@ impl Panel {
                     .child("载入显示默认值")
                     .on_click(cx.listener(|p, _, _, cx| {
                         p.display.auto_eye = false;
+                        p.display.gamma = Gamma::default();
                         for s in p
                             .display
                             .settings
@@ -542,7 +620,8 @@ impl Panel {
                     })),
             );
         }
-        if page.auto_eye != page.saved_eye
+        if page.gamma != page.saved_gamma
+            || page.auto_eye != page.saved_eye
             || page.imported.is_some()
             || page
                 .settings

@@ -1,6 +1,7 @@
 use super::{Allocation, Driver, Handle, string};
 pub mod custom;
 pub mod eyefinity;
+pub mod gamma;
 pub mod settings;
 use anyhow::{Context, Result, ensure};
 use std::{ptr, slice};
