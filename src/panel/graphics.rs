@@ -213,6 +213,22 @@ impl Panel {
         result
     }
 
+    pub(super) fn change_frame(&mut self, index: usize, val: i32) {
+        use crate::adl::graphics::frames::Field::{High, Low};
+        let Some(control) = self.frames.get_mut(index) else {
+            return;
+        };
+        let field = control.field;
+        control.draft = val;
+        for c in &mut self.frames {
+            if (field == High && c.field == Low && (self.chill_linked || c.draft > val))
+                || (field == Low && c.field == High && c.draft < val)
+            {
+                c.draft = val.clamp(c.min, c.max);
+            }
+        }
+        self.graphics_dirty = true;
+    }
     pub(super) fn render_graphics(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div()
             .flex()
@@ -304,7 +320,34 @@ impl Panel {
                 section = section.child(fsr.path().display().to_string());
             }
         }
+        use crate::adl::graphics::frames::Field::{Chill, Low};
+        if self.frames.iter().any(|c| c.field == Chill && c.draft != 0) {
+            section = section.child(
+                div()
+                    .id("chill-link")
+                    .cursor_pointer()
+                    .child(if self.chill_linked {
+                        "Chill 最低与最高帧率　已联动"
+                    } else {
+                        "联动 Chill 最低与最高帧率"
+                    })
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        p.chill_linked = !p.chill_linked;
+                        cx.notify();
+                    })),
+            );
+        }
         for (i, control) in self.frames.iter().enumerate() {
+            if self.chill_linked && control.field == Low {
+                if control.field.enabled(&self.frames) {
+                    section = section.child(format!(
+                        "{}　{} FPS（联动）",
+                        control.field.label(),
+                        control.draft
+                    ));
+                }
+                continue;
+            }
             if !control.field.enabled(&self.frames)
                 || (control.field.experimental() && !self.experimental)
             {
@@ -342,8 +385,7 @@ impl Panel {
                     button
                         .cursor_pointer()
                         .on_click(cx.listener(move |p, _, _, cx| {
-                            p.frames[i].draft = next;
-                            p.graphics_dirty = true;
+                            p.change_frame(i, next);
                             cx.notify();
                         }))
                 } else {
@@ -461,6 +503,41 @@ impl Panel {
                         cx.notify();
                     })),
             );
+        }
+        if self.devices.get(self.selected).is_some() {
+            section = section.child(
+                div()
+                    .id("clear-shaders")
+                    .cursor_pointer()
+                    .child(if self.confirm_cache {
+                        "确认清除着色器缓存"
+                    } else {
+                        "清除着色器缓存"
+                    })
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        if p.confirm_cache {
+                            p.confirm_cache = false;
+                            p.graphics_status = crate::integration::cache::clear_shader_cache()
+                                .map(|()| "已清除着色器缓存".to_owned())
+                                .unwrap_or_else(|e| e.to_string());
+                        } else {
+                            p.confirm_cache = true;
+                        }
+                        cx.notify();
+                    })),
+            );
+            if self.confirm_cache {
+                section = section.child(
+                    div()
+                        .id("cancel-clear-shaders")
+                        .cursor_pointer()
+                        .child("取消")
+                        .on_click(cx.listener(|p, _, _, cx| {
+                            p.confirm_cache = false;
+                            cx.notify();
+                        })),
+                );
+            }
         }
         section.child(self.graphics_status.clone())
     }

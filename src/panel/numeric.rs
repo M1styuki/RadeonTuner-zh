@@ -88,12 +88,7 @@ impl Panel {
                 Field::Gamma(i) => self.set_gamma(i, value),
                 Field::Custom(i) => self.custom_number(i, value),
                 Field::Display(i) => self.set_display_draft(i, value),
-                Field::Frame(i) => {
-                    if let Some(c) = self.frames.get_mut(i) {
-                        c.draft = value;
-                        self.graphics_dirty = true;
-                    }
-                }
+                Field::Frame(i) => self.change_frame(i, value),
             }
         }
     }

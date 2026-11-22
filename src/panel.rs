@@ -24,6 +24,7 @@ struct Panel {
     style: i64,
     palette: theme::Palette,
     mpo: bool,
+    excludes_drivers: bool,
     admin: bool,
     edit: Option<numeric::Edit>,
     page: usize,
@@ -34,6 +35,8 @@ struct Panel {
     graphics_profile: serde_json::Value,
     graphics_dirty: bool,
     confirm_graphics_reset: bool,
+    confirm_cache: bool,
+    chill_linked: bool,
     frames: Vec<crate::adl::graphics::frames::Control>,
     fsr_activity: Vec<String>,
     fsr_library: Option<crate::adl::graphics::fsr::Library>,
@@ -337,6 +340,53 @@ impl Render for Panel {
                 } else {
                     "更改 MPO 需要管理员权限，重启电脑后生效"
                 });
+            let update = div()
+                .id("exclude-drivers")
+                .p_2()
+                .flex()
+                .justify_between()
+                .child("Windows 更新排除驱动程序")
+                .child(if self.excludes_drivers { "开" } else { "关" });
+            content = content.child(if self.admin {
+                update.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+                    match crate::integration::set_excludes_drivers(!p.excludes_drivers) {
+                        Ok(()) => {
+                            p.excludes_drivers = crate::integration::excludes_drivers();
+                            p.settings_message = "Windows 更新设置已保存".into();
+                        }
+                        Err(e) => p.settings_message = e.to_string(),
+                    }
+                    cx.notify();
+                }))
+            } else {
+                update.opacity(0.5)
+            });
+            let mut services = div().flex().gap_3().child("Radeon 服务");
+            for (id, label, on) in [
+                ("services-enable", "启用", true),
+                ("services-disable", "禁用", false),
+            ] {
+                let button = div().id(id).px_2().child(label);
+                services = services.child(if self.admin {
+                    button
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |p, _, _, cx| {
+                            p.settings_message = crate::integration::services::set_enabled(on)
+                                .map(|()| {
+                                    if on {
+                                        "已启用 Radeon 服务".to_owned()
+                                    } else {
+                                        "已禁用 Radeon 服务".to_owned()
+                                    }
+                                })
+                                .unwrap_or_else(|e| e.to_string());
+                            cx.notify();
+                        }))
+                } else {
+                    button.opacity(0.5)
+                });
+            }
+            content = content.child(services);
             for (key, label, on) in [
                 ("StartWindowVisible", "启动时打开面板", self.start_visible),
                 ("CloseTray", "关闭面板后驻留托盘", self.close_tray),
@@ -493,6 +543,7 @@ pub fn run() -> Result<()> {
         palette: theme::Palette::resolve(style, false),
         admin: unsafe { windows_sys::Win32::UI::Shell::IsUserAnAdmin() != 0 },
         mpo: crate::integration::mpo_disabled(),
+        excludes_drivers: crate::integration::excludes_drivers(),
         edit: None,
         page: usize::try_from(settings.integer("MenuIndex", 0)?)
             .ok()
@@ -516,6 +567,8 @@ pub fn run() -> Result<()> {
         graphics_profile: serde_json::json!({}),
         graphics_dirty: false,
         confirm_graphics_reset: false,
+        confirm_cache: false,
+        chill_linked: false,
         frames: Vec::new(),
         fsr_activity: Vec::new(),
         fsr_library: None,

@@ -14,6 +14,24 @@ fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(Some(0)).collect()
 }
 
+pub mod cache;
+pub mod services;
+fn known_folder(id: &windows_sys::core::GUID) -> Result<PathBuf> {
+    let mut value = ptr::null_mut();
+    let status = unsafe { SHGetKnownFolderPath(id, 0, ptr::null_mut(), &mut value) };
+    ensure!(status >= 0 && !value.is_null(), "无法获取 Windows 目录");
+    let path = unsafe {
+        let mut len = 0;
+        while *value.add(len) != 0 {
+            len += 1;
+        }
+        let path = std::ffi::OsString::from_wide(std::slice::from_raw_parts(value, len));
+        CoTaskMemFree(value.cast());
+        PathBuf::from(path)
+    };
+    Ok(path)
+}
+
 pub fn open(target: &str) -> Result<()> {
     let result = unsafe {
         ShellExecuteW(
@@ -42,18 +60,7 @@ impl Link {
         } else {
             FOLDERID_StartMenu
         };
-        let mut value = ptr::null_mut();
-        let status = unsafe { SHGetKnownFolderPath(&id, 0, ptr::null_mut(), &mut value) };
-        ensure!(status >= 0 && !value.is_null(), "无法获取 Windows 菜单目录");
-        let path = unsafe {
-            let mut len = 0;
-            while *value.add(len) != 0 {
-                len += 1;
-            }
-            let path = std::ffi::OsString::from_wide(std::slice::from_raw_parts(value, len));
-            CoTaskMemFree(value.cast());
-            PathBuf::from(path)
-        };
+        let path = known_folder(&id)?;
         Ok(path.join("RadeonTuner 简体中文版.url"))
     }
     pub fn enabled(self) -> bool {
@@ -188,6 +195,42 @@ pub fn set_mpo_disabled(disabled: bool) -> Result<()> {
     };
     if result != ERROR_SUCCESS && (disabled || result != ERROR_FILE_NOT_FOUND) {
         return Err(io::Error::from_raw_os_error(result as i32).into());
+    }
+    Ok(())
+}
+
+const UPDATE_POLICY: &str = r"Software\Policies\Microsoft\Windows\WindowsUpdate";
+const EXCLUDE_DRIVERS: &str = "ExcludeWUDriversInQualityUpdate";
+pub fn excludes_drivers() -> bool {
+    let mut value = 0u32;
+    let mut size = size_of::<u32>() as u32;
+    let rc = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            wide(UPDATE_POLICY).as_ptr(),
+            wide(EXCLUDE_DRIVERS).as_ptr(),
+            RRF_RT_REG_DWORD,
+            ptr::null_mut(),
+            (&mut value as *mut u32).cast(),
+            &mut size,
+        )
+    };
+    rc == ERROR_SUCCESS && value >= 1
+}
+pub fn set_excludes_drivers(exclude: bool) -> Result<()> {
+    let value = u32::from(exclude);
+    let rc = unsafe {
+        RegSetKeyValueW(
+            HKEY_LOCAL_MACHINE,
+            wide(UPDATE_POLICY).as_ptr(),
+            wide(EXCLUDE_DRIVERS).as_ptr(),
+            REG_DWORD,
+            (&value as *const u32).cast(),
+            size_of::<u32>() as u32,
+        )
+    };
+    if rc != ERROR_SUCCESS {
+        return Err(io::Error::from_raw_os_error(rc as i32).into());
     }
     Ok(())
 }
