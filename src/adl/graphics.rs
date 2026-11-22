@@ -7,6 +7,7 @@ use windows_sys::Win32::{Foundation::ERROR_SUCCESS, System::Registry::*};
 
 pub struct Choice {
     pub key: &'static str,
+    pub profile_key: &'static str,
     pub label: &'static str,
     pub entries: &'static [(&'static str, i32)],
     caps: Option<&'static [u8]>,
@@ -14,18 +15,20 @@ pub struct Choice {
 }
 const SWITCH: &[(&str, i32)] = &[("关", 0), ("开", 1)];
 macro_rules! choice {
-    ($key:literal,$label:literal,$entries:expr) => {
+    ($key:literal,$profile:literal,$label:literal,$entries:expr) => {
         Choice {
             key: $key,
+            profile_key: concat!($profile, ".Current"),
             label: $label,
             entries: $entries,
             caps: None,
             experimental: false,
         }
     };
-    ($key:literal,$label:literal,$entries:expr,$caps:literal,$experimental:literal) => {
+    ($key:literal,$profile:literal,$label:literal,$entries:expr,$caps:literal,$experimental:literal) => {
         Choice {
             key: $key,
+            profile_key: concat!($profile, ".Current"),
             label: $label,
             entries: $entries,
             caps: Some(concat!($caps, "\0").as_bytes()),
@@ -36,12 +39,14 @@ macro_rules! choice {
 const CHOICES: &[Choice] = &[
     choice!(
         "FsrOverride",
+        "FsrOverride",
         "FSR 超分辨率覆盖",
         SWITCH,
         "ADL2_DriverMLSRSupport_Get",
         false
     ),
     choice!(
+        "MlfiOverride",
         "MlfiOverride",
         "FSR 帧生成覆盖",
         SWITCH,
@@ -50,12 +55,14 @@ const CHOICES: &[Choice] = &[
     ),
     choice!(
         "MfgOverride",
+        "MfgOverride",
         "多帧生成覆盖",
         SWITCH,
         "ADL2_DriverMFGSupport_Get",
         true
     ),
     choice!(
+        "MldOverride",
         "MldOverride",
         "光线重建覆盖",
         SWITCH,
@@ -64,12 +71,14 @@ const CHOICES: &[Choice] = &[
     ),
     choice!(
         "NrcOverride",
+        "NrcOverride",
         "神经辐射缓存覆盖",
         SWITCH,
         "ADL2_DriverNRCSupport_Get",
         true
     ),
     choice!(
+        "MfgRatio",
         "MfgRatio",
         "多帧生成倍率",
         &[("使用应用程序设置", 0), ("2×", 2), ("3×", 3), ("4×", 4)],
@@ -78,6 +87,7 @@ const CHOICES: &[Choice] = &[
     ),
     choice!(
         "TurboSync",
+        "EnhancedSync",
         "增强同步",
         SWITCH,
         "ADL2_TurboSyncSupport_Get",
@@ -85,6 +95,7 @@ const CHOICES: &[Choice] = &[
     ),
     choice!(
         "VSyncControl",
+        "VerticalSync",
         "垂直同步",
         &[
             ("始终关闭", 0),
@@ -95,18 +106,26 @@ const CHOICES: &[Choice] = &[
     ),
     choice!(
         "AntiAlias",
+        "AntiAliasingOverride",
         "抗锯齿覆盖",
         &[("使用应用程序设置", 1), ("覆盖应用程序设置", 2)]
     ),
     choice!(
         "AntiAliasSamples",
+        "AntiAliasingLevel",
         "抗锯齿等级",
         &[("2×", 2), ("4×", 4), ("8×", 8)]
     ),
-    choice!("EQAA", "增强质量抗锯齿", SWITCH),
-    choice!("MLF", "形态抗锯齿", SWITCH),
+    choice!(
+        "EQAA",
+        "AntiAliasingEnhancedQuality",
+        "增强质量抗锯齿",
+        SWITCH
+    ),
+    choice!("MLF", "AntiAliasingMorphological", "形态抗锯齿", SWITCH),
     choice!(
         "AnisoDegree",
+        "AnisotropicOverride",
         "各向异性过滤",
         &[
             ("应用程序设置", 0),
@@ -118,12 +137,19 @@ const CHOICES: &[Choice] = &[
     ),
     choice!(
         "TFQ",
+        "TextureFilteringQuality",
         "纹理过滤质量",
         &[("高", 0), ("标准", 1), ("性能", 2)]
     ),
-    choice!("SurfaceFormatReplacements", "表面格式优化", SWITCH),
+    choice!(
+        "SurfaceFormatReplacements",
+        "SurfaceFormatOptimization",
+        "表面格式优化",
+        SWITCH
+    ),
     choice!(
         "Tessellation_OPTION",
+        "TessellationMode",
         "曲面细分模式",
         &[
             ("AMD 优化", 0),
@@ -133,6 +159,7 @@ const CHOICES: &[Choice] = &[
     ),
     choice!(
         "Tessellation",
+        "TessellationLevel",
         "曲面细分等级",
         &[
             ("关闭", 1),
@@ -145,7 +172,12 @@ const CHOICES: &[Choice] = &[
             ("64×", 64)
         ]
     ),
-    choice!("EnableTripleBuffering", "OpenGL 三重缓冲", SWITCH),
+    choice!(
+        "EnableTripleBuffering",
+        "OpenGLTripleBuffering",
+        "OpenGL 三重缓冲",
+        SWITCH
+    ),
 ];
 pub struct Setting {
     pub choice: &'static Choice,
@@ -281,5 +313,24 @@ impl Driver {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod profile_tests {
+    use super::*;
+
+    #[test]
+    fn driver_values_map_to_native_profile_indices() {
+        for (registry, key, driver_value, expected_index) in [
+            ("AntiAlias", "AntiAliasingOverride.Current", 2, 1),
+            ("MfgRatio", "MfgRatio.Current", 4, 3),
+            ("Tessellation", "TessellationLevel.Current", 64, 7),
+            ("AnisoDegree", "AnisotropicOverride.Current", 8, 3),
+        ] {
+            let choice = CHOICES.iter().find(|s| s.key == registry).unwrap();
+            assert_eq!(choice.profile_key, key);
+            assert_eq!(choice.entries[expected_index].1, driver_value);
+        }
     }
 }

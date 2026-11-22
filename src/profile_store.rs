@@ -72,6 +72,10 @@ mod transfer_tests {
         let dir = tempfile::tempdir().unwrap();
         for (filename, row) in [
             (
+                "original.radg",
+                json!({"DeviceId":"AMD","Application":"Global","MfgRatio.Current":2,"FsrOvrDLLPath.Current":" ","ChillMaxFps.Current":140}),
+            ),
+            (
                 "original.radt",
                 json!({"DeviceId":"AMD","Application":"游戏.exe","FanZeroRpm.Current":1,"PowerLimit.Current":-4}),
             ),

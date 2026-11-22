@@ -1,8 +1,130 @@
 use super::Panel;
+use crate::adl::graphics::Setting;
+use crate::profile_store;
+use anyhow::{Context as _, Result, ensure};
+use serde_json::{Value, json};
+
+fn setting_indices(settings: &[Setting], row: &Value) -> Result<Vec<usize>> {
+    settings
+        .iter()
+        .map(|s| {
+            let v = &row[s.choice.profile_key];
+            if v.is_null() {
+                return Ok(s.draft);
+            }
+            let index = v
+                .as_u64()
+                .or_else(|| v.as_bool().map(u64::from))
+                .and_then(|n| usize::try_from(n).ok())
+                .context("图形配置的选项无效")?;
+            ensure!(
+                index < s.choice.entries.len(),
+                "{} 超出可选范围",
+                s.choice.label
+            );
+            Ok(index)
+        })
+        .collect()
+}
 use gpui::{Context, Div, div, prelude::*};
 impl Panel {
+    pub(super) fn graphics_target(&self) -> Option<(String, String)> {
+        Some((
+            self.devices.get(self.selected)?.profile_key.clone(),
+            "Global".into(),
+        ))
+    }
+
+    pub(super) fn graphics_record(&self) -> Result<Value> {
+        let (device, app) = self.graphics_target().context("未选择显卡")?;
+        let mut row = self.graphics_profile.clone();
+        row["DeviceId"] = json!(device);
+        row["Application"] = json!(app);
+        for s in &self.graphics {
+            row[s.choice.profile_key] = json!(s.draft);
+        }
+        if let Some(fsr) = &self.fsr_library {
+            row["FsrOvrDLLPath.Current"] = json!(if fsr.draft.trim().is_empty() {
+                " "
+            } else {
+                &fsr.draft
+            });
+        }
+        Ok(row)
+    }
+
+    pub(super) fn stage_graphics(&mut self, row: &Value) -> Result<()> {
+        let indices = setting_indices(&self.graphics, row)?;
+        let path = &row["FsrOvrDLLPath.Current"];
+        ensure!(path.is_null() || path.is_string(), "FSR 库路径无效");
+        let fields = row.as_object().context("图形配置格式无效")?;
+        self.graphics_profile
+            .as_object_mut()
+            .context("图形配置格式无效")?
+            .extend(fields.clone());
+        for (setting, index) in self.graphics.iter_mut().zip(indices) {
+            setting.draft = index;
+        }
+        if let (Some(path), Some(fsr)) = (path.as_str(), &mut self.fsr_library) {
+            fsr.select(path.trim().to_string());
+        }
+        self.graphics_dirty = true;
+        Ok(())
+    }
+
+    fn read_graphics_profile(&mut self) -> Result<()> {
+        self.graphics_profile = json!({});
+        self.graphics_dirty = false;
+        let Some((key, app)) = self.graphics_target() else {
+            return Ok(());
+        };
+        if key.is_empty() || (self.graphics.is_empty() && self.fsr_library.is_none()) {
+            return Ok(());
+        }
+        let path = self.settings.profiles_path("GraphicsProfiles.json")?;
+        let rows = profile_store::load(&path)?;
+        if let Some(row) = rows
+            .iter()
+            .find(|row| profile_store::matches(row, &key, &app))
+        {
+            self.stage_graphics(row)?;
+            self.graphics_dirty = false;
+        } else {
+            profile_store::save(&path, &key, &app, &self.graphics_record()?)?;
+        }
+        Ok(())
+    }
+
+    fn save_graphics(&mut self) -> Result<()> {
+        let (key, app) = self.graphics_target().context("未选择显卡")?;
+        let row = self.graphics_record()?;
+        if !key.is_empty() {
+            profile_store::save(
+                &self.settings.profiles_path("GraphicsProfiles.json")?,
+                &key,
+                &app,
+                &row,
+            )?;
+        }
+        let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
+        let device = &self.devices[self.selected];
+        let result = driver
+            .apply_graphics(device, &self.graphics)
+            .and_then(|()| match &self.fsr_library {
+                Some(f) => driver.apply_fsr_override(device, f),
+                None => Ok(()),
+            });
+        self.graphics = driver.graphics(device, self.skip_graphics_check);
+        self.fsr_library = driver.fsr_library(device, self.skip_graphics_check);
+        self.read_graphics_profile()?;
+        result
+    }
+
     pub(super) fn render_graphics(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_3();
+        if !self.graphics.is_empty() || self.fsr_library.is_some() {
+            section = section.child(self.transfer_buttons(super::transfer::Kind::Graphics, cx));
+        }
         for game in &self.fsr_activity {
             section = section.child(game.clone());
         }
@@ -47,6 +169,7 @@ impl Panel {
                                                 })
                                             {
                                                 fsr.select(path.to_string_lossy().into_owned());
+                                                p.graphics_dirty = true;
                                             } else {
                                                 p.graphics_status =
                                                     "请选择 amdxcff 开头的 AMD FSR DLL 文件".into();
@@ -71,6 +194,7 @@ impl Panel {
                     .on_click(cx.listener(|p, _, _, cx| {
                         if let Some(fsr) = &mut p.fsr_library {
                             fsr.select(String::new());
+                            p.graphics_dirty = true;
                         }
                         cx.notify();
                     })),
@@ -101,6 +225,7 @@ impl Panel {
                         .cursor_pointer()
                         .on_click(cx.listener(move |p, _, _, cx| {
                             p.graphics[i].draft = index;
+                            p.graphics_dirty = true;
                             cx.notify();
                         }))
                 } else {
@@ -112,7 +237,8 @@ impl Panel {
         if self.graphics.is_empty() && self.fsr_library.is_none() {
             section = section.child("当前显卡没有可读取的图形设置");
         }
-        if self.graphics.iter().any(|s| s.draft != s.current)
+        if self.graphics_dirty
+            || self.graphics.iter().any(|s| s.draft != s.current)
             || self
                 .fsr_library
                 .as_ref()
@@ -124,22 +250,10 @@ impl Panel {
                     .cursor_pointer()
                     .child("应用图形设置")
                     .on_click(cx.listener(|p, _, _, cx| {
-                        if let (Some(driver), Some(device)) = (&p.driver, p.devices.get(p.selected))
-                        {
-                            let result =
-                                driver
-                                    .apply_graphics(device, &p.graphics)
-                                    .and_then(|()| match &p.fsr_library {
-                                        Some(f) => driver.apply_fsr_override(device, f),
-                                        None => Ok(()),
-                                    });
-                            p.fsr_library = driver.fsr_library(device, p.skip_graphics_check);
-                            p.graphics = driver.graphics(device, p.skip_graphics_check);
-                            p.graphics_status = match result {
-                                Ok(()) => "图形设置已应用".into(),
-                                Err(err) => err.to_string(),
-                            };
-                        }
+                        p.graphics_status = match p.save_graphics() {
+                            Ok(()) => "图形设置已应用".into(),
+                            Err(err) => err.to_string(),
+                        };
                         cx.notify();
                     })),
             );
@@ -156,6 +270,9 @@ impl Panel {
             self.graphics = driver.graphics(device, self.skip_graphics_check);
             self.fsr_library = driver.fsr_library(device, self.skip_graphics_check);
             self.info = driver.information(device);
+        }
+        if let Err(err) = self.read_graphics_profile() {
+            self.graphics_status = err.to_string();
         }
     }
 }

@@ -7,6 +7,7 @@ use serde_json::Value;
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Kind {
     Tuning,
+    Graphics,
     Display,
 }
 
@@ -20,24 +21,28 @@ impl Kind {
     fn extension(self) -> &'static str {
         match self {
             Self::Tuning => "radt",
+            Self::Graphics => "radg",
             Self::Display => "radd",
         }
     }
     fn target(self, p: &Panel) -> Option<(String, String)> {
         match self {
             Self::Tuning => p.tuning_target(),
+            Self::Graphics => p.graphics_target(),
             Self::Display => p.display_target(),
         }
     }
     fn record(self, p: &Panel) -> Result<Value> {
         match self {
             Self::Tuning => p.tuning_record(),
+            Self::Graphics => p.graphics_record(),
             Self::Display => p.display_record(),
         }
     }
     fn stage(self, p: &mut Panel, value: &Value) -> Result<()> {
         match self {
             Self::Tuning => p.stage_tuning(value),
+            Self::Graphics => p.stage_graphics(value),
             Self::Display => p.stage_display(value),
         }
     }
@@ -47,6 +52,7 @@ impl Panel {
         let status = result.map_or_else(|err| err.to_string(), |()| message.to_owned());
         match kind {
             Kind::Tuning => self.tuning_status = status,
+            Kind::Graphics => self.graphics_status = status,
             Kind::Display => self.display.set_status(status),
         }
     }
@@ -126,9 +132,12 @@ impl Panel {
                             }
                             match result {
                                 Ok(Some(record)) => {
-                                    let mismatch = record["DeviceId"].as_str().is_some_and(|key| {
-                                        !key.is_empty() && !target.0.is_empty() && key != target.0
-                                    });
+                                    let mismatch = kind != Kind::Graphics
+                                        && record["DeviceId"].as_str().is_some_and(|key| {
+                                            !key.is_empty()
+                                                && !target.0.is_empty()
+                                                && key != target.0
+                                        });
                                     if mismatch {
                                         p.pending_import = Some(Pending {
                                             kind,
@@ -171,6 +180,7 @@ impl Panel {
                         .unwrap_or_default();
                     let suggested = match kind {
                         Kind::Tuning => "RadeonTuner.radt",
+                        Kind::Graphics => "RadeonTuner.radg",
                         Kind::Display => "RadeonTuner.radd",
                     };
                     let pick = cx.prompt_for_new_path(&default_dir, Some(suggested));
