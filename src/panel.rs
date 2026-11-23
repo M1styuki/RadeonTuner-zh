@@ -115,7 +115,7 @@ impl Panel {
                         .top(px(15.))
                         .w(px(2.))
                         .h(px(28.))
-                        .smooth_background(palette.accent),
+                        .child(shape::surface_radius(palette.accent, 1.)),
                 )
             })
             .hover(move |row| row.bg(rgb(palette.hover)))

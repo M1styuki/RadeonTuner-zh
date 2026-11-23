@@ -21,33 +21,22 @@ fn draw(bounds: Bounds<Pixels>, radius: f32, mut path: PathBuilder) -> PathBuild
     .into_iter()
     .reduce(|a, b| if a < b { a } else { b })
     .unwrap_or_default();
-    // Both controls sit at the corner. Curvature reaches zero at each
-    // endpoint, matching the straight edge on both sides of the join.
+    // Each pair of cubics is mirrored at the diagonal. The first two
+    // control points lie on the incoming edge and the last two on the
+    // outgoing edge, so curvature reaches zero at both straight joins.
     path.move_to(point(left + radius, top));
-    path.line_to(point(right - radius, top));
-    path.cubic_bezier_to(
-        point(right, top + radius),
-        point(right, top),
-        point(right, top),
-    );
-    path.line_to(point(right, bottom - radius));
-    path.cubic_bezier_to(
-        point(right - radius, bottom),
-        point(right, bottom),
-        point(right, bottom),
-    );
-    path.line_to(point(left + radius, bottom));
-    path.cubic_bezier_to(
-        point(left, bottom - radius),
-        point(left, bottom),
-        point(left, bottom),
-    );
-    path.line_to(point(left, top + radius));
-    path.cubic_bezier_to(
-        point(left + radius, top),
-        point(left, top),
-        point(left, top),
-    );
+    let mut corner = |x, y, dx, dy| {
+        let at = |along: f32, across: f32| {
+            point(x + dx * along - dy * across, y + dy * along + dx * across)
+        };
+        path.line_to(at(0., 0.));
+        path.cubic_bezier_to(at(0.72, 0.28), at(0.22, 0.), at(0.44, 0.));
+        path.cubic_bezier_to(at(1., 1.), at(1., 0.56), at(1., 0.78));
+    };
+    corner(right - radius, top, radius, px(0.));
+    corner(right, bottom - radius, px(0.), radius);
+    corner(left + radius, bottom, -radius, px(0.));
+    corner(left, top + radius, px(0.), -radius);
     path.close();
     path
 }
@@ -72,11 +61,19 @@ pub(super) fn surface_radius(color: u32, radius: f32) -> impl gpui::IntoElement 
 }
 
 pub(super) fn outline(color: u32) -> impl gpui::IntoElement {
+    outline_radius(color, 8.)
+}
+
+pub(super) fn outline_radius(color: u32, radius: f32) -> impl gpui::IntoElement {
     canvas(
         |_, _, _| (),
         move |bounds, _, window, _| {
-            if let Ok(path) =
-                draw(bounds.dilate(px(-0.5)), 7.5, PathBuilder::stroke(px(1.))).build()
+            if let Ok(path) = draw(
+                bounds.dilate(px(-0.5)),
+                radius - 0.5,
+                PathBuilder::stroke(px(1.)),
+            )
+            .build()
             {
                 window.paint_path(path, rgb(color));
             }

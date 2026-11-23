@@ -97,6 +97,7 @@ impl Panel {
             .justify_center()
             .relative()
             .child(shape::surface_radius(palette.control, 6.))
+            .child(shape::outline_radius(palette.border, 6.))
             .when(!enabled, |button| button.opacity(0.45))
     }
 
@@ -262,7 +263,7 @@ impl Panel {
             wrapper = wrapper.child(
                 deferred(
                     anchored()
-                        .offset(point(px(0.), px(35.)))
+                        .offset(point(px(0.), px(3.)))
                         .snap_to_window()
                         .child(list),
                 )
