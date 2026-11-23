@@ -81,38 +81,14 @@ pub fn topmost(on: bool) -> Result<()> {
     Ok(())
 }
 fn icon(monochrome: bool) -> Result<Icon> {
-    const SIZE: u32 = 32;
-    let accent = if monochrome {
-        [230, 230, 230, 255]
+    let bytes: &[u8] = if monochrome {
+        include_bytes!("../RadeonTuner/AppIconMono.ico")
     } else {
-        [200, 92, 99, 255]
+        include_bytes!("../RadeonTuner/AppIconColor.ico")
     };
-    let mut rgba = Vec::with_capacity((SIZE * SIZE * 4) as usize);
-    for y in 0..SIZE {
-        for x in 0..SIZE {
-            let tracks = [(8, 10), (16, 21), (24, 13)];
-            let track = tracks
-                .into_iter()
-                .find(|(center, _)| x.abs_diff(*center) <= 1);
-            let pixel = if tracks
-                .into_iter()
-                .any(|(center, thumb)| x.abs_diff(center) <= 3 && y.abs_diff(thumb) <= 2)
-            {
-                accent
-            } else if track.is_some() && (6..=26).contains(&y) {
-                [173, 178, 185, 255]
-            } else if (2..=29).contains(&x)
-                && (2..=29).contains(&y)
-                && (x.abs_diff(16) + y.abs_diff(16)) <= 25
-            {
-                [32, 35, 40, 255]
-            } else {
-                [0, 0, 0, 0]
-            };
-            rgba.extend_from_slice(&pixel);
-        }
-    }
-    Ok(Icon::from_rgba(rgba, SIZE, SIZE)?)
+    let rgba = image::load_from_memory(bytes)?.to_rgba8();
+    let (width, height) = rgba.dimensions();
+    Ok(Icon::from_rgba(rgba.into_raw(), width, height)?)
 }
 
 fn open_panel(child: &mut Option<Child>) -> Result<()> {

@@ -4519,6 +4519,7 @@ version = "0.75.0"
 dependencies = [
  "anyhow",
  "gpui",
+ "image",
  "libc",
  "libloading 0.8.9",
  "self-replace",
