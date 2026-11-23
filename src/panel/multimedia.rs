@@ -67,6 +67,7 @@ impl Panel {
                                     }
                                 }
                             }
+                            crate::profiles::sort_app_names(&mut self.video_apps);
                             if !self
                                 .video_apps
                                 .iter()
@@ -229,13 +230,9 @@ impl Panel {
             .iter()
             .any(|control| control.feature == Feature::Upscale && control.draft != 0);
         for (i, control) in self.video.iter().enumerate() {
-            let mut row = div()
-                .flex()
-                .items_center()
-                .gap_3()
-                .child(div().flex_1().child(control.feature.label()));
+            let mut controls = div().flex().items_center().gap_2();
             if control.feature == Feature::Upscale {
-                row = row.child(
+                controls = controls.child(
                     self.toggle_switch(control.draft != 0)
                         .id("video-upscale")
                         .cursor_pointer()
@@ -247,7 +244,7 @@ impl Panel {
             } else {
                 let (min, max, _) = control.feature.limits();
                 if control.feature != Feature::Sharpness || upscale {
-                    row = row.child(self.number(
+                    controls = controls.child(self.number(
                         super::numeric::Field::Video(i),
                         control.draft,
                         min,
@@ -257,7 +254,7 @@ impl Panel {
                         cx,
                     ));
                 } else {
-                    row = row.child(control.draft.to_string());
+                    controls = controls.child(control.draft.to_string());
                 }
                 for (key, label, delta) in [("video-down", "−", -1), ("video-up", "+", 1)] {
                     let enabled = (control.feature != Feature::Sharpness || upscale)
@@ -267,7 +264,7 @@ impl Panel {
                         .px_3()
                         .smooth_background(self.palette.control)
                         .child(label);
-                    row = row.child(if enabled {
+                    controls = controls.child(if enabled {
                         button
                             .cursor_pointer()
                             .on_click(cx.listener(move |panel, _, _, cx| {
@@ -280,7 +277,7 @@ impl Panel {
                     });
                 }
             }
-            section = section.child(row);
+            section = section.child(self.setting_row(control.feature.label(), controls));
         }
         if self.confirm_video_reset {
             section = section.child(

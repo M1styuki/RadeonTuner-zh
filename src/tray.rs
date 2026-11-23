@@ -15,6 +15,7 @@ use windows_sys::Win32::{
         ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, GetLastError, WAIT_FAILED, WAIT_OBJECT_0,
         WAIT_TIMEOUT,
     },
+    System::LibraryLoader::{GetProcAddress, LOAD_LIBRARY_SEARCH_SYSTEM32, LoadLibraryExW},
     System::Threading::{CreateEventW, EVENT_MODIFY_STATE, INFINITE, OpenEventW, SetEvent},
     UI::WindowsAndMessaging::*,
 };
@@ -93,6 +94,28 @@ pub fn topmost(on: bool) -> Result<()> {
     }
     Ok(())
 }
+fn set_process_menu_theme(dark: bool) {
+    unsafe {
+        let module = LoadLibraryExW(
+            wide("uxtheme.dll").as_ptr(),
+            ptr::null_mut(),
+            LOAD_LIBRARY_SEARCH_SYSTEM32,
+        );
+        if module.is_null() {
+            return;
+        }
+        let Some(set) = GetProcAddress(module, 135 as *const u8) else {
+            return;
+        };
+        let set: unsafe extern "system" fn(i32) -> i32 = std::mem::transmute(set);
+        set(if dark { 2 } else { 0 });
+        if let Some(flush) = GetProcAddress(module, 136 as *const u8) {
+            let flush: unsafe extern "system" fn() = std::mem::transmute(flush);
+            flush();
+        }
+    }
+}
+
 fn icon(monochrome: bool) -> Result<Icon> {
     let bytes: &[u8] = if monochrome {
         include_bytes!("../RadeonTuner/AppIconMono.ico")
@@ -153,6 +176,8 @@ pub fn run() -> Result<()> {
     let installed = std::env::current_exe()?;
     let mut restarting = false;
     let settings = Settings::open()?;
+    let theme_style = settings.integer("ThemeStyle", 0)?;
+    set_process_menu_theme(theme_style != 2);
     let menu = Menu::new();
     let open = MenuItem::new("打开设置", true, None);
     let quit = MenuItem::new("退出", true, None);
@@ -252,6 +277,7 @@ pub fn run() -> Result<()> {
         if event == WAIT_OBJECT_0 + 1 {
             show_status(background.reload());
             next_check = std::time::Instant::now();
+            set_process_menu_theme(settings.integer("ThemeStyle", 0)? != 2);
             let new_mono = settings.flag("ThemeIconMono", false)?;
             if new_mono != mono {
                 tray.set_icon(Some(icon(new_mono)?))?;

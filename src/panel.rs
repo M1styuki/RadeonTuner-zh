@@ -116,6 +116,17 @@ impl Panel {
             )
     }
 
+    pub(super) fn setting_row<L: IntoElement>(&self, label: L, controls: Div) -> Div {
+        div()
+            .flex()
+            .w_full()
+            .min_h(px(44.))
+            .items_center()
+            .gap_3()
+            .child(div().w(px(300.)).flex_shrink_0().child(label))
+            .child(div().flex_1().flex().justify_end().child(controls))
+    }
+
     fn refresh(&mut self) {
         self.expire_preview();
         if self.page == 2 {

@@ -3,6 +3,7 @@ mod custom;
 mod eyefinity;
 use super::Panel;
 use crate::adl::display::gamma::Gamma;
+use crate::adl::display::settings::Feature;
 use crate::{
     adl::display::{Display, Mode},
     mode_preview::{Preview, TIMEOUT},
@@ -155,6 +156,7 @@ impl Panel {
             {
                 page.apps.push(page.app.clone());
             }
+            crate::profiles::sort_app_names(&mut page.apps);
             if let Some(row) = candidates.into_iter().find(|p| {
                 p["Application"]
                     .as_str()
@@ -578,14 +580,9 @@ impl Panel {
             );
         } else if page.key.is_some() && page.app != "Global" {
             section = section.child(
-                div()
+                self.setting_row("自动 Eyefinity", self.toggle_switch(page.auto_eye))
                     .id("auto-eye")
                     .cursor_pointer()
-                    .flex()
-                    .items_center()
-                    .gap_3()
-                    .child(div().flex_1().child("自动 Eyefinity"))
-                    .child(self.toggle_switch(page.auto_eye))
                     .on_click(cx.listener(|p, _, _, cx| {
                         p.display.auto_eye = !p.display.auto_eye;
                         cx.notify();
@@ -727,14 +724,9 @@ impl Panel {
         if page.gamma_supported {
             let gamma_on = page.gamma.enabled;
             section = section.child(
-                div()
+                self.setting_row("伽马调整", self.toggle_switch(gamma_on))
                     .id("gamma-control")
                     .cursor_pointer()
-                    .flex()
-                    .items_center()
-                    .gap_3()
-                    .child(div().flex_1().child("伽马调整"))
-                    .child(self.toggle_switch(gamma_on))
                     .on_click(cx.listener(|p, _, _, cx| {
                         p.display.gamma.enabled = !p.display.gamma.enabled;
                         cx.notify();
@@ -776,18 +768,38 @@ impl Panel {
                 }
             }
         }
+        let correction_on = page
+            .settings
+            .iter()
+            .find(|s| s.feature == Feature::Correction(0))
+            .is_some_and(|s| s.draft != 0);
+        let temperature_on = page
+            .settings
+            .iter()
+            .find(|s| s.feature == Feature::TemperatureSource)
+            .is_some_and(|s| s.draft != 0);
+        let vari_bright_on = page
+            .settings
+            .iter()
+            .find(|s| s.feature == Feature::VariBright)
+            .is_some_and(|s| s.draft != 0);
         for (i, setting) in page.settings.iter().enumerate() {
             if page.app != "Global" && !setting.feature.per_app() {
                 continue;
             }
-            let mut row = div()
-                .flex()
-                .gap_3()
-                .items_center()
-                .child(div().flex_1().child(setting.label));
+            if matches!(setting.feature, Feature::Correction(1..=3)) && !correction_on {
+                continue;
+            }
+            if setting.feature == Feature::Color(16) && !temperature_on {
+                continue;
+            }
+            if setting.feature == Feature::VariBrightLevel && !vari_bright_on {
+                continue;
+            }
+            let mut controls = div().flex().items_center().gap_2();
             if setting.min == 0 && setting.max == 1 && setting.step == 1 {
                 let on = setting.draft != 0;
-                row = row.child(
+                controls = controls.child(
                     self.toggle_switch(on)
                         .id(("display-toggle", i))
                         .cursor_pointer()
@@ -796,7 +808,7 @@ impl Panel {
                             cx.notify();
                         })),
                 );
-                section = section.child(row);
+                section = section.child(self.setting_row(setting.label, controls));
                 continue;
             }
             if matches!(
@@ -804,7 +816,7 @@ impl Panel {
                 crate::adl::display::settings::Feature::Color(_)
                     | crate::adl::display::settings::Feature::Correction(1..=3)
             ) {
-                row = row.child(self.number(
+                controls = controls.child(self.number(
                     super::numeric::Field::Display(i),
                     setting.draft,
                     setting.min,
@@ -814,7 +826,7 @@ impl Panel {
                     cx,
                 ));
             } else {
-                row = row.child(setting.text());
+                controls = controls.child(setting.text());
             }
             for (id, label, step) in [
                 ("display-down", "−", -setting.step),
@@ -825,7 +837,7 @@ impl Panel {
                     .saturating_add(step)
                     .clamp(setting.min, setting.max);
                 let button = div().id((id, i)).px_2().child(label);
-                row = row.child(if next != setting.draft {
+                controls = controls.child(if next != setting.draft {
                     button
                         .cursor_pointer()
                         .on_click(cx.listener(move |p, _, _, cx| {
@@ -836,7 +848,7 @@ impl Panel {
                     button.opacity(0.45)
                 });
             }
-            section = section.child(row);
+            section = section.child(self.setting_row(setting.label, controls));
         }
         if !page.settings.is_empty() || page.gamma_supported {
             section = section.child(

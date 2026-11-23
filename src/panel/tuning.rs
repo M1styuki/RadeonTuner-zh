@@ -129,6 +129,7 @@ impl Panel {
         {
             self.tuning.apps.push(self.tuning.app.clone());
         }
+        crate::profiles::sort_app_names(&mut self.tuning.apps);
         let Some(row) = rows
             .iter()
             .find(|row| profile_store::matches(row, &device.profile_key, &self.tuning.app))

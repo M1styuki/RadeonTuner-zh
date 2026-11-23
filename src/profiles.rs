@@ -16,6 +16,10 @@ use windows_sys::Win32::{
     System::Diagnostics::ToolHelp::*,
 };
 
+pub fn sort_app_names(apps: &mut [String]) {
+    apps.sort_by_cached_key(|name| (name != "Global", name.to_lowercase()));
+}
+
 pub fn process_names() -> Result<HashSet<String>> {
     Ok(process_list()?
         .into_iter()

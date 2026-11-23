@@ -314,14 +314,10 @@ impl Panel {
             {
                 continue;
             }
-            let mut row = div()
-                .flex()
-                .items_center()
-                .gap_2()
-                .child(div().flex_1().child(control.field.label()));
+            let mut controls = div().flex().items_center().gap_2();
             if control.min == 0 && control.max == 1 && control.step == 1 {
                 let on = control.draft != 0;
-                row = row.child(
+                controls = controls.child(
                     self.toggle_switch(on)
                         .id(("frame-toggle", i))
                         .cursor_pointer()
@@ -330,12 +326,12 @@ impl Panel {
                             cx.notify();
                         })),
                 );
-                section = section.child(row);
+                section = section.child(self.setting_row(control.field.label(), controls));
                 continue;
             }
             let entries = control.field.entries();
             if entries.is_empty() {
-                row = row.child(self.number(
+                controls = controls.child(self.number(
                     super::numeric::Field::Frame(i),
                     control.draft,
                     control.min,
@@ -345,7 +341,7 @@ impl Panel {
                     cx,
                 ));
             } else {
-                row = row.child(entries[control.draft as usize]);
+                controls = controls.child(entries[control.draft as usize]);
             }
             for (id, label, delta) in [
                 ("frame-prev", "−", -control.step),
@@ -356,7 +352,7 @@ impl Panel {
                     .saturating_add(delta)
                     .clamp(control.min, control.max);
                 let button = div().id((id, i)).px_2().child(label);
-                row = row.child(if next != control.draft {
+                controls = controls.child(if next != control.draft {
                     button
                         .cursor_pointer()
                         .on_click(cx.listener(move |p, _, _, cx| {
@@ -367,25 +363,21 @@ impl Panel {
                     button.opacity(0.45)
                 });
             }
-            section = section.child(row);
+            section = section.child(self.setting_row(control.field.label(), controls));
         }
         for (i, s) in self.graphics.iter().enumerate() {
             if s.choice.experimental && !self.experimental {
                 continue;
             }
-            let mut row = div()
-                .flex()
-                .gap_2()
-                .items_center()
-                .child(div().flex_1().child(s.choice.label))
-                .child(s.choice.entries[s.draft].0);
+            let mut controls = div().flex().items_center().gap_2();
+            controls = controls.child(s.choice.entries[s.draft].0);
             for (id, label, delta) in [("graphics-prev", "−", -1), ("graphics-next", "+", 1)] {
                 let next = s
                     .draft
                     .checked_add_signed(delta)
                     .filter(|i| *i < s.choice.entries.len());
                 let button = div().id((id, i)).px_3().child(label);
-                row = row.child(if let Some(index) = next {
+                controls = controls.child(if let Some(index) = next {
                     button
                         .cursor_pointer()
                         .on_click(cx.listener(move |p, _, _, cx| {
@@ -397,7 +389,7 @@ impl Panel {
                     button.opacity(0.45)
                 });
             }
-            section = section.child(row);
+            section = section.child(self.setting_row(s.choice.label, controls));
         }
         if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
             section = section.child("当前显卡没有可读取的图形设置");
