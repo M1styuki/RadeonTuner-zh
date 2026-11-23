@@ -188,6 +188,37 @@ impl Panel {
         self.read_video();
         crate::tray::settings_changed()
     }
+    pub(super) fn video_profiles(&self, cx: &mut Context<Self>) -> Div {
+        let mut row = div().flex().items_center().gap_2();
+        if self.video.is_empty() {
+            return row;
+        }
+        let apps = self.video_apps.clone();
+        let selected = apps.iter().position(|app| *app == self.video_app);
+        let labels = apps
+            .iter()
+            .map(|s| {
+                if s == "Global" {
+                    "全局".into()
+                } else {
+                    s.clone()
+                }
+            })
+            .collect();
+        row = row.child(self.select(
+            "video-app",
+            labels,
+            selected,
+            "选择应用程序",
+            160.,
+            move |p, i, _| {
+                p.video_app = apps[i].clone();
+                p.read_video();
+            },
+            cx,
+        ));
+        row.child(self.app_picker_buttons(super::picker::Target::Multimedia, cx))
+    }
     pub(super) fn render_video(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_2();
         if self.video.is_empty() {
@@ -197,54 +228,26 @@ impl Panel {
                 self.video_status.clone()
             });
         }
-        let mut apps = div().flex().flex_wrap().gap_2();
-        for (i, app) in self.video_apps.iter().cloned().enumerate() {
-            let selected = app == self.video_app;
-            let label = if app == "Global" {
-                "全局".into()
-            } else {
-                app.clone()
-            };
-            apps = apps.child(
-                div()
-                    .id(("video-app", i))
-                    .px_2()
-                    .cursor_pointer()
-                    .smooth_background(if selected {
-                        self.palette.selected
-                    } else {
-                        self.palette.control
-                    })
-                    .child(label)
-                    .on_click(cx.listener(move |panel, _, _, cx| {
-                        panel.video_app = app.clone();
-                        panel.read_video();
-                        cx.notify();
-                    })),
-            );
-        }
-        section = section
-            .child(apps.child(self.app_picker_buttons(super::picker::Target::Multimedia, cx)));
         let upscale = self
             .video
             .iter()
             .any(|control| control.feature == Feature::Upscale && control.draft != 0);
         for (i, control) in self.video.iter().enumerate() {
-            let mut controls = div().flex().items_center().gap_2();
+            let label = control.feature.label();
             if control.feature == Feature::Upscale {
-                controls = controls.child(
-                    self.toggle_switch(control.draft != 0)
-                        .id("video-upscale")
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |panel, _, _, cx| {
-                            panel.video[i].draft = i32::from(panel.video[i].draft == 0);
-                            cx.notify();
-                        })),
-                );
-            } else {
+                section = section.child(self.toggle_row(
+                    "video-upscale",
+                    label,
+                    control.draft != 0,
+                    true,
+                    move |p, _| p.video[i].draft = i32::from(p.video[i].draft == 0),
+                    cx,
+                ));
+            } else if control.feature != Feature::Sharpness || upscale {
                 let (min, max, _) = control.feature.limits();
-                if control.feature != Feature::Sharpness || upscale {
-                    controls = controls.child(self.number(
+                section = section.child(self.setting_row(
+                    label,
+                    self.number(
                         super::numeric::Field::Video(i),
                         control.draft,
                         min,
@@ -252,28 +255,9 @@ impl Panel {
                         1,
                         "",
                         cx,
-                    ));
-                } else {
-                    controls = controls.child(control.draft.to_string());
-                }
-                for (key, label, delta) in [("video-down", "−", -1), ("video-up", "+", 1)] {
-                    let enabled = (control.feature != Feature::Sharpness || upscale)
-                        && (min..=max).contains(&(control.draft.saturating_add(delta)));
-                    let button = self.button_style(enabled).id((key, i)).child(label);
-                    controls = controls.child(if enabled {
-                        button
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |panel, _, _, cx| {
-                                panel.video[i].draft =
-                                    panel.video[i].draft.saturating_add(delta).clamp(min, max);
-                                cx.notify();
-                            }))
-                    } else {
-                        button
-                    });
-                }
+                    ),
+                ));
             }
-            section = section.child(self.setting_row(control.feature.label(), controls));
         }
         if self.confirm_video_reset {
             section = section.child(

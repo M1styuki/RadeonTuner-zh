@@ -191,11 +191,7 @@ impl Panel {
         self.graphics_dirty = true;
     }
     pub(super) fn render_graphics(&self, cx: &mut Context<Self>) -> Div {
-        let mut section = div()
-            .flex()
-            .flex_col()
-            .gap_3()
-            .child(self.game_controls(cx));
+        let mut section = div().flex().flex_col().gap_0();
         if !self.graphics.is_empty() || self.fsr_library.is_some() || !self.frames.is_empty() {
             section = section.child(self.transfer_buttons(super::transfer::Kind::Graphics, cx));
         }
@@ -281,114 +277,165 @@ impl Panel {
                 section = section.child(fsr.path().display().to_string());
             }
         }
-        use crate::adl::graphics::frames::Field::{Chill, Low};
+        use crate::adl::graphics::frames::Field::Chill;
         if self.frames.iter().any(|c| c.field == Chill && c.draft != 0) {
-            section = section.child(
-                div()
-                    .id("chill-link")
-                    .cursor_pointer()
-                    .child(if self.chill_linked {
-                        "Chill 最低与最高帧率　已联动"
-                    } else {
-                        "联动 Chill 最低与最高帧率"
-                    })
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        p.chill_linked = !p.chill_linked;
-                        cx.notify();
-                    })),
-            );
+            section = section.child(self.toggle_row(
+                "chill-link",
+                "联动 Radeon Chill 帧率",
+                self.chill_linked,
+                true,
+                |p, _| p.chill_linked = !p.chill_linked,
+                cx,
+            ));
         }
-        for (i, control) in self.frames.iter().enumerate() {
-            if self.chill_linked && control.field == Low {
-                if control.field.enabled(&self.frames) {
-                    section = section.child(format!(
-                        "{}　{} FPS（联动）",
-                        control.field.label(),
-                        control.draft
-                    ));
-                }
-                continue;
-            }
-            if !control.field.enabled(&self.frames)
-                || (control.field.experimental() && !self.experimental)
+        use crate::adl::graphics::frames::Field;
+        let order = [
+            "DeLagEnabled.Current",
+            "MfgRatio.Current",
+            "FsrShowInformation.Current",
+            "FsrDisableMLSwapchain.Current",
+            "FsrOverride.Current",
+            "MlfiOverride.Current",
+            "MfgOverride.Current",
+            "MldOverride.Current",
+            "NrcOverride.Current",
+            "FrameGenEnabled.Current",
+            "FrameGenAlgorithm.Current",
+            "ChillEnabled.Current",
+            "ChillMinFps.Current",
+            "ChillMaxFps.Current",
+            "FrtcEnabled.Current",
+            "FrtcFrameRateTarget.Current",
+            "BoostMode.Current",
+            "BoostMinResolution.Current",
+            "RisEnabled.Current",
+            "RisDesktopEnabled.Current",
+            "RisSharpeningDegree.Current",
+            "VerticalSync.Current",
+            "EnhancedSync.Current",
+            "OpenGLTripleBuffering.Current",
+            "AntiAliasingOverride.Current",
+            "AntiAliasingMethod.Current",
+            "AntiAliasingLevel.Current",
+            "AntiAliasingEnhancedQuality.Current",
+            "AntiAliasingMorphological.Current",
+            "AnisotropicOverride.Current",
+            "TextureFilteringQuality.Current",
+            "SurfaceFormatOptimization.Current",
+            "OpenGL10BitPixelFormat.Current",
+            "TessellationMode.Current",
+            "TessellationLevel.Current",
+        ];
+        for key in order {
+            if let Some((i, control)) = self
+                .frames
+                .iter()
+                .enumerate()
+                .find(|(_, c)| c.field.name() == key)
             {
-                continue;
-            }
-            let mut controls = div().flex().items_center().gap_2();
-            if control.min == 0 && control.max == 1 && control.step == 1 {
-                let on = control.draft != 0;
-                controls = controls.child(
-                    self.toggle_switch(on)
-                        .id(("frame-toggle", i))
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            p.change_frame(i, i32::from(!on));
-                            cx.notify();
-                        })),
-                );
-                section = section.child(self.setting_row(control.field.label(), controls));
-                continue;
-            }
-            let entries = control.field.entries();
-            if entries.is_empty() {
-                controls = controls.child(self.number(
-                    super::numeric::Field::Frame(i),
-                    control.draft,
-                    control.min,
-                    control.max,
-                    control.step,
-                    control.field.unit(),
-                    cx,
-                ));
-            } else {
-                controls = controls.child(entries[control.draft as usize]);
-            }
-            for (id, label, delta) in [
-                ("frame-prev", "−", -control.step),
-                ("frame-next", "+", control.step),
-            ] {
-                let next = control
-                    .draft
-                    .saturating_add(delta)
-                    .clamp(control.min, control.max);
-                let button = self
-                    .button_style(next != control.draft)
-                    .id((id, i))
-                    .child(label);
-                controls = controls.child(if next != control.draft {
-                    button
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            p.change_frame(i, next);
-                            cx.notify();
-                        }))
+                if !control.field.enabled(&self.frames)
+                    || (control.field.experimental() && !self.experimental)
+                {
+                    continue;
+                }
+                let label = control.field.label();
+                let control_view = if control.min == 0 && control.max == 1 {
+                    section = section.child(self.toggle_row(
+                        ("frame-toggle", i),
+                        label,
+                        control.draft != 0,
+                        true,
+                        move |p, _| p.change_frame(i, i32::from(p.frames[i].draft == 0)),
+                        cx,
+                    ));
+                    continue;
+                } else if !control.field.entries().is_empty() {
+                    self.select(
+                        ("frame-choice", i),
+                        control
+                            .field
+                            .entries()
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect(),
+                        Some(control.draft as usize),
+                        label,
+                        160.,
+                        move |p, value, _| p.change_frame(i, value as i32),
+                        cx,
+                    )
+                } else if self.chill_linked && control.field == Field::Low {
+                    div().child(format!("{} FPS", control.draft)).opacity(0.5)
                 } else {
-                    button
-                });
+                    self.number(
+                        super::numeric::Field::Frame(i),
+                        control.draft,
+                        control.min,
+                        control.max,
+                        control.step,
+                        control.field.unit(),
+                        cx,
+                    )
+                };
+                section = section.child(self.setting_row(label, control_view));
             }
-            section = section.child(self.setting_row(control.field.label(), controls));
-        }
-        for (i, s) in self.graphics.iter().enumerate() {
-            if s.choice.experimental && !self.experimental {
-                continue;
+            if let Some((i, s)) = self
+                .graphics
+                .iter()
+                .enumerate()
+                .find(|(_, s)| s.choice.profile_key == key)
+            {
+                if s.choice.experimental && !self.experimental {
+                    continue;
+                }
+                let label = s.choice.label;
+                let set = move |p: &mut Panel, index, _: &mut Context<Panel>| {
+                    p.graphics[i].draft = index;
+                    p.graphics_dirty = true;
+                };
+                if matches!(
+                    key,
+                    "FsrOverride.Current"
+                        | "MlfiOverride.Current"
+                        | "MfgOverride.Current"
+                        | "MldOverride.Current"
+                        | "NrcOverride.Current"
+                        | "EnhancedSync.Current"
+                        | "OpenGLTripleBuffering.Current"
+                        | "AntiAliasingOverride.Current"
+                        | "AntiAliasingEnhancedQuality.Current"
+                        | "AntiAliasingMorphological.Current"
+                        | "SurfaceFormatOptimization.Current"
+                ) {
+                    section = section.child(self.toggle_row(
+                        ("graphics-toggle", i),
+                        label,
+                        s.draft != 0,
+                        true,
+                        move |p, cx| set(p, usize::from(p.graphics[i].draft == 0), cx),
+                        cx,
+                    ));
+                } else {
+                    section = section.child(
+                        self.setting_row(
+                            label,
+                            self.select(
+                                ("graphics-choice", i),
+                                s.choice
+                                    .entries
+                                    .iter()
+                                    .map(|(label, _)| label.to_string())
+                                    .collect(),
+                                Some(s.draft),
+                                label,
+                                160.,
+                                set,
+                                cx,
+                            ),
+                        ),
+                    );
+                }
             }
-            let labels: Vec<&str> = s.choice.entries.iter().map(|(label, _)| *label).collect();
-            let selected = s.draft;
-            let current = s.choice.entries[selected].0;
-            let controls = div().flex().items_center().gap_2().child(
-                self.button_style(true)
-                    .id(("graphics-choice", i))
-                    .cursor_pointer()
-                    .child(format!("{current} ▾"))
-                    .on_click(cx.listener(move |p, _, _, cx| {
-                        if let Some(index) = Panel::select_menu(&labels, selected) {
-                            p.graphics[i].draft = index;
-                            p.graphics_dirty = true;
-                            cx.notify();
-                        }
-                    })),
-            );
-            section = section.child(self.setting_row(s.choice.label, controls));
         }
         if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
             section = section.child("当前显卡没有可读取的图形设置");

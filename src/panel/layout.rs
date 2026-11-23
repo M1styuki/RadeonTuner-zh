@@ -1,85 +1,127 @@
-use super::{PAGES, Panel, shape::ContinuousCorners};
-use gpui::{Context, Div, div, prelude::*, rgb};
-use std::collections::HashSet;
+use super::{Panel, shape::ContinuousCorners};
+use gpui::{Context, Div, RenderImage, div, img, prelude::*, px, rgb};
+use std::{
+    collections::HashSet,
+    sync::{Arc, OnceLock},
+};
+
+pub(super) fn nav_icon(index: usize, light: bool) -> Div {
+    macro_rules! asset {
+        ($name:literal) => {
+            (
+                include_bytes!(concat!("../../RadeonTuner/", $name, ".png")) as &[u8],
+                include_bytes!(concat!("../../RadeonTuner/", $name, "Dark.png")) as &[u8],
+            )
+        };
+    }
+    const ASSETS: [(&[u8], &[u8]); 8] = [
+        asset!("Tuning"),
+        asset!("Fans"),
+        asset!("Graphics"),
+        asset!("Display"),
+        asset!("Multimedia"),
+        asset!("Settings"),
+        asset!("Information"),
+        asset!("Shutdown"),
+    ];
+    static ICONS: OnceLock<[[Option<Arc<RenderImage>>; 8]; 2]> = OnceLock::new();
+    let icons = ICONS.get_or_init(|| {
+        [false, true].map(|light| {
+            ASSETS.map(|(dark_image, light_image)| {
+                let mut rgba =
+                    image::load_from_memory(if light { light_image } else { dark_image })
+                        .ok()?
+                        .into_rgba8();
+                for pixel in rgba.pixels_mut() {
+                    pixel.0.swap(0, 2);
+                }
+                Some(Arc::new(RenderImage::new([image::Frame::new(rgba)])))
+            })
+        })
+    });
+    div().w(px(34.)).h(px(34.)).children(
+        icons[usize::from(light)][index]
+            .clone()
+            .map(|source| img(source).size_full()),
+    )
+}
 
 impl Panel {
     pub(super) fn render_header(&self, cx: &mut Context<Self>) -> Div {
-        let mut heading = div()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .gap_3()
-            .child(div().text_xl().child(PAGES[self.page]));
-        if self.page != 5 {
-            let mut locations = HashSet::new();
-            let visible: Vec<_> = self
-                .devices
-                .iter()
-                .enumerate()
-                .filter(|(_, device)| {
-                    device
-                        .pci_location
-                        .is_none_or(|location| locations.insert(location))
-                })
-                .collect();
-            let mut devices = div().flex().flex_wrap().items_center().gap_2();
-            for &(i, device) in &visible {
-                let selected = self.selected == i;
-                let name = if visible
-                    .iter()
-                    .filter(|(_, d)| d.name == device.name)
-                    .count()
-                    > 1
-                {
-                    format!("{} ({})", device.name, device.index)
-                } else {
-                    device.name.clone()
-                };
-                let chip = div()
-                    .id(("gpu", i))
-                    .px_3()
-                    .py_1()
-                    .smooth_background(if selected {
-                        self.palette.selected
-                    } else {
-                        self.palette.control
-                    })
-                    .child(name);
-                devices = devices.child(if selected {
-                    chip
-                } else {
-                    chip.cursor_pointer()
-                        .on_click(cx.listener(move |panel, _, _, cx| {
-                            panel.finish_preview(false);
-                            panel.selected = i;
-                            panel.reset_tuning_editor();
-                            panel.video_app = "Global".into();
-                            panel.read_device_details();
-                            panel.read_displays();
-                            panel.read_controls();
-                            panel.refresh();
-                            cx.notify();
-                        }))
-                });
-            }
-            heading = heading.child(devices);
-        }
         let mut header = div()
             .flex_shrink_0()
             .flex()
             .flex_col()
             .gap_2()
-            .p_4()
-            .child(heading);
-        if self.page != 5 && !self.metrics.is_empty() {
+            .px_4()
+            .pt_3()
+            .pb_2();
+        if self.page == 5 {
+            return header;
+        }
+        let mut locations = HashSet::new();
+        let devices = self
+            .devices
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| d.pci_location.is_none_or(|pci| locations.insert(pci)))
+            .collect::<Vec<_>>();
+        let selected = devices.iter().position(|(i, _)| *i == self.selected);
+        let indices = devices.iter().map(|(i, _)| *i).collect::<Vec<_>>();
+        let labels = devices
+            .iter()
+            .map(|(_, d)| {
+                if devices
+                    .iter()
+                    .filter(|(_, other)| other.name == d.name)
+                    .count()
+                    > 1
+                {
+                    format!("{} ({})", d.name, d.index)
+                } else {
+                    d.name.clone()
+                }
+            })
+            .collect();
+        let mut toolbar = div()
+            .flex()
+            .items_center()
+            .flex_wrap()
+            .gap_2()
+            .child(self.select(
+                "select-gpu",
+                labels,
+                selected,
+                "选择显卡",
+                238.,
+                move |p, i, _| {
+                    p.finish_preview(false);
+                    p.selected = indices[i];
+                    p.reset_tuning_editor();
+                    p.video_app = "Global".into();
+                    p.read_device_details();
+                    p.read_displays();
+                    p.read_controls();
+                    p.refresh();
+                },
+                cx,
+            ));
+        toolbar = match self.page {
+            0 | 1 => toolbar.child(self.tuning_profiles(cx)),
+            2 => toolbar.child(self.game_controls(cx)),
+            3 => toolbar.child(self.display_header(cx)),
+            4 => toolbar.child(self.video_profiles(cx)),
+            _ => toolbar,
+        };
+        header = header.child(toolbar);
+        if !self.metrics.is_empty() {
             let mut stats = div()
                 .flex()
                 .flex_wrap()
-                .gap_x_3()
+                .gap_x_4()
                 .gap_y_1()
                 .px_3()
                 .py_2()
-                .text_sm()
                 .smooth_background(self.palette.sidebar);
             for item in &self.metrics {
                 if let Some(value) = item.value {
@@ -92,6 +134,6 @@ impl Panel {
             }
             header = header.child(stats);
         }
-        header.text_color(rgb(self.palette.text))
+        header
     }
 }

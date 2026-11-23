@@ -1,6 +1,5 @@
 use super::*;
 use crate::adl::graphics::apps::{App, settings};
-use crate::panel::shape::ContinuousCorners;
 #[derive(Default)]
 pub(in crate::panel) struct Games {
     list: Vec<App>,
@@ -152,49 +151,41 @@ impl Panel {
         Ok(())
     }
     pub(super) fn game_controls(&self, cx: &mut Context<Self>) -> Div {
-        let mut row = div().flex().flex_wrap().gap_2();
+        let mut row = div().flex().items_center().gap_2();
         if self.devices.get(self.selected).is_none() {
             return row;
         }
-        row = row.child(
-            div()
-                .id("game-global")
-                .cursor_pointer()
-                .px_2()
-                .child("全局")
-                .on_click(cx.listener(|p, _, _, cx| {
-                    p.read_device_details();
-                    cx.notify();
-                })),
-        );
-        for (i, app) in self.games.list.iter().enumerate() {
-            let app = app.clone();
-            let label = if app.path == r"*\*" {
-                app.file.clone()
+        let apps = self.games.list.clone();
+        let selected = 1 + self
+            .games
+            .selected
+            .as_ref()
+            .and_then(|app| apps.iter().position(|a| a == app))
+            .map(|i| i as isize)
+            .unwrap_or(-1);
+        let mut labels = vec!["全局".to_owned()];
+        labels.extend(apps.iter().map(|a| {
+            if a.path == r"*\*" {
+                a.file.clone()
             } else {
-                format!("{} ({})", app.file, app.path)
-            };
-            let selected = self.games.selected.as_ref() == Some(&app);
-            row = row.child(
-                div()
-                    .id(("game-item", i))
-                    .cursor_pointer()
-                    .px_2()
-                    .smooth_background(if selected {
-                        self.palette.selected
-                    } else {
-                        self.palette.control
-                    })
-                    .child(label)
-                    .on_click(cx.listener(move |p, _, _, cx| {
-                        if let Err(e) = p.load_game(app.clone()) {
-                            p.graphics_status = e.to_string();
-                        }
-                        cx.notify();
-                    })),
-            );
-        }
-        row = row.child(self.app_picker_buttons(crate::panel::picker::Target::Graphics, cx));
-        row
+                format!("{} ({})", a.file, a.path)
+            }
+        }));
+        row = row.child(self.select(
+            "game-app",
+            labels,
+            Some(selected as usize),
+            "选择应用程序",
+            160.,
+            move |p, i, _| {
+                if i == 0 {
+                    p.read_device_details();
+                } else if let Err(e) = p.load_game(apps[i - 1].clone()) {
+                    p.graphics_status = e.to_string();
+                }
+            },
+            cx,
+        ));
+        row.child(self.app_picker_buttons(crate::panel::picker::Target::Graphics, cx))
     }
 }

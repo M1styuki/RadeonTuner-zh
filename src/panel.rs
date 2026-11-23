@@ -11,6 +11,7 @@ use gpui::{
 use std::time::Duration;
 
 pub const TITLE: &str = "RadeonTuner · Rust";
+mod controls;
 mod curve;
 mod display;
 mod graphics;
@@ -18,14 +19,16 @@ mod layout;
 mod multimedia;
 mod numeric;
 mod picker;
+mod settings_page;
 mod shape;
 mod theme;
 mod transfer;
 mod updates;
-const PAGES: [&str; 7] = ["调校", "风扇", "图形", "显示器", "多媒体", "设置", "信息"];
+const PAGES: [&str; 7] = ["调校", "风扇", "显卡", "显示", "多媒体", "设置", "信息"];
 mod tuning;
 struct Panel {
     picker: Option<picker::Picker>,
+    dropdown: Option<controls::Dropdown>,
     updates: updates::Updates,
     start_check_update: bool,
     picker_generation: u64,
@@ -93,94 +96,32 @@ impl Panel {
             }
         }
     }
-    pub(super) fn toggle_switch(&self, on: bool) -> Div {
+    fn nav_tile(&self, i: usize, label: &str, selected: bool) -> Div {
         let palette = self.palette;
         div()
             .relative()
-            .w(px(44.))
-            .h(px(32.))
             .flex_shrink_0()
-            .smooth_background(if on {
-                palette.selected
-            } else {
-                palette.control
-            })
-            .child(
-                div()
-                    .absolute()
-                    .top(px(4.))
-                    .left(px(if on { 24. } else { 4. }))
-                    .w(px(16.))
-                    .h(px(24.))
-                    .smooth_background(palette.text),
-            )
-    }
-
-    pub(super) fn button_style(&self, enabled: bool) -> Div {
-        div()
-            .h(px(32.))
-            .min_w(px(72.))
-            .px_3()
             .flex()
+            .flex_col()
             .items_center()
             .justify_center()
-            .text_sm()
-            .smooth_background(if enabled {
-                self.palette.control
-            } else {
-                self.palette.sidebar
+            .h(px(58.))
+            .gap_1()
+            .when(selected, |row| {
+                row.smooth_background(palette.sidebar).child(
+                    div()
+                        .absolute()
+                        .left_0()
+                        .top(px(15.))
+                        .w(px(2.))
+                        .h(px(28.))
+                        .smooth_background(palette.accent),
+                )
             })
-            .when(!enabled, |button| button.opacity(0.45))
+            .hover(move |row| row.bg(rgb(palette.hover)))
+            .child(layout::nav_icon(i, palette.light))
+            .child(label.to_string())
     }
-
-    pub(super) fn select_menu(labels: &[&str], selected: usize) -> Option<usize> {
-        use windows_sys::Win32::{
-            Foundation::POINT,
-            UI::WindowsAndMessaging::{
-                AppendMenuW, CreatePopupMenu, DestroyMenu, GetCursorPos, GetForegroundWindow,
-                MF_CHECKED, MF_STRING, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_TOPALIGN,
-                TrackPopupMenuEx,
-            },
-        };
-        unsafe {
-            let menu = CreatePopupMenu();
-            if menu.is_null() {
-                return None;
-            }
-            for (i, label) in labels.iter().enumerate() {
-                let text: Vec<u16> = label.encode_utf16().chain(Some(0)).collect();
-                let mut flags = MF_STRING;
-                if i == selected {
-                    flags |= MF_CHECKED;
-                }
-                AppendMenuW(menu, flags, i + 1, text.as_ptr());
-            }
-            let mut point = POINT { x: 0, y: 0 };
-            GetCursorPos(&mut point);
-            let command = TrackPopupMenuEx(
-                menu,
-                TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN,
-                point.x,
-                point.y,
-                GetForegroundWindow(),
-                std::ptr::null(),
-            );
-            DestroyMenu(menu);
-            (command > 0).then(|| command as usize - 1)
-        }
-    }
-
-    pub(super) fn setting_row<L: IntoElement>(&self, label: L, controls: Div) -> Div {
-        div()
-            .flex()
-            .w_full()
-            .min_h(px(44.))
-            .items_center()
-            .gap_3()
-            .child(div().w(px(300.)).flex_shrink_0().child(label))
-            .child(div().flex_1().flex().justify_end().child(controls))
-    }
-
     fn refresh(&mut self) {
         self.expire_preview();
         if self.page == 2 {
@@ -268,233 +209,29 @@ impl Render for Panel {
             _ => {}
         }
         if self.page == 5 {
-            let mut choices = div()
-                .flex()
-                .items_center()
-                .gap_2()
-                .child(div().flex_1().child("应用主题"));
-            for (i, name) in ["灰色", "黑色", "白色", "跟随系统"].into_iter().enumerate()
-            {
-                choices = choices.child(
-                    div()
-                        .id(("theme", i))
-                        .cursor_pointer()
-                        .px_2()
-                        .smooth_background(if self.style == i as i64 {
-                            self.palette.selected
-                        } else {
-                            self.palette.control
-                        })
-                        .child(name)
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            match p.settings.set("ThemeStyle", serde_json::json!(i)) {
-                                Ok(()) => p.style = i as i64,
-                                Err(e) => p.settings_message = e.to_string(),
-                            }
-                            cx.notify();
-                        })),
-                );
-            }
-            content = content.child(choices);
-            if !self.settings_message.is_empty() {
-                content = content.child(self.settings_message.clone());
-            }
-            let mpo = div()
-                .id("mpo")
-                .p_2()
-                .flex()
-                .justify_between()
-                .child("禁用多平面叠加（MPO）")
-                .child(self.toggle_switch(self.mpo));
-            content = content
-                .child(if self.admin {
-                    mpo.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
-                        match crate::integration::set_mpo_disabled(!p.mpo) {
-                            Ok(()) => {
-                                p.mpo = !p.mpo;
-                                p.settings_message = "MPO 设置已保存，重启电脑后生效".into();
-                            }
-                            Err(err) => p.settings_message = err.to_string(),
-                        }
-                        cx.notify();
-                    }))
-                } else {
-                    mpo.opacity(0.5)
-                })
-                .child(if self.admin {
-                    "更改 MPO 后需重启电脑"
-                } else {
-                    "更改 MPO 需要管理员权限，重启电脑后生效"
-                });
-            let update = div()
-                .id("exclude-drivers")
-                .p_2()
-                .flex()
-                .justify_between()
-                .child("Windows 更新排除驱动程序")
-                .child(self.toggle_switch(self.excludes_drivers));
-            content = content.child(if self.admin {
-                update.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
-                    match crate::integration::set_excludes_drivers(!p.excludes_drivers) {
-                        Ok(()) => {
-                            p.excludes_drivers = crate::integration::excludes_drivers();
-                            p.settings_message = "Windows 更新设置已保存".into();
-                        }
-                        Err(e) => p.settings_message = e.to_string(),
-                    }
-                    cx.notify();
-                }))
-            } else {
-                update.opacity(0.5)
-            });
-            let mut services = div().flex().gap_3().child("Radeon 服务");
-            for (id, label, on) in [
-                ("services-enable", "启用", true),
-                ("services-disable", "禁用", false),
-            ] {
-                let button = div().id(id).px_2().child(label);
-                services = services.child(if self.admin {
-                    button
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            p.settings_message = crate::integration::services::set_enabled(on)
-                                .map(|()| {
-                                    if on {
-                                        "已启用 Radeon 服务".to_owned()
-                                    } else {
-                                        "已禁用 Radeon 服务".to_owned()
-                                    }
-                                })
-                                .unwrap_or_else(|e| e.to_string());
-                            cx.notify();
-                        }))
-                } else {
-                    button.opacity(0.5)
-                });
-            }
-            content = content.child(services);
-            for (key, label, on) in [
-                ("StartWindowVisible", "启动时打开面板", self.start_visible),
-                (
-                    "StartCheckUpdate",
-                    "启动时检查更新",
-                    self.start_check_update,
-                ),
-                ("CloseTray", "关闭面板后驻留托盘", self.close_tray),
-                ("SetTopMost", "窗口置顶", self.topmost),
-                ("HideTrayIcon", "隐藏托盘图标", self.hide_tray),
-                ("ThemeIconMono", "单色托盘图标", self.mono),
-                ("ShowExperimental", "显示实验性设置", self.experimental),
-                (
-                    "SkipSupportCheckGraphics",
-                    "跳过图形功能支持检查",
-                    self.skip_graphics_check,
-                ),
-            ] {
-                content = content.child(
-                    div()
-                        .id(key)
-                        .cursor_pointer()
-                        .p_2()
-                        .smooth_background(self.palette.control)
-                        .flex()
-                        .justify_between()
-                        .child(label)
-                        .child(self.toggle_switch(on))
-                        .on_click(cx.listener(move |panel, _, _, cx| {
-                            match panel.settings.set_flag(key, !on) {
-                                Ok(()) if key == "SetTopMost" => {
-                                    panel.topmost = !on;
-                                    if let Err(err) = crate::tray::topmost(!on) {
-                                        panel.message = err.to_string();
-                                    }
-                                }
-                                Ok(()) if key == "HideTrayIcon" || key == "ThemeIconMono" => {
-                                    if key == "HideTrayIcon" {
-                                        panel.hide_tray = !on;
-                                    } else {
-                                        panel.mono = !on;
-                                    }
-                                    if let Err(err) = crate::tray::settings_changed() {
-                                        panel.message = err.to_string();
-                                    }
-                                }
-                                Ok(()) if key == "ShowExperimental" => panel.experimental = !on,
-                                Ok(()) if key == "SkipSupportCheckGraphics" => {
-                                    panel.skip_graphics_check = !on;
-                                    panel.read_device_details();
-                                }
-                                Ok(()) if key == "StartCheckUpdate" => {
-                                    panel.start_check_update = !on
-                                }
-                                Ok(()) if key == "CloseTray" => panel.close_tray = !on,
-                                Ok(()) => panel.start_visible = !on,
-                                Err(err) => panel.message = format!("保存失败：{err}"),
-                            }
-                            cx.notify();
-                        })),
-                );
-            }
-            use crate::integration::Link;
-            for (i, (link, label)) in [
-                (Link::Startup, "随 Windows 启动"),
-                (Link::StartMenu, "开始菜单快捷方式"),
-                (Link::ContextMenu, "桌面右键菜单"),
-            ]
-            .into_iter()
-            .enumerate()
-            {
-                let on = self.links[i];
-                content = content.child(
-                    div()
-                        .id(("link", i))
-                        .p_2()
-                        .flex()
-                        .justify_between()
-                        .cursor_pointer()
-                        .child(label)
-                        .child(self.toggle_switch(on))
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            match link.set(!on) {
-                                Ok(()) => p.links[i] = link.enabled(),
-                                Err(err) => p.message = err.to_string(),
-                            }
-                            cx.notify();
-                        })),
-                );
-            }
-            if !self.message.is_empty() {
-                content = content.child(self.message.clone());
-            }
+            content = content.child(self.render_settings(cx));
         }
         let mut nav = div()
             .id("navigation")
-            .w(px(110.))
+            .w(px(82.))
             .flex_shrink_0()
             .overflow_y_scroll()
             .p_2()
             .flex()
             .flex_col()
             .gap_2()
-            .bg(rgb(self.palette.sidebar));
+            .border_r_1()
+            .border_color(rgb(self.palette.border));
         for (i, label) in PAGES.iter().enumerate() {
             nav = nav.child(
-                div()
+                self.nav_tile(i, label, i == self.page)
                     .id(("nav", i))
-                    .flex_shrink_0()
-                    .px_3()
-                    .py_2()
                     .cursor_pointer()
-                    .smooth_background(if i == self.page {
-                        self.palette.selected
-                    } else {
-                        self.palette.control
-                    })
-                    .child(*label)
                     .on_click(cx.listener(move |p, _, _, cx| {
                         if p.page == 3 && i != 3 {
                             p.finish_preview(false);
                         }
+                        p.dropdown = None;
                         p.page = i;
                         if i == 2 {
                             p.fsr_activity = crate::adl::graphics::activity::active_games();
@@ -507,12 +244,9 @@ impl Render for Panel {
             );
         }
         nav = nav.child(
-            div()
+            self.nav_tile(7, "退出", false)
                 .id("exit")
-                .px_3()
-                .py_2()
                 .cursor_pointer()
-                .child("退出")
                 .on_click(cx.listener(|p, _, _, cx| {
                     if let Err(err) = crate::tray::request_exit() {
                         p.message = err.to_string();
@@ -522,6 +256,7 @@ impl Render for Panel {
         );
         div()
             .size_full()
+            .text_sm()
             .flex()
             .text_color(rgb(self.palette.text))
             .bg(rgb(self.palette.canvas))
@@ -552,6 +287,7 @@ pub fn run() -> Result<()> {
     let style = settings.integer("ThemeStyle", 0)?;
     let mut panel = Panel {
         picker: None,
+        dropdown: None,
         updates: Default::default(),
         start_check_update: settings.flag("StartCheckUpdate", true)?,
         picker_generation: 0,
