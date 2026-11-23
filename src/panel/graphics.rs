@@ -195,96 +195,6 @@ impl Panel {
         for game in &self.fsr_activity {
             section = section.child(game.clone());
         }
-        if let Some(fsr) = &self.fsr_library {
-            let mut row = div().flex().items_center().gap_2().child(
-                div()
-                    .flex_1()
-                    .child(format!("FSR 库 · {}", fsr.description)),
-            );
-            row = row.child(
-                div()
-                    .id("fsr-pick")
-                    .cursor_pointer()
-                    .px_2()
-                    .child("选择 DLL…")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        let device = p.devices[p.selected].index;
-                        let game = p.games.selected.clone();
-                        let picker = cx.prompt_for_paths(gpui::PathPromptOptions {
-                            files: true,
-                            directories: false,
-                            multiple: false,
-                            prompt: Some("选择 AMD FSR 库".into()),
-                        });
-                        cx.spawn(async move |view, cx| {
-                            let selected = async { Ok::<_, anyhow::Error>(picker.await??) }.await;
-                            let _ = view.update(cx, |p, cx| {
-                                if p.games.selected != game
-                                    || p.devices.get(p.selected).is_none_or(|d| d.index != device)
-                                {
-                                    return;
-                                }
-                                match selected {
-                                    Ok(Some(paths)) => {
-                                        if let (Some(path), Some(fsr)) =
-                                            (paths.first(), &mut p.fsr_library)
-                                        {
-                                            if path
-                                                .file_name()
-                                                .and_then(|s| s.to_str())
-                                                .is_some_and(|s| {
-                                                    let name = s.to_ascii_lowercase();
-                                                    name.starts_with("amdxcff")
-                                                        && name.ends_with(".dll")
-                                                })
-                                            {
-                                                fsr.select(path.to_string_lossy().into_owned());
-                                                p.graphics_dirty = true;
-                                            } else {
-                                                p.graphics_status =
-                                                    "请选择 amdxcff 开头的 AMD FSR DLL 文件".into();
-                                            }
-                                        }
-                                    }
-                                    Err(err) => p.graphics_status = err.to_string(),
-                                    Ok(None) => {}
-                                }
-                                cx.notify();
-                            });
-                        })
-                        .detach();
-                    })),
-            );
-            row = row.child(
-                div()
-                    .id("fsr-default")
-                    .cursor_pointer()
-                    .px_2()
-                    .child("驱动默认库")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        if let Some(fsr) = &mut p.fsr_library {
-                            fsr.select(String::new());
-                            p.graphics_dirty = true;
-                        }
-                        cx.notify();
-                    })),
-            );
-            section = section.child(row);
-            if self.experimental {
-                section = section.child(fsr.path().display().to_string());
-            }
-        }
-        use crate::adl::graphics::frames::Field::Chill;
-        if self.frames.iter().any(|c| c.field == Chill && c.draft != 0) {
-            section = section.child(self.toggle_row(
-                "chill-link",
-                "联动 Radeon Chill 帧率",
-                self.chill_linked,
-                true,
-                |p, _| p.chill_linked = !p.chill_linked,
-                cx,
-            ));
-        }
         use crate::adl::graphics::frames::Field;
         let order = [
             "DeLagEnabled.Current",
@@ -296,6 +206,7 @@ impl Panel {
             "MfgOverride.Current",
             "MldOverride.Current",
             "NrcOverride.Current",
+            "FsrOvrDLLPath.Current",
             "FrameGenEnabled.Current",
             "FrameGenAlgorithm.Current",
             "ChillEnabled.Current",
@@ -324,6 +235,10 @@ impl Panel {
             "TessellationLevel.Current",
         ];
         for key in order {
+            if key == "FsrOvrDLLPath.Current" {
+                section = section.children(self.fsr_controls(cx));
+                continue;
+            }
             if let Some((i, control)) = self
                 .frames
                 .iter()
@@ -336,7 +251,7 @@ impl Panel {
                     continue;
                 }
                 let label = control.field.label();
-                let control_view = if control.min == 0 && control.max == 1 {
+                let mut control_view = if control.min == 0 && control.max == 1 {
                     section = section.child(self.toggle_row(
                         ("frame-toggle", i),
                         label,
@@ -374,6 +289,28 @@ impl Panel {
                         cx,
                     )
                 };
+                if control.field == Field::High {
+                    control_view = div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            self.button_style(true)
+                                .min_w(gpui::px(44.))
+                                .id("chill-link")
+                                .cursor_pointer()
+                                .child(if self.chill_linked {
+                                    "取消联动"
+                                } else {
+                                    "联动"
+                                })
+                                .on_click(cx.listener(|p, _, _, cx| {
+                                    p.chill_linked = !p.chill_linked;
+                                    cx.notify();
+                                })),
+                        )
+                        .child(control_view);
+                }
                 section = section.child(self.setting_row(label, control_view));
             }
             if let Some((i, s)) = self
@@ -444,6 +381,92 @@ impl Panel {
             .child(self.graphics_actions(cx))
             .child(section)
             .child(self.graphics_status.clone())
+    }
+
+    fn fsr_controls(&self, cx: &mut Context<Self>) -> Option<Div> {
+        let fsr = self.fsr_library.as_ref()?;
+        let mut section = div().flex().flex_col();
+        let mut row = div().flex().items_center().gap_2();
+        row = row.child(
+            self.button_style(true)
+                .id("fsr-pick")
+                .cursor_pointer()
+                .px_2()
+                .child("选择 DLL…")
+                .on_click(cx.listener(|p, _, _, cx| {
+                    let device = p.devices[p.selected].index;
+                    let game = p.games.selected.clone();
+                    let picker = cx.prompt_for_paths(gpui::PathPromptOptions {
+                        files: true,
+                        directories: false,
+                        multiple: false,
+                        prompt: Some("选择 AMD FSR 库".into()),
+                    });
+                    cx.spawn(async move |view, cx| {
+                        let selected = async { Ok::<_, anyhow::Error>(picker.await??) }.await;
+                        let _ = view.update(cx, |p, cx| {
+                            if p.games.selected != game
+                                || p.devices.get(p.selected).is_none_or(|d| d.index != device)
+                            {
+                                return;
+                            }
+                            match selected {
+                                Ok(Some(paths)) => {
+                                    if let (Some(path), Some(fsr)) =
+                                        (paths.first(), &mut p.fsr_library)
+                                    {
+                                        if path.file_name().and_then(|s| s.to_str()).is_some_and(
+                                            |s| {
+                                                let name = s.to_ascii_lowercase();
+                                                name.starts_with("amdxcff")
+                                                    && name.ends_with(".dll")
+                                            },
+                                        ) {
+                                            fsr.select(path.to_string_lossy().into_owned());
+                                            p.graphics_dirty = true;
+                                        } else {
+                                            p.graphics_status =
+                                                "请选择 amdxcff 开头的 AMD FSR DLL 文件".into();
+                                        }
+                                    }
+                                }
+                                Err(err) => p.graphics_status = err.to_string(),
+                                Ok(None) => {}
+                            }
+                            cx.notify();
+                        });
+                    })
+                    .detach();
+                })),
+        );
+        row = row.child(
+            self.button_style(true)
+                .id("fsr-default")
+                .cursor_pointer()
+                .px_2()
+                .child("驱动默认库")
+                .on_click(cx.listener(|p, _, _, cx| {
+                    if let Some(fsr) = &mut p.fsr_library {
+                        fsr.select(String::new());
+                        p.graphics_dirty = true;
+                    }
+                    cx.notify();
+                })),
+        );
+        section = section.child(
+            self.setting_row(
+                div()
+                    .flex()
+                    .flex_col()
+                    .child("FSR 覆盖库")
+                    .child(div().text_xs().child(fsr.description.clone())),
+                row,
+            ),
+        );
+        if self.experimental {
+            section = section.child(fsr.path().display().to_string());
+        }
+        Some(section)
     }
 
     fn graphics_actions(&self, cx: &mut Context<Self>) -> Div {
