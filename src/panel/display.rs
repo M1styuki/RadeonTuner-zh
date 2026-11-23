@@ -530,7 +530,7 @@ impl Panel {
         }
     }
 
-    pub(super) fn render_displays(&self, cx: &mut Context<Self>) -> Div {
+    pub(super) fn display_dialog(&self, cx: &mut Context<Self>) -> Option<Div> {
         let page = &self.display;
         let mut section = div().flex().flex_col().gap_2();
         if let Some(preview) = &page.preview {
@@ -547,21 +547,30 @@ impl Panel {
             ));
             for (id, text, keep) in [("keep-mode", "保留", true), ("revert-mode", "还原", false)]
             {
-                section = section.child(div().id(id).cursor_pointer().child(text).on_click(
-                    cx.listener(move |panel, _, _, cx| {
-                        panel.finish_preview(keep);
-                        cx.notify();
-                    }),
-                ));
+                section = section.child(
+                    self.button_style(true)
+                        .id(id)
+                        .cursor_pointer()
+                        .child(text)
+                        .on_click(cx.listener(move |panel, _, _, cx| {
+                            panel.finish_preview(keep);
+                            cx.notify();
+                        })),
+                );
             }
-            return section;
+            return Some(section);
         }
         if let Some(editor) = &page.eyefinity {
-            return self.render_eyefinity(editor, cx);
+            return Some(self.render_eyefinity(editor, cx));
         }
         if let Some(editor) = &page.custom {
-            return self.render_custom(editor, cx);
+            return Some(self.render_custom(editor, cx));
         }
+        None
+    }
+    pub(super) fn render_displays(&self, cx: &mut Context<Self>) -> Div {
+        let page = &self.display;
+        let mut section = div().flex().flex_col().gap_0();
         if let (Some(mode), Some(current), true) = (
             page.modes.get(page.choice),
             page.current,

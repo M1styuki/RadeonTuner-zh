@@ -14,6 +14,7 @@ pub(super) struct Editor {
 }
 impl Panel {
     pub(super) fn open_eyefinity(&mut self) -> Result<()> {
+        self.dropdown = None;
         let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
         let adapter = self
             .display
@@ -105,7 +106,7 @@ impl Panel {
                 self.setting_row(
                     label,
                     self.select(
-                        ("eye-axis", axis),
+                        ("eye-axis", axis as usize),
                         values
                             .iter()
                             .map(|v| {

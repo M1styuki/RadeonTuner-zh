@@ -149,9 +149,6 @@ impl Render for Panel {
                 gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight
             ),
         );
-        if self.picker.is_some() {
-            return self.render_picker(cx);
-        }
         let mut content = div().flex().flex_col().w_full().gap_3().px_4().pb_4();
         if self.page == 6 || self.updates.has_notice() {
             content = content.child(self.update_controls(cx));
@@ -254,7 +251,8 @@ impl Render for Panel {
                     }
                 })),
         );
-        div()
+        let mut window_content = div()
+            .relative()
             .size_full()
             .text_size(px(13.))
             .font_family("Microsoft YaHei UI")
@@ -277,7 +275,15 @@ impl Render for Panel {
                             .overflow_y_scroll()
                             .child(content),
                     ),
-            )
+            );
+        if self.picker.is_some() {
+            window_content = window_content.child(self.modal(self.render_picker(cx)));
+        } else if self.page == 3 {
+            if let Some(dialog) = self.display_dialog(cx) {
+                window_content = window_content.child(self.modal(dialog));
+            }
+        }
+        window_content
     }
 }
 

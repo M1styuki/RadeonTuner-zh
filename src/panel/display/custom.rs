@@ -14,6 +14,7 @@ pub(super) struct Editor {
 }
 impl Panel {
     pub(super) fn open_custom(&mut self) -> Result<()> {
+        self.dropdown = None;
         let page = &mut self.display;
         let d = page
             .displays

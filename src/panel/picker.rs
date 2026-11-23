@@ -21,6 +21,7 @@ pub(super) struct Picker {
 }
 impl Panel {
     fn open_picker(&mut self, target: Target, remove: bool) {
+        self.dropdown = None;
         self.picker_generation += 1;
         let mut names = if remove {
             match target {
@@ -138,10 +139,8 @@ impl Panel {
         let mut view = div()
             .flex()
             .flex_col()
-            .size_full()
+            .w_full()
             .gap_2()
-            .p_4()
-            .bg(rgb(self.palette.canvas))
             .text_color(rgb(self.palette.text))
             .child(div().text_xl().child(if picker.remove {
                 "移除应用配置"
@@ -154,36 +153,40 @@ impl Panel {
                 ("picker-processes", "运行中的进程", false),
                 ("picker-steam", "Steam 游戏", true),
             ] {
-                sources = sources.child(div().id(id).cursor_pointer().child(label).on_click(
-                    cx.listener(move |p, _, _, cx| {
-                        p.picker_generation += 1;
-                        let generation = p.picker_generation;
-                        if let Some(v) = &mut p.picker {
-                            v.status = "正在读取…".into();
-                            v.choices.clear();
-                            v.selected.clear();
-                        }
-                        let read = cx.background_executor().spawn(async move {
-                            if steam {
-                                games::launcher()
-                            } else {
-                                games::running()
+                sources = sources.child(
+                    self.button_style(true)
+                        .id(id)
+                        .cursor_pointer()
+                        .child(label)
+                        .on_click(cx.listener(move |p, _, _, cx| {
+                            p.picker_generation += 1;
+                            let generation = p.picker_generation;
+                            if let Some(v) = &mut p.picker {
+                                v.status = "正在读取…".into();
+                                v.choices.clear();
+                                v.selected.clear();
                             }
-                        });
-                        cx.spawn(async move |view, cx| {
-                            let result = read.await;
-                            let _ = view.update(cx, |p, cx| {
-                                p.show_picker_entries(generation, result);
-                                cx.notify();
+                            let read = cx.background_executor().spawn(async move {
+                                if steam {
+                                    games::launcher()
+                                } else {
+                                    games::running()
+                                }
                             });
-                        })
-                        .detach();
-                        cx.notify();
-                    }),
-                ));
+                            cx.spawn(async move |view, cx| {
+                                let result = read.await;
+                                let _ = view.update(cx, |p, cx| {
+                                    p.show_picker_entries(generation, result);
+                                    cx.notify();
+                                });
+                            })
+                            .detach();
+                            cx.notify();
+                        })),
+                );
             }
             sources = sources.child(
-                div()
+                self.button_style(true)
                     .id("picker-files")
                     .cursor_pointer()
                     .child("选择 EXE 或 BIN 文件…")
@@ -241,7 +244,10 @@ impl Panel {
             );
             view = view.child(sources);
         }
-        let mut list = div().id("picker-list").flex_1().overflow_y_scroll();
+        let mut list = div()
+            .id("picker-list")
+            .max_h(gpui::px(420.))
+            .overflow_y_scroll();
         for (i, (title, file)) in picker.choices.iter().enumerate() {
             let label = if title == file {
                 title.clone()
@@ -270,7 +276,7 @@ impl Panel {
             );
         }
         let mut footer = div().flex().gap_3().child(
-            div()
+            self.button_style(true)
                 .id("picker-cancel")
                 .cursor_pointer()
                 .child("取消")
@@ -282,7 +288,7 @@ impl Panel {
         );
         if !picker.selected.is_empty() {
             footer = footer.child(
-                div()
+                self.button_style(true)
                     .id("picker-apply")
                     .cursor_pointer()
                     .child(format!(
