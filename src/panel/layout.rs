@@ -4,9 +4,12 @@ use std::collections::HashSet;
 
 impl Panel {
     pub(super) fn render_header(&self, cx: &mut Context<Self>) -> Div {
-        let mut heading = div().flex().flex_wrap().items_center().gap_3().child(
-            div().text_xl().child(PAGES[self.page]),
-        );
+        let mut heading = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap_3()
+            .child(div().text_xl().child(PAGES[self.page]));
         if self.page != 5 {
             let mut locations = HashSet::new();
             let visible: Vec<_> = self
@@ -22,7 +25,12 @@ impl Panel {
             let mut devices = div().flex().flex_wrap().items_center().gap_2();
             for &(i, device) in &visible {
                 let selected = self.selected == i;
-                let name = if visible.iter().filter(|(_, d)| d.name == device.name).count() > 1 {
+                let name = if visible
+                    .iter()
+                    .filter(|(_, d)| d.name == device.name)
+                    .count()
+                    > 1
+                {
                     format!("{} ({})", device.name, device.index)
                 } else {
                     device.name.clone()
@@ -40,22 +48,29 @@ impl Panel {
                 devices = devices.child(if selected {
                     chip
                 } else {
-                    chip.cursor_pointer().on_click(cx.listener(move |panel, _, _, cx| {
-                        panel.finish_preview(false);
-                        panel.selected = i;
-                        panel.reset_tuning_editor();
-                        panel.video_app = "Global".into();
-                        panel.read_device_details();
-                        panel.read_displays();
-                        panel.read_controls();
-                        panel.refresh();
-                        cx.notify();
-                    }))
+                    chip.cursor_pointer()
+                        .on_click(cx.listener(move |panel, _, _, cx| {
+                            panel.finish_preview(false);
+                            panel.selected = i;
+                            panel.reset_tuning_editor();
+                            panel.video_app = "Global".into();
+                            panel.read_device_details();
+                            panel.read_displays();
+                            panel.read_controls();
+                            panel.refresh();
+                            cx.notify();
+                        }))
                 });
             }
             heading = heading.child(devices);
         }
-        let mut header = div().flex_shrink_0().flex().flex_col().gap_2().p_4().child(heading);
+        let mut header = div()
+            .flex_shrink_0()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .p_4()
+            .child(heading);
         if self.page != 5 && !self.metrics.is_empty() {
             let mut stats = div()
                 .flex()

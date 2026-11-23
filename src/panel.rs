@@ -123,13 +123,7 @@ impl Render for Panel {
         if self.picker.is_some() {
             return self.render_picker(cx);
         }
-        let mut content = div()
-            .flex()
-            .flex_col()
-            .w_full()
-            .gap_3()
-            .px_4()
-            .pb_4();
+        let mut content = div().flex().flex_col().w_full().gap_3().px_4().pb_4();
         if matches!(self.page, 5 | 6) || self.updates.has_notice() {
             content = content.child(self.update_controls(cx));
         }

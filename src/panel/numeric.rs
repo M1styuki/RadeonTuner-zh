@@ -227,7 +227,11 @@ impl Panel {
         };
         let base = div()
             .id(id)
-            .w(px(if matches!(field, Field::Tuning(_)) { 92. } else { 160. }))
+            .w(px(if matches!(field, Field::Tuning(_)) {
+                92.
+            } else {
+                160.
+            }))
             .flex_shrink_0()
             .h(px(32.))
             .flex()

@@ -1,5 +1,5 @@
-use super::shape::ContinuousCorners;
 use super::Panel;
+use super::shape::ContinuousCorners;
 use crate::profile_store;
 use anyhow::{Result, ensure};
 use gpui::{Context, Div, PathPromptOptions, div, prelude::*};

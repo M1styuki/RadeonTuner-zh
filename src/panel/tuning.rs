@@ -357,15 +357,13 @@ impl Panel {
             })
             .child("应用");
         let apply = if changed {
-            apply
-                .cursor_pointer()
-                .on_click(cx.listener(|p, _, _, cx| {
-                    p.tuning_status = p
-                        .save_tuning()
-                        .map(|()| "已应用调校配置".to_owned())
-                        .unwrap_or_else(|err| err.to_string());
-                    cx.notify();
-                }))
+            apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+                p.tuning_status = p
+                    .save_tuning()
+                    .map(|()| "已应用调校配置".to_owned())
+                    .unwrap_or_else(|err| err.to_string());
+                cx.notify();
+            }))
         } else {
             apply.opacity(0.5)
         };
@@ -405,7 +403,11 @@ impl Panel {
                 .py_1()
                 .smooth_background(self.palette.control)
                 .cursor_pointer()
-                .child(if self.tuning.confirm_reset { "确认重置" } else { "重置" })
+                .child(if self.tuning.confirm_reset {
+                    "确认重置"
+                } else {
+                    "重置"
+                })
                 .on_click(cx.listener(|p, _, _, cx| {
                     if p.tuning.confirm_reset {
                         p.tuning.confirm_reset = false;
@@ -434,19 +436,21 @@ impl Panel {
                     })),
             );
         }
-        section = section.child(choices).child(actions.child(
-            div()
-                .id("reload-tuning")
-                .px_3()
-                .py_1()
-                .smooth_background(self.palette.control)
-                .cursor_pointer()
-                .child("读取驱动")
-                .on_click(cx.listener(|p, _, _, cx| {
-                    p.read_controls();
-                    cx.notify();
-                })),
-        ));
+        section = section.child(choices).child(
+            actions.child(
+                div()
+                    .id("reload-tuning")
+                    .px_3()
+                    .py_1()
+                    .smooth_background(self.palette.control)
+                    .cursor_pointer()
+                    .child("读取驱动")
+                    .on_click(cx.listener(|p, _, _, cx| {
+                        p.read_controls();
+                        cx.notify();
+                    })),
+            ),
+        );
         if self.page != 1 {
             return section;
         }
@@ -523,11 +527,8 @@ impl Panel {
                         .smooth_background(self.palette.sidebar)
                         .child(div().text_lg().child(format!("风扇曲线 {}", point + 1)));
                     for id in [19 + 2 * point, 20 + 2 * point] {
-                        if let Some((i, _)) = self
-                            .controls
-                            .iter()
-                            .enumerate()
-                            .find(|(_, c)| c.id == id)
+                        if let Some((i, _)) =
+                            self.controls.iter().enumerate().find(|(_, c)| c.id == id)
                         {
                             card = card.child(self.tuning_control(i, cx));
                         }
