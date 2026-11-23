@@ -5,8 +5,8 @@ use crate::{
 };
 use anyhow::Result;
 use gpui::{
-    App, Application, Bounds, Context, Timer, Window, WindowBounds, WindowOptions, div, prelude::*,
-    px, rgb, size,
+    App, Application, Bounds, Context, Div, Timer, Window, WindowBounds, WindowOptions, div,
+    prelude::*, px, rgb, size,
 };
 use std::time::Duration;
 
