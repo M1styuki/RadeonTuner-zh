@@ -594,13 +594,12 @@ impl Panel {
                 ),
             ] {
                 let mut row = div().flex().gap_3().items_center().child(label);
-                for (button, label, dir) in [("prev", "上一项", -1isize), ("next", "下一项", 1)]
-                {
+                for (button, label, dir) in [(0usize, "上一项", -1isize), (1, "下一项", 1)] {
                     let transition = selected
                         .checked_add_signed(dir)
                         .and_then(|n| choices.get(n))
                         .copied();
-                    let control = div().id(format!("{setting}-{button}")).px_2().child(label);
+                    let control = div().id((setting, button)).px_2().child(label);
                     row = row.child(if let Some(index) = transition {
                         control
                             .cursor_pointer()
