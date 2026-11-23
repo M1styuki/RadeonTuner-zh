@@ -2,8 +2,10 @@ pub mod activity;
 pub mod apps;
 pub mod frames;
 pub mod fsr;
+mod startup;
 use super::{Device, Driver, Handle, ReadInt};
-use anyhow::{Result, ensure};
+use anyhow::{Context as _, Result, ensure};
+use serde_json::Value;
 use std::{ffi::CString, ptr};
 use windows_sys::Win32::{Foundation::ERROR_SUCCESS, System::Registry::*};
 
@@ -187,6 +189,56 @@ pub struct Setting {
     pub draft: usize,
 }
 
+fn setting_indices(settings: &[Setting], row: &Value) -> Result<Vec<usize>> {
+    settings
+        .iter()
+        .map(|s| {
+            let v = &row[s.choice.profile_key];
+            if v.is_null() {
+                return Ok(s.draft);
+            }
+            let index = v
+                .as_u64()
+                .or_else(|| v.as_bool().map(u64::from))
+                .and_then(|n| usize::try_from(n).ok())
+                .context("图形配置的选项无效")?;
+            ensure!(
+                index < s.choice.entries.len(),
+                "{} 超出可选范围",
+                s.choice.label
+            );
+            Ok(index)
+        })
+        .collect()
+}
+pub fn profile_drafts(
+    settings: &[Setting],
+    fields: &[frames::Control],
+    row: &Value,
+) -> Result<(Vec<usize>, Vec<frames::Control>)> {
+    let indices = setting_indices(settings, row)?;
+    let mut frames = fields.to_vec();
+    for c in &mut frames {
+        let v = &row[c.field.name()];
+        if !v.is_null() {
+            let value = v
+                .as_i64()
+                .or_else(|| v.as_bool().map(i64::from))
+                .context("帧率配置数值无效")?;
+            if c.field == crate::adl::graphics::frames::Field::Target && value == 0 {
+                continue;
+            }
+            ensure!(
+                (i64::from(c.min)..=i64::from(c.max)).contains(&value),
+                "{} 超出驱动范围",
+                c.field.label()
+            );
+            c.draft = value as i32;
+        }
+    }
+    crate::adl::graphics::frames::validate(&frames)?;
+    Ok((indices, frames))
+}
 fn registry_data(path: &str, name: &str) -> Option<(u32, Vec<u8>)> {
     let path: Vec<_> = format!("SYSTEM\\CurrentControlSet\\Control\\Class\\{path}\\UMD")
         .encode_utf16()

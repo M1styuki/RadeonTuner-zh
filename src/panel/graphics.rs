@@ -1,32 +1,9 @@
 pub(super) mod apps;
 use super::Panel;
-use crate::adl::graphics::Setting;
 use crate::profile_store;
 use anyhow::{Context as _, Result, ensure};
 use serde_json::{Value, json};
 
-fn setting_indices(settings: &[Setting], row: &Value) -> Result<Vec<usize>> {
-    settings
-        .iter()
-        .map(|s| {
-            let v = &row[s.choice.profile_key];
-            if v.is_null() {
-                return Ok(s.draft);
-            }
-            let index = v
-                .as_u64()
-                .or_else(|| v.as_bool().map(u64::from))
-                .and_then(|n| usize::try_from(n).ok())
-                .context("图形配置的选项无效")?;
-            ensure!(
-                index < s.choice.entries.len(),
-                "{} 超出可选范围",
-                s.choice.label
-            );
-            Ok(index)
-        })
-        .collect()
-}
 use gpui::{Context, Div, div, prelude::*};
 impl Panel {
     pub(super) fn graphics_target(&self) -> Option<(String, String)> {
@@ -73,27 +50,8 @@ impl Panel {
     }
 
     pub(super) fn stage_graphics(&mut self, row: &Value) -> Result<()> {
-        let indices = setting_indices(&self.graphics, row)?;
-        let mut frames = self.frames.clone();
-        for c in &mut frames {
-            let v = &row[c.field.name()];
-            if !v.is_null() {
-                let value = v
-                    .as_i64()
-                    .or_else(|| v.as_bool().map(i64::from))
-                    .context("帧率配置数值无效")?;
-                if c.field == crate::adl::graphics::frames::Field::Target && value == 0 {
-                    continue;
-                }
-                ensure!(
-                    (i64::from(c.min)..=i64::from(c.max)).contains(&value),
-                    "{} 超出驱动范围",
-                    c.field.label()
-                );
-                c.draft = value as i32;
-            }
-        }
-        crate::adl::graphics::frames::validate(&frames)?;
+        let (indices, frames) =
+            crate::adl::graphics::profile_drafts(&self.graphics, &self.frames, row)?;
         let path = &row["FsrOvrDLLPath.Current"];
         ensure!(path.is_null() || path.is_string(), "FSR 库路径无效");
         let fields = row.as_object().context("图形配置格式无效")?;

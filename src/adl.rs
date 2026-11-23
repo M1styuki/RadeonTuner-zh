@@ -90,6 +90,9 @@ impl Driver {
     }
 
     pub fn devices(&self) -> Result<Vec<Device>> {
+        self.enumerate_devices(true)
+    }
+    fn enumerate_devices(&self, unique: bool) -> Result<Vec<Device>> {
         unsafe {
             let enumerate = self
                 .library
@@ -133,7 +136,7 @@ impl Driver {
                         adapter.bus, adapter.device, adapter.function, adapter.index
                     )
                 };
-                if id.is_empty() || ids.insert(id) {
+                if !unique || id.is_empty() || ids.insert(id) {
                     devices.push(Device {
                         gamma_key,
                         registry_path: string(&adapter.path_ext),
@@ -142,6 +145,17 @@ impl Driver {
                         name: string(&adapter.name),
                     });
                 }
+            }
+            type Family = unsafe extern "C" fn(Handle, i32, *mut i32, *mut i32) -> i32;
+            if let Ok(family) = self
+                .library
+                .get::<Family>(b"ADL2_Adapter_ASICFamilyType_Get\0")
+            {
+                devices.sort_by_cached_key(|d| {
+                    let (mut flags, mut valid) = (0, 0);
+                    !(family(self.context, d.index, &mut flags, &mut valid) == 0
+                        && flags & valid & 1 != 0)
+                });
             }
             Ok(devices)
         }

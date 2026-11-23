@@ -168,7 +168,12 @@ pub fn run() -> Result<()> {
             last_error = error;
         }
     };
-    show_status(background.reload());
+    if let Ok(driver) = crate::adl::Driver::open() {
+        show_status(driver.initialize_profiles(&settings));
+    }
+    if let Err(err) = background.reload() {
+        show_status(Err(err));
+    }
     let mut next_check = std::time::Instant::now() + std::time::Duration::from_secs(2);
     let mut child = None;
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--updated"))

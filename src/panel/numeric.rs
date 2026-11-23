@@ -110,7 +110,7 @@ impl Panel {
         if matches!(field, Field::Custom(_)) || max <= min {
             return input;
         }
-        let position = |fraction: f32| {
+        let position = move |fraction: f32| {
             let range = i64::from(max) - i64::from(min);
             let step = i64::from(step.max(1));
             (i64::from(min)
