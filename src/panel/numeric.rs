@@ -1,5 +1,5 @@
-use crate::panel::shape::ContinuousCorners;
 use super::Panel;
+use crate::panel::shape::ContinuousCorners;
 use gpui::{
     Context, Div, FocusHandle, KeyDownEvent, Stateful, Subscription, div, prelude::*, px, rgb,
 };

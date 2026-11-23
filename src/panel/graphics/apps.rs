@@ -1,6 +1,6 @@
-use crate::panel::shape::ContinuousCorners;
 use super::*;
 use crate::adl::graphics::apps::{App, settings};
+use crate::panel::shape::ContinuousCorners;
 #[derive(Default)]
 pub(in crate::panel) struct Games {
     list: Vec<App>,
@@ -114,7 +114,9 @@ impl Panel {
         }
         if let Err(err) = staged.persist(&path) {
             if updated != original {
-                driver.write_game_app(&app, &original).context("保存应用配置失败，无法恢复驱动数据")?;
+                driver
+                    .write_game_app(&app, &original)
+                    .context("保存应用配置失败，无法恢复驱动数据")?;
             }
             return Err(err).context("无法保存应用图形配置");
         }

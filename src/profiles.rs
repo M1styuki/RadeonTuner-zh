@@ -138,7 +138,9 @@ pub fn active_display<'a>(profiles: &[&'a Value], running: &HashSet<String>) -> 
 
 fn global_display<'a>(profiles: &[&'a Value]) -> Option<&'a Value> {
     profiles.iter().copied().find(|p| {
-        p["Application"].as_str().is_some_and(|app| app.eq_ignore_ascii_case("Global"))
+        p["Application"]
+            .as_str()
+            .is_some_and(|app| app.eq_ignore_ascii_case("Global"))
     })
 }
 
@@ -151,7 +153,9 @@ pub fn display_live_draft(
         display_draft(settings, global, false)?;
     }
     if let Some(active) = active_display(candidates, running) {
-        let is_app = active["Application"].as_str().is_some_and(|app| !app.eq_ignore_ascii_case("Global"));
+        let is_app = active["Application"]
+            .as_str()
+            .is_some_and(|app| !app.eq_ignore_ascii_case("Global"));
         if is_app {
             display_draft(settings, active, true)?;
         }
@@ -169,14 +173,18 @@ pub fn sync_display_policy(
     let mut gamma = None;
     let mut eyefinity = None;
     for display in driver.displays(device.index)? {
-        let Some(key) = driver.display_profile_key(&display) else { continue; };
+        let Some(key) = driver.display_profile_key(&display) else {
+            continue;
+        };
         let candidates = display_profiles(rows, &key);
         if let Some(wanted) = wanted_eyefinity(&candidates, running) {
             eyefinity = Some(eyefinity.unwrap_or(false) || wanted);
         }
         if let Some(active) = active_display(&candidates, running) {
             let profile = Gamma::read(active)?;
-            let is_app = active["Application"].as_str().is_some_and(|app| !app.eq_ignore_ascii_case("Global"));
+            let is_app = active["Application"]
+                .as_str()
+                .is_some_and(|app| !app.eq_ignore_ascii_case("Global"));
             let rank = (is_app, profile.enabled);
             if gamma.as_ref().is_none_or(|(priority, _)| rank > *priority) {
                 gamma = Some((rank, profile));
@@ -184,7 +192,11 @@ pub fn sync_display_policy(
         }
     }
     let eye_result = eyefinity.map_or(Ok(()), |wanted| driver.set_eyefinity(device.index, wanted));
-    let gamma_result = driver.sync_gamma(device, gamma.map(|(_, value)| value).unwrap_or_default(), recovery_path);
+    let gamma_result = driver.sync_gamma(
+        device,
+        gamma.map(|(_, value)| value).unwrap_or_default(),
+        recovery_path,
+    );
     eye_result.and(gamma_result)
 }
 
@@ -340,7 +352,10 @@ impl Background {
         Ok(())
     }
     pub fn active(&self) -> bool {
-        !self.profiles.is_empty() || !self.display_rows.is_empty() || !self.video_rows.is_empty() || self.recovery_path.is_file()
+        !self.profiles.is_empty()
+            || !self.display_rows.is_empty()
+            || !self.video_rows.is_empty()
+            || self.recovery_path.is_file()
     }
     pub fn finish_display_policy(&mut self) -> Result<()> {
         if !self.recovery_path.is_file() {
@@ -350,7 +365,13 @@ impl Background {
         let driver = Driver::open()?;
         let running = process_names()?;
         for device in driver.devices()? {
-            sync_display_policy(&driver, &device, &self.display_rows, &running, &self.recovery_path)?;
+            sync_display_policy(
+                &driver,
+                &device,
+                &self.display_rows,
+                &running,
+                &self.recovery_path,
+            )?;
         }
         Ok(())
     }
@@ -389,7 +410,13 @@ impl Background {
                         display_error = Some(e);
                     }
                 }
-                if let Err(e) = sync_display_policy(driver, device, &self.display_rows, &running, &self.recovery_path) {
+                if let Err(e) = sync_display_policy(
+                    driver,
+                    device,
+                    &self.display_rows,
+                    &running,
+                    &self.recovery_path,
+                ) {
                     display_error = Some(e);
                 }
             }
@@ -402,17 +429,22 @@ impl Background {
             let key = (device.index, device.profile_key.clone());
             connected_video.insert(key.clone());
             if self.applied_video.get(&key) != Some(row) {
-                let result = driver.video_controls(device.index).and_then(|mut controls| {
-                    crate::adl::multimedia::video_draft(&mut controls, row)?;
-                    driver.apply_video(device.index, &controls)
-                });
+                let result = driver
+                    .video_controls(device.index)
+                    .and_then(|mut controls| {
+                        crate::adl::multimedia::video_draft(&mut controls, row)?;
+                        driver.apply_video(device.index, &controls)
+                    });
                 match result {
-                    Ok(()) => { self.applied_video.insert(key, row.clone()); }
+                    Ok(()) => {
+                        self.applied_video.insert(key, row.clone());
+                    }
                     Err(err) => display_error = Some(err),
                 }
             }
         }
-        self.applied_video.retain(|key, _| connected_video.contains(key));
+        self.applied_video
+            .retain(|key, _| connected_video.contains(key));
         for Device {
             index, profile_key, ..
         } in driver.enumerate_devices(false)?
@@ -510,13 +542,19 @@ mod tests {
             max: 2,
             step: 1,
         };
-        let global = json!({"Application":"Global","HdrEnabled.Current":1,"FreeSyncMode.Current":2});
+        let global =
+            json!({"Application":"Global","HdrEnabled.Current":1,"FreeSyncMode.Current":2});
         let app = json!({"Application":"Game.exe","HdrEnabled.Current":0,"FreeSyncMode.Current":1});
         let candidates = [&global, &app];
         let mut controls = [control(Feature::Hdr), control(Feature::FreeSync)];
         display_live_draft(&mut controls, &candidates, &HashSet::new()).unwrap();
         assert_eq!([controls[0].draft, controls[1].draft], [1, 2]);
-        display_live_draft(&mut controls, &candidates, &HashSet::from(["game.exe".into()])).unwrap();
+        display_live_draft(
+            &mut controls,
+            &candidates,
+            &HashSet::from(["game.exe".into()]),
+        )
+        .unwrap();
         assert_eq!([controls[0].draft, controls[1].draft], [1, 1]);
     }
 

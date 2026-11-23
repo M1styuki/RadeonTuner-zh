@@ -1,5 +1,8 @@
 use anyhow::{Result, ensure};
-use std::{os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle}, ptr};
+use std::{
+    os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle},
+    ptr,
+};
 use windows_sys::Win32::{
     Foundation::{WAIT_ABANDONED, WAIT_OBJECT_0, WAIT_TIMEOUT},
     System::Threading::{CreateMutexW, ReleaseMutex, WaitForSingleObject},
@@ -18,7 +21,10 @@ pub fn lock() -> Result<Guard> {
     }
     let handle = unsafe { OwnedHandle::from_raw_handle(raw) };
     let result = unsafe { WaitForSingleObject(handle.as_raw_handle(), 5000) };
-    ensure!(result != WAIT_TIMEOUT, "另一进程正在应用驱动设置，请稍后重试");
+    ensure!(
+        result != WAIT_TIMEOUT,
+        "另一进程正在应用驱动设置，请稍后重试"
+    );
     if !matches!(result, WAIT_OBJECT_0 | WAIT_ABANDONED) {
         return Err(std::io::Error::last_os_error().into());
     }
@@ -27,6 +33,8 @@ pub fn lock() -> Result<Guard> {
 
 impl Drop for Guard {
     fn drop(&mut self) {
-        unsafe { ReleaseMutex(self.0.as_raw_handle()); }
+        unsafe {
+            ReleaseMutex(self.0.as_raw_handle());
+        }
     }
 }

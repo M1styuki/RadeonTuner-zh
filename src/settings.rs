@@ -70,6 +70,10 @@ impl Settings {
     }
 
     pub fn gamma_recovery_path(&self) -> Result<PathBuf> {
-        Ok(self.path.parent().context("无效设置路径")?.join("RustGammaRecovery.json"))
+        Ok(self
+            .path
+            .parent()
+            .context("无效设置路径")?
+            .join("RustGammaRecovery.json"))
     }
 }

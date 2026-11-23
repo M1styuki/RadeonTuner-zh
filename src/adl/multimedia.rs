@@ -90,10 +90,16 @@ pub fn video_draft(controls: &mut [VideoControl], row: &Value) -> Result<()> {
         if value.is_null() {
             continue;
         }
-        let value = value.as_i64().or_else(|| value.as_bool().map(i64::from))
+        let value = value
+            .as_i64()
+            .or_else(|| value.as_bool().map(i64::from))
             .context("视频配置数值无效")?;
         let (min, max, _) = control.feature.limits();
-        ensure!((i64::from(min)..=i64::from(max)).contains(&value), "{} 超出范围", control.feature.label());
+        ensure!(
+            (i64::from(min)..=i64::from(max)).contains(&value),
+            "{} 超出范围",
+            control.feature.label()
+        );
         control.draft = value as i32;
     }
     Ok(())

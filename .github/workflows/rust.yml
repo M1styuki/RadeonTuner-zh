@@ -19,9 +19,6 @@ jobs:
         with:
           components: rustfmt
       - uses: Swatinem/rust-cache@v2
-      - name: Format the validation branch on the Windows runner
-        if: github.ref_name == 'rust-gpui-fixes'
-        run: cargo fmt
       - run: cargo fmt --check
       - run: cargo test --locked --release
       - run: cargo build --locked --release

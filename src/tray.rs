@@ -11,7 +11,10 @@ use tray_icon::{
     menu::{Menu, MenuEvent, MenuItem},
 };
 use windows_sys::Win32::{
-    Foundation::{ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, GetLastError, WAIT_FAILED, WAIT_OBJECT_0, WAIT_TIMEOUT},
+    Foundation::{
+        ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, GetLastError, WAIT_FAILED, WAIT_OBJECT_0,
+        WAIT_TIMEOUT,
+    },
     System::Threading::{CreateEventW, EVENT_MODIFY_STATE, INFINITE, OpenEventW, SetEvent},
     UI::WindowsAndMessaging::*,
 };
@@ -42,8 +45,14 @@ fn signal(name: &str) -> Result<()> {
 }
 pub fn settings_changed() -> Result<()> {
     match signal(OPTIONS) {
-        Err(err) if err.downcast_ref::<std::io::Error>().and_then(std::io::Error::raw_os_error)
-            == Some(ERROR_FILE_NOT_FOUND as i32) => Ok(()),
+        Err(err)
+            if err
+                .downcast_ref::<std::io::Error>()
+                .and_then(std::io::Error::raw_os_error)
+                == Some(ERROR_FILE_NOT_FOUND as i32) =>
+        {
+            Ok(())
+        }
         result => result,
     }
 }

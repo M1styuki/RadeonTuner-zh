@@ -100,21 +100,21 @@ impl Driver {
         (unsafe { self.library.get::<Set>(b"ADL2_Adapter_Gamma_Set\0").is_ok() })
             && self.gamma_ramp(adapter).is_ok()
     }
-    pub fn sync_gamma(
-        &self,
-        device: &Device,
-        profile: Gamma,
-        path: &Path,
-    ) -> Result<()> {
+    pub fn sync_gamma(&self, device: &Device, profile: Gamma, path: &Path) -> Result<()> {
         let mut records = load_recovery(path)?;
         let saved = records.get(&device.gamma_key);
         let desired = if profile.enabled {
             ensure!(!device.gamma_key.is_empty(), "无法识别伽马目标显卡");
             Ramp::build(profile.values, 0.0)
         } else {
-            let Some(saved) = saved else { return Ok(()); };
+            let Some(saved) = saved else {
+                return Ok(());
+            };
             Ramp {
-                rgb: saved.as_slice().try_into().context("伽马恢复记录长度无效")?,
+                rgb: saved
+                    .as_slice()
+                    .try_into()
+                    .context("伽马恢复记录长度无效")?,
             }
         };
         let current = self.gamma_ramp(device.index)?;
@@ -128,11 +128,15 @@ impl Driver {
                     save_recovery(path, &records)?;
                 }
                 let intermediate = Ramp::build(profile.values, 0.01);
-                unsafe { set(self.context, device.index, intermediate); }
+                unsafe {
+                    set(self.context, device.index, intermediate);
+                }
             }
             let status = unsafe { set(self.context, device.index, desired) };
             if status != 0 && profile.enabled {
-                unsafe { set(self.context, device.index, current); }
+                unsafe {
+                    set(self.context, device.index, current);
+                }
             }
             ensure!(status == 0, "设置伽马曲线失败 ({status})");
         }

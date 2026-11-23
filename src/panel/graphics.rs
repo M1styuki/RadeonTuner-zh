@@ -165,7 +165,9 @@ impl Panel {
         self.fsr_library = driver.fsr_library(device, self.skip_graphics_check);
         if result.is_ok() {
             if let Some(staged) = staged {
-                staged.persist(&path).context("已应用图形设置，但保存配置失败")?;
+                staged
+                    .persist(&path)
+                    .context("已应用图形设置，但保存配置失败")?;
             }
         }
         self.read_graphics_profile()?;

@@ -1,7 +1,7 @@
 use super::Panel;
 use gpui::{
-    Bounds, Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    PathBuilder, Pixels, Point, canvas, div, point, prelude::*, px, rgb,
+    Bounds, Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder,
+    Pixels, Point, canvas, div, point, prelude::*, px, rgb,
 };
 use std::{cell::Cell, rc::Rc};
 
@@ -101,32 +101,38 @@ impl Panel {
         )
         .w_full()
         .h(px(145.));
-        let mut graph = div().relative().child(super::shape::outline(palette.border)).child(plot);
+        let mut graph = div()
+            .relative()
+            .child(super::shape::outline(palette.border))
+            .child(plot);
         if editable {
             graph = graph.cursor_pointer().on_mouse_down(
                 MouseButton::Left,
                 cx.listener(move |panel, ev: &MouseDownEvent, _, _| {
                     if let Some(bounds) = geometry.get() {
-                        panel.curve_drag = grab_points.iter().enumerate().filter_map(|(i, &(temp, speed))| {
-                            let p = plot_point(bounds, temp as f32 / 100., speed as f32 / 100.);
-                            let x = (p.x - ev.position.x) / px(1.);
-                            let y = (p.y - ev.position.y) / px(1.);
-                            let distance = x * x + y * y;
-                            (distance <= 144.).then_some((i, distance))
-                        }).min_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, _)| i);
+                        panel.curve_drag = grab_points
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(i, &(temp, speed))| {
+                                let p = plot_point(bounds, temp as f32 / 100., speed as f32 / 100.);
+                                let x = (p.x - ev.position.x) / px(1.);
+                                let y = (p.y - ev.position.y) / px(1.);
+                                let distance = x * x + y * y;
+                                (distance <= 144.).then_some((i, distance))
+                            })
+                            .min_by(|a, b| a.1.total_cmp(&b.1))
+                            .map(|(i, _)| i);
                     }
                 }),
             );
         }
-        section
-            .child(graph)
-            .child(
-                div()
-                    .flex()
-                    .justify_between()
-                    .child("0 °C")
-                    .child("50 °C")
-                    .child("100 °C"),
-            )
+        section.child(graph).child(
+            div()
+                .flex()
+                .justify_between()
+                .child("0 °C")
+                .child("50 °C")
+                .child("100 °C"),
+        )
     }
 }

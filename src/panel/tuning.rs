@@ -1,5 +1,5 @@
-use crate::panel::shape::ContinuousCorners;
 use super::Panel;
+use crate::panel::shape::ContinuousCorners;
 use crate::{adl::overdrive::ECC, profile_store, profiles};
 use anyhow::{Context as _, Result, ensure};
 use gpui::{Context, Div, div, prelude::*};
@@ -82,8 +82,15 @@ impl Panel {
             let gap = i32::from(axis == 0);
             let axis_value = |(temp, speed)| if axis == 0 { temp } else { speed };
             let previous = point.checked_sub(1).map(|i| axis_value(points[i]) + gap);
-            let next = points.get(point + 1).copied().map(|value| axis_value(value) - gap);
-            if let Some(control) = self.controls.iter_mut().find(|c| c.id == 19 + point * 2 + axis) {
+            let next = points
+                .get(point + 1)
+                .copied()
+                .map(|value| axis_value(value) - gap);
+            if let Some(control) = self
+                .controls
+                .iter_mut()
+                .find(|c| c.id == 19 + point * 2 + axis)
+            {
                 let min = previous.unwrap_or(control.min).max(control.min);
                 let max = next.unwrap_or(control.max).min(control.max);
                 if min <= max {
@@ -228,7 +235,13 @@ impl Panel {
         let mut controls = driver.controls(device.index)?;
         profiles::tuning_draft(&mut controls, &row)?;
         let mut rows = profile_store::load(&path)?;
-        profile_store::upsert(&mut rows, &device.profile_key, &self.tuning.app, &row, false)?;
+        profile_store::upsert(
+            &mut rows,
+            &device.profile_key,
+            &self.tuning.app,
+            &row,
+            false,
+        )?;
         let staged = profile_store::staged_json(&path, &json!(&rows))?;
         let running = profiles::process_names()?;
         if profiles::select_profile(&rows, &device.profile_key, &running)
@@ -238,7 +251,9 @@ impl Panel {
                 driver.apply(device.index, &controls)?;
             }
         }
-        staged.persist(&path).context("驱动已更新，调校配置保存失败")?;
+        staged
+            .persist(&path)
+            .context("驱动已更新，调校配置保存失败")?;
         crate::tray::settings_changed()?;
         self.read_controls();
         Ok(())
@@ -296,7 +311,9 @@ impl Panel {
                 .context("显卡驱动不可用")?
                 .reset_tuning(device.index)?;
         }
-        staged.persist(&path).context("驱动已重置，调校配置保存失败")?;
+        staged
+            .persist(&path)
+            .context("驱动已重置，调校配置保存失败")?;
         self.read_controls();
         crate::tray::settings_changed()
     }

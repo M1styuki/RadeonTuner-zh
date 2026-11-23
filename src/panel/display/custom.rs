@@ -1,6 +1,6 @@
-use crate::panel::shape::ContinuousCorners;
 use super::{Panel, Preview};
 use crate::adl::display::custom::{STANDARDS, Timing};
+use crate::panel::shape::ContinuousCorners;
 use anyhow::{Context as _, Result, ensure};
 use gpui::{Context, Div, div, prelude::*};
 

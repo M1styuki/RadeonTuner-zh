@@ -1,6 +1,6 @@
-use crate::panel::shape::ContinuousCorners;
 use super::Panel;
 use crate::integration::games::{self, Entry};
+use crate::panel::shape::ContinuousCorners;
 use anyhow::{Context as _, Result, ensure};
 use gpui::{Context, Div, PathPromptOptions, div, prelude::*, rgb};
 use std::collections::BTreeSet;

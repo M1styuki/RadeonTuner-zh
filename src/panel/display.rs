@@ -264,19 +264,32 @@ impl Panel {
         let candidates = profiles::display_profiles(&rows, key);
         let running = profiles::process_names()?;
         let active = profiles::active_display(&candidates, &running);
-        if page.app.eq_ignore_ascii_case("Global") || active.is_some_and(|p| {
-            p["Application"]
-                .as_str()
-                .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
-        }) {
+        if page.app.eq_ignore_ascii_case("Global")
+            || active.is_some_and(|p| {
+                p["Application"]
+                    .as_str()
+                    .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
+            })
+        {
             let mut settings = driver.display_settings(display);
             profiles::display_live_draft(&mut settings, &candidates, &running)?;
             driver.apply_display(display, &settings)?;
         }
-        let device = self.devices.iter().find(|d| d.index == display.adapter)
+        let device = self
+            .devices
+            .iter()
+            .find(|d| d.index == display.adapter)
             .context("显示器所属的显卡已断开")?;
-        profiles::sync_display_policy(driver, device, &rows, &running, &self.settings.gamma_recovery_path()?)?;
-        staged.persist(&path).context("驱动已更新，显示配置保存失败")?;
+        profiles::sync_display_policy(
+            driver,
+            device,
+            &rows,
+            &running,
+            &self.settings.gamma_recovery_path()?,
+        )?;
+        staged
+            .persist(&path)
+            .context("驱动已更新，显示配置保存失败")?;
         crate::tray::settings_changed()
     }
     fn reset_display_profile(&mut self) -> Result<()> {
@@ -300,8 +313,7 @@ impl Panel {
             let candidates = profiles::display_profiles(&rows, key);
             let running = profiles::process_names()?;
             let active = page.app.eq_ignore_ascii_case("Global")
-                || profiles::active_display(&candidates, &running)
-                .is_some_and(|r| {
+                || profiles::active_display(&candidates, &running).is_some_and(|r| {
                     r["Application"]
                         .as_str()
                         .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
@@ -331,10 +343,21 @@ impl Panel {
                 profiles::display_live_draft(&mut settings, &new_candidates, &running)?;
                 driver.apply_display(d, &settings)?;
             }
-            let device = self.devices.iter().find(|device| device.index == d.adapter)
+            let device = self
+                .devices
+                .iter()
+                .find(|device| device.index == d.adapter)
                 .context("显示器所属的显卡已断开")?;
-            profiles::sync_display_policy(driver, device, &rows, &running, &self.settings.gamma_recovery_path()?)?;
-            staged.persist(&path).context("驱动已更新，显示配置保存失败")?;
+            profiles::sync_display_policy(
+                driver,
+                device,
+                &rows,
+                &running,
+                &self.settings.gamma_recovery_path()?,
+            )?;
+            staged
+                .persist(&path)
+                .context("驱动已更新，显示配置保存失败")?;
             crate::tray::settings_changed()?;
         } else {
             driver.apply_display(d, &settings)?;
@@ -393,15 +416,35 @@ impl Panel {
             }
         }
         let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
-        let display = self.display.displays.get(self.display.display_index).context("未选择显示器")?;
-        let device = self.devices.iter().find(|d| d.index == display.adapter).context("显卡已断开")?;
+        let display = self
+            .display
+            .displays
+            .get(self.display.display_index)
+            .context("未选择显示器")?;
+        let device = self
+            .devices
+            .iter()
+            .find(|d| d.index == display.adapter)
+            .context("显卡已断开")?;
         let running = profiles::process_names()?;
         let staged = profile_store::staged_json(&path, &json!(&rows))?;
         let mut settings = driver.display_settings(display);
-        profiles::display_live_draft(&mut settings, &profiles::display_profiles(&rows, &key), &running)?;
+        profiles::display_live_draft(
+            &mut settings,
+            &profiles::display_profiles(&rows, &key),
+            &running,
+        )?;
         driver.apply_display(display, &settings)?;
-        profiles::sync_display_policy(driver, device, &rows, &running, &self.settings.gamma_recovery_path()?)?;
-        staged.persist(&path).context("驱动已更新，显示配置保存失败")?;
+        profiles::sync_display_policy(
+            driver,
+            device,
+            &rows,
+            &running,
+            &self.settings.gamma_recovery_path()?,
+        )?;
+        staged
+            .persist(&path)
+            .context("驱动已更新，显示配置保存失败")?;
         self.display.app = "Global".into();
         self.read_modes();
         crate::tray::settings_changed()

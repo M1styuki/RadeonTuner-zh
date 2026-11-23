@@ -32,7 +32,13 @@ fn save_row(path: &Path, device: &str, app: &str, update: &Value, replace: bool)
     write_json(path, &Value::Array(rows))
 }
 
-pub fn upsert(rows: &mut Vec<Value>, device: &str, app: &str, update: &Value, replace: bool) -> Result<()> {
+pub fn upsert(
+    rows: &mut Vec<Value>,
+    device: &str,
+    app: &str,
+    update: &Value,
+    replace: bool,
+) -> Result<()> {
     ensure!(!device.is_empty() && !app.is_empty(), "配置身份无效");
     if let Some(row) = rows.iter_mut().find(|row| matches(row, device, app)) {
         if replace {

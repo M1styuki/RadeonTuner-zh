@@ -1,6 +1,6 @@
-use crate::panel::shape::ContinuousCorners;
 use super::Panel;
 use crate::adl::display::Display;
+use crate::panel::shape::ContinuousCorners;
 use anyhow::{Context as _, Result};
 use gpui::{Context, Div, div, prelude::*};
 pub(super) struct Editor {

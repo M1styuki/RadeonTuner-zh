@@ -146,11 +146,23 @@ fn fetch(access: Access, route: &str, accept: &str, stdout: Stdio) -> Result<Out
         .then(|| std::env::var(TOKEN_ENV).context("未读取到 RadeonTuner GitHub 更新令牌"))
         .transpose()?;
     if let Some(token) = &token {
-        ensure!(!token.is_empty() && token.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-'),
-            "RadeonTuner GitHub 更新令牌格式无效");
+        ensure!(
+            !token.is_empty()
+                && token
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-'),
+            "RadeonTuner GitHub 更新令牌格式无效"
+        );
     }
-    let mut child = cmd.stdin(if token.is_some() { Stdio::piped() } else { Stdio::null() })
-        .stdout(stdout).stderr(Stdio::piped()).spawn()?;
+    let mut child = cmd
+        .stdin(if token.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(stdout)
+        .stderr(Stdio::piped())
+        .spawn()?;
     if let Some(token) = token {
         let mut input = child.stdin.take().context("无法传入 GitHub 更新令牌")?;
         writeln!(input, "Authorization: Bearer {token}").context("无法传入 GitHub 更新令牌")?;
@@ -167,14 +179,24 @@ pub fn check() -> Result<Option<Update>> {
     let mut releases = Vec::new();
     for page in 1.. {
         let route = format!("releases?per_page=100&page={page}");
-        let mut res = fetch(access, &route, "application/vnd.github+json", Stdio::piped())?;
+        let mut res = fetch(
+            access,
+            &route,
+            "application/vnd.github+json",
+            Stdio::piped(),
+        )?;
         if !res.status.success()
             && page == 1
             && matches!(access, Access::Public)
             && String::from_utf8_lossy(&res.stderr).contains("404")
         {
             access = Access::GithubCli;
-            res = fetch(access, &route, "application/vnd.github+json", Stdio::piped())?;
+            res = fetch(
+                access,
+                &route,
+                "application/vnd.github+json",
+                Stdio::piped(),
+            )?;
         }
         ensure!(
             res.status.success(),

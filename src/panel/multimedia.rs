@@ -23,7 +23,10 @@ fn read_profile(path: &Path, device: &str, app: &str, controls: &mut [VideoContr
     let Some(row) = rows
         .iter()
         .find(|row| profile_store::matches(row, device, app))
-        .or_else(|| rows.iter().find(|row| profile_store::matches(row, device, "Global")))
+        .or_else(|| {
+            rows.iter()
+                .find(|row| profile_store::matches(row, device, "Global"))
+        })
     else {
         return Ok(());
     };
@@ -51,14 +54,24 @@ impl Panel {
                         .and_then(|path| {
                             for row in profile_store::load(&path)? {
                                 if row["DeviceId"].as_str() == Some(&device.profile_key) {
-                                    if let Some(app) = row["Application"].as_str().filter(|a| !a.is_empty()) {
-                                        if !self.video_apps.iter().any(|name| name.eq_ignore_ascii_case(app)) {
+                                    if let Some(app) =
+                                        row["Application"].as_str().filter(|a| !a.is_empty())
+                                    {
+                                        if !self
+                                            .video_apps
+                                            .iter()
+                                            .any(|name| name.eq_ignore_ascii_case(app))
+                                        {
                                             self.video_apps.push(app.into());
                                         }
                                     }
                                 }
                             }
-                            if !self.video_apps.iter().any(|a| a.eq_ignore_ascii_case(&self.video_app)) {
+                            if !self
+                                .video_apps
+                                .iter()
+                                .any(|a| a.eq_ignore_ascii_case(&self.video_app))
+                            {
                                 self.video_app = "Global".into();
                             }
                             read_profile(&path, &device.profile_key, &self.video_app, &mut controls)
@@ -90,7 +103,8 @@ impl Panel {
         let staged = profile_store::staged_json(&path, &json!(&rows))?;
         let running = profiles::process_names()?;
         let active = profiles::select_profile(&rows, &device.profile_key, &running);
-        let apply = active.is_some_and(|row| profile_store::matches(row, &device.profile_key, &self.video_app));
+        let apply = active
+            .is_some_and(|row| profile_store::matches(row, &device.profile_key, &self.video_app));
         if apply {
             video_draft(&mut live, &row)?;
             driver.apply_video(device.index, &live)?;
@@ -117,13 +131,19 @@ impl Panel {
         let path = self.settings.profiles_path("MultimediaProfiles.json")?;
         let mut rows = profile_store::load(&path)?;
         let mut controls = driver.video_controls(device.index)?;
-        if let Some(global) = rows.iter().find(|row| profile_store::matches(row, &device.profile_key, "Global")) {
+        if let Some(global) = rows
+            .iter()
+            .find(|row| profile_store::matches(row, &device.profile_key, "Global"))
+        {
             video_draft(&mut controls, global)?;
         } else {
             let global = video_record(&device.profile_key, "Global", &controls);
             profile_store::upsert(&mut rows, &device.profile_key, "Global", &global, false)?;
         }
-        if !rows.iter().any(|row| profile_store::matches(row, &device.profile_key, app)) {
+        if !rows
+            .iter()
+            .any(|row| profile_store::matches(row, &device.profile_key, app))
+        {
             let row = video_record(&device.profile_key, app, &controls);
             profile_store::upsert(&mut rows, &device.profile_key, app, &row, false)?;
             profile_store::write_json(&path, &json!(rows))?;
@@ -140,8 +160,16 @@ impl Panel {
         let mut rows = profile_store::load(&path)?;
         let running = profiles::process_names()?;
         let active_removed = profiles::select_profile(&rows, &device.profile_key, &running)
-            .is_some_and(|row| names.iter().any(|name| profile_store::matches(row, &device.profile_key, name)));
-        rows.retain(|row| !names.iter().any(|name| profile_store::matches(row, &device.profile_key, name)));
+            .is_some_and(|row| {
+                names
+                    .iter()
+                    .any(|name| profile_store::matches(row, &device.profile_key, name))
+            });
+        rows.retain(|row| {
+            !names
+                .iter()
+                .any(|name| profile_store::matches(row, &device.profile_key, name))
+        });
         let staged = profile_store::staged_json(&path, &json!(&rows))?;
         if active_removed {
             let mut controls = driver.video_controls(device.index)?;
@@ -171,17 +199,31 @@ impl Panel {
         let mut apps = div().flex().flex_wrap().gap_2();
         for (i, app) in self.video_apps.iter().cloned().enumerate() {
             let selected = app == self.video_app;
-            let label = if app == "Global" { "全局".into() } else { app.clone() };
-            apps = apps.child(div().id(("video-app", i)).px_2().cursor_pointer()
-                .smooth_background(if selected { self.palette.selected } else { self.palette.control })
-                .child(label)
-                .on_click(cx.listener(move |panel, _, _, cx| {
-                    panel.video_app = app.clone();
-                    panel.read_video();
-                    cx.notify();
-                })));
+            let label = if app == "Global" {
+                "全局".into()
+            } else {
+                app.clone()
+            };
+            apps = apps.child(
+                div()
+                    .id(("video-app", i))
+                    .px_2()
+                    .cursor_pointer()
+                    .smooth_background(if selected {
+                        self.palette.selected
+                    } else {
+                        self.palette.control
+                    })
+                    .child(label)
+                    .on_click(cx.listener(move |panel, _, _, cx| {
+                        panel.video_app = app.clone();
+                        panel.read_video();
+                        cx.notify();
+                    })),
+            );
         }
-        section = section.child(apps.child(self.app_picker_buttons(super::picker::Target::Multimedia, cx)));
+        section = section
+            .child(apps.child(self.app_picker_buttons(super::picker::Target::Multimedia, cx)));
         let upscale = self
             .video
             .iter()
