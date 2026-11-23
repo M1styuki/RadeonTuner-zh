@@ -351,7 +351,7 @@ impl Panel {
                     .draft
                     .saturating_add(delta)
                     .clamp(control.min, control.max);
-                let button = div().id((id, i)).px_2().child(label);
+                let button = self.button_style(next != control.draft).id((id, i)).child(label);
                 controls = controls.child(if next != control.draft {
                     button
                         .cursor_pointer()
@@ -360,7 +360,7 @@ impl Panel {
                             cx.notify();
                         }))
                 } else {
-                    button.opacity(0.45)
+                    button
                 });
             }
             section = section.child(self.setting_row(control.field.label(), controls));
@@ -427,7 +427,7 @@ impl Panel {
                 );
             } else {
                 section = section.child(
-                    div()
+                    self.button_style(true)
                         .id("graphics-reset")
                         .cursor_pointer()
                         .child(if self.games.selected.is_some() {
@@ -454,7 +454,7 @@ impl Panel {
                 .is_some_and(|f| f.current != f.draft)
         {
             section = section.child(
-                div()
+                self.button_style(true)
                     .id("graphics-apply")
                     .cursor_pointer()
                     .child("应用图形设置")

@@ -259,11 +259,7 @@ impl Panel {
                 for (key, label, delta) in [("video-down", "−", -1), ("video-up", "+", 1)] {
                     let enabled = (control.feature != Feature::Sharpness || upscale)
                         && (min..=max).contains(&(control.draft.saturating_add(delta)));
-                    let button = div()
-                        .id((key, i))
-                        .px_3()
-                        .smooth_background(self.palette.control)
-                        .child(label);
+                    let button = self.button_style(enabled).id((key, i)).child(label);
                     controls = controls.child(if enabled {
                         button
                             .cursor_pointer()
@@ -273,7 +269,7 @@ impl Panel {
                                 cx.notify();
                             }))
                     } else {
-                        button.opacity(0.45)
+                        button
                     });
                 }
             }
@@ -313,7 +309,7 @@ impl Panel {
             );
         } else {
             section = section.child(
-                div()
+                self.button_style(true)
                     .id("video-reset")
                     .cursor_pointer()
                     .child("重置多媒体设置")
@@ -329,7 +325,7 @@ impl Panel {
             .any(|control| control.current != control.draft || control.saved != control.draft)
         {
             section = section.child(
-                div()
+                self.button_style(true)
                     .id("video-apply")
                     .cursor_pointer()
                     .child("应用多媒体设置")

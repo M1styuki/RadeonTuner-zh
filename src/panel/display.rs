@@ -870,7 +870,7 @@ impl Panel {
         }
         if !page.settings.is_empty() || page.gamma_supported {
             section = section.child(
-                div()
+                self.button_style(true)
                     .id("display-defaults")
                     .cursor_pointer()
                     .child(if page.confirm_reset {
@@ -893,7 +893,7 @@ impl Panel {
             );
             if page.confirm_reset {
                 section = section.child(
-                    div()
+                    self.button_style(true)
                         .id("cancel-display-reset")
                         .cursor_pointer()
                         .child("取消")
@@ -915,7 +915,7 @@ impl Panel {
             || (page.app == "Global" && page.settings.iter().any(|s| s.draft != s.current))
         {
             section = section.child(
-                div()
+                self.button_style(true)
                     .id("display-apply")
                     .cursor_pointer()
                     .child("应用显示设置")
