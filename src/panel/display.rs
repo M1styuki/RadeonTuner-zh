@@ -825,28 +825,41 @@ impl Panel {
                     "",
                     cx,
                 ));
-            } else {
-                controls = controls.child(setting.text());
-            }
-            for (id, label, step) in [
-                ("display-down", "−", -setting.step),
-                ("display-up", "+", setting.step),
-            ] {
-                let next = setting
-                    .draft
-                    .saturating_add(step)
-                    .clamp(setting.min, setting.max);
-                let button = div().id((id, i)).px_2().child(label);
-                controls = controls.child(if next != setting.draft {
-                    button
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |p, _, _, cx| {
+                for (id, label, step) in [
+                    ("display-down", "−", -setting.step),
+                    ("display-up", "+", setting.step),
+                ] {
+                    let next = setting
+                        .draft
+                        .saturating_add(step)
+                        .clamp(setting.min, setting.max);
+                    let button = self.button_style(next != setting.draft).id((id, i)).child(label);
+                    controls = controls.child(if next != setting.draft {
+                        button.cursor_pointer().on_click(cx.listener(move |p, _, _, cx| {
                             p.display.settings[i].draft = next;
                             cx.notify();
                         }))
-                } else {
-                    button.opacity(0.45)
-                });
+                    } else {
+                        button
+                    });
+                }
+            } else if !setting.choices().is_empty() {
+                let labels = setting.choices();
+                let selected = setting.draft.max(0) as usize;
+                controls = controls.child(
+                    self.button_style(true)
+                        .id(("display-choice", i))
+                        .cursor_pointer()
+                        .child(format!("{} ▾", setting.text()))
+                        .on_click(cx.listener(move |p, _, _, cx| {
+                            if let Some(index) = Panel::select_menu(labels, selected) {
+                                p.display.settings[i].draft = index as i32;
+                                cx.notify();
+                            }
+                        })),
+                );
+            } else {
+                controls = controls.child(setting.text());
             }
             section = section.child(self.setting_row(setting.label, controls));
         }

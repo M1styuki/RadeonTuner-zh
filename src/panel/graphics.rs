@@ -369,26 +369,22 @@ impl Panel {
             if s.choice.experimental && !self.experimental {
                 continue;
             }
-            let mut controls = div().flex().items_center().gap_2();
-            controls = controls.child(s.choice.entries[s.draft].0);
-            for (id, label, delta) in [("graphics-prev", "−", -1), ("graphics-next", "+", 1)] {
-                let next = s
-                    .draft
-                    .checked_add_signed(delta)
-                    .filter(|i| *i < s.choice.entries.len());
-                let button = div().id((id, i)).px_3().child(label);
-                controls = controls.child(if let Some(index) = next {
-                    button
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |p, _, _, cx| {
+            let labels: Vec<&str> = s.choice.entries.iter().map(|(label, _)| *label).collect();
+            let selected = s.draft;
+            let current = s.choice.entries[selected].0;
+            let controls = div().flex().items_center().gap_2().child(
+                self.button_style(true)
+                    .id(("graphics-choice", i))
+                    .cursor_pointer()
+                    .child(format!("{current} ▾"))
+                    .on_click(cx.listener(move |p, _, _, cx| {
+                        if let Some(index) = Panel::select_menu(&labels, selected) {
                             p.graphics[i].draft = index;
                             p.graphics_dirty = true;
                             cx.notify();
-                        }))
-                } else {
-                    button.opacity(0.45)
-                });
-            }
+                        }
+                    })),
+            );
             section = section.child(self.setting_row(s.choice.label, controls));
         }
         if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {

@@ -119,8 +119,8 @@ impl Feature {
     }
 }
 impl Setting {
-    pub fn text(&self) -> String {
-        let choices: &[&str] = match self.feature {
+    pub fn choices(&self) -> &'static [&'static str] {
+        match self.feature {
             Pixel => &[
                 "RGB 全范围",
                 "YCbCr 4:4:4",
@@ -136,8 +136,10 @@ impl Setting {
                 &["关", "开"]
             }
             _ => &[],
-        };
-        choices
+        }
+    }
+    pub fn text(&self) -> String {
+        self.choices()
             .get(self.draft as usize)
             .map(|s| s.to_string())
             .unwrap_or_else(|| self.draft.to_string())

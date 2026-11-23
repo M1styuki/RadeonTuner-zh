@@ -116,6 +116,60 @@ impl Panel {
             )
     }
 
+    pub(super) fn button_style(&self, enabled: bool) -> Div {
+        div()
+            .h(px(32.))
+            .min_w(px(72.))
+            .px_3()
+            .flex()
+            .items_center()
+            .justify_center()
+            .text_sm()
+            .smooth_background(if enabled {
+                self.palette.control
+            } else {
+                self.palette.sidebar
+            })
+            .when(!enabled, |button| button.opacity(0.45))
+    }
+
+    pub(super) fn select_menu(labels: &[&str], selected: usize) -> Option<usize> {
+        use windows_sys::Win32::{
+            Foundation::POINT,
+            UI::WindowsAndMessaging::{
+                AppendMenuW, CreatePopupMenu, DestroyMenu, GetCursorPos, GetForegroundWindow,
+                MF_CHECKED, MF_STRING, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_TOPALIGN,
+                TrackPopupMenuEx,
+            },
+        };
+        unsafe {
+            let menu = CreatePopupMenu();
+            if menu.is_null() {
+                return None;
+            }
+            for (i, label) in labels.iter().enumerate() {
+                let text: Vec<u16> = label.encode_utf16().chain(Some(0)).collect();
+                let mut flags = MF_STRING;
+                if i == selected {
+                    flags |= MF_CHECKED;
+                }
+                AppendMenuW(menu, flags, i + 1, text.as_ptr());
+            }
+            let mut point = POINT { x: 0, y: 0 };
+            GetCursorPos(&mut point);
+            let command = TrackPopupMenuEx(
+                menu,
+                TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN,
+                point.x,
+                point.y,
+                GetForegroundWindow(),
+                std::ptr::null(),
+            );
+            DestroyMenu(menu);
+            (command > 0).then(|| command as usize - 1)
+        }
+    }
+
     pub(super) fn setting_row<L: IntoElement>(&self, label: L, controls: Div) -> Div {
         div()
             .flex()
