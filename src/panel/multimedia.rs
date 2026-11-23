@@ -259,8 +259,34 @@ impl Panel {
                 ));
             }
         }
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(self.video_actions(cx))
+            .child(section)
+            .child(self.video_status.clone())
+    }
+
+    fn video_actions(&self, cx: &mut Context<Self>) -> Div {
+        let mut actions = div().flex().flex_wrap().items_center().gap_2();
+        let changed = self
+            .video
+            .iter()
+            .any(|control| control.current != control.draft || control.saved != control.draft);
+        let apply = self.button_style(changed).id("video-apply").child("应用");
+        actions = actions.child(if changed {
+            apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+                if let Err(e) = p.apply_video_profile(false) {
+                    p.video_status = e.to_string();
+                }
+                cx.notify();
+            }))
+        } else {
+            apply
+        });
         if self.confirm_video_reset {
-            section = section.child(
+            actions = actions.child(
                 div()
                     .flex()
                     .gap_2()
@@ -292,36 +318,18 @@ impl Panel {
                     ),
             );
         } else {
-            section = section.child(
+            actions = actions.child(
                 self.button_style(true)
                     .id("video-reset")
                     .cursor_pointer()
-                    .child("重置多媒体设置")
+                    .child("重置")
                     .on_click(cx.listener(|p, _, _, cx| {
                         p.confirm_video_reset = true;
                         cx.notify();
                     })),
             );
         }
-        if self
-            .video
-            .iter()
-            .any(|control| control.current != control.draft || control.saved != control.draft)
-        {
-            section = section.child(
-                self.button_style(true)
-                    .id("video-apply")
-                    .cursor_pointer()
-                    .child("应用多媒体设置")
-                    .on_click(cx.listener(|panel, _, _, cx| {
-                        if let Err(err) = panel.apply_video_profile(false) {
-                            panel.video_status = err.to_string();
-                        }
-                        cx.notify();
-                    })),
-            );
-        }
-        section.child(self.video_status.clone())
+        actions
     }
 }
 

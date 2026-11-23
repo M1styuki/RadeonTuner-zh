@@ -586,9 +586,6 @@ impl Panel {
                 cx,
             ));
         }
-        if page.key.is_some() {
-            section = section.child(self.transfer_buttons(super::transfer::Kind::Display, cx));
-        }
         if let (Some(mode), Some(current), true) = (
             page.modes.get(page.choice),
             page.current,
@@ -820,15 +817,55 @@ impl Panel {
                 }
             }
         }
+        if page.displays.is_empty() && page.status.is_empty() {
+            section = section.child("未检测到可用的 AMD 显示器");
+        }
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(self.display_actions(cx))
+            .child(section)
+            .child(page.status.clone())
+    }
+
+    fn display_actions(&self, cx: &mut Context<Self>) -> Div {
+        let page = &self.display;
+        let mut actions = div().flex().flex_wrap().items_center().gap_2();
+        if page.displays.is_empty() {
+            return actions;
+        }
+        let changed = page.gamma != page.saved_gamma
+            || page.auto_eye != page.saved_eye
+            || page.imported.is_some()
+            || page
+                .settings
+                .iter()
+                .zip(&page.saved)
+                .any(|(s, saved)| s.draft != *saved)
+            || (page.app == "Global" && page.settings.iter().any(|s| s.draft != s.current));
+        let apply = self.button_style(changed).id("display-apply").child("应用");
+        actions = actions.child(if changed {
+            apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+                let result = p.save_display_profile();
+                p.read_modes();
+                p.display.status = result
+                    .map(|()| "显示设置已保存".into())
+                    .unwrap_or_else(|e| e.to_string());
+                cx.notify();
+            }))
+        } else {
+            apply
+        });
         if !page.settings.is_empty() || page.gamma_supported {
-            section = section.child(
+            actions = actions.child(
                 self.button_style(true)
                     .id("display-defaults")
                     .cursor_pointer()
                     .child(if page.confirm_reset {
                         "确认重置所选显示配置"
                     } else {
-                        "重置显示设置"
+                        "重置"
                     })
                     .on_click(cx.listener(|p, _, _, cx| {
                         if p.display.confirm_reset {
@@ -844,7 +881,7 @@ impl Panel {
                     })),
             );
             if page.confirm_reset {
-                section = section.child(
+                actions = actions.child(
                     self.button_style(true)
                         .id("cancel-display-reset")
                         .cursor_pointer()
@@ -856,35 +893,9 @@ impl Panel {
                 );
             }
         }
-        if page.gamma != page.saved_gamma
-            || page.auto_eye != page.saved_eye
-            || page.imported.is_some()
-            || page
-                .settings
-                .iter()
-                .zip(&page.saved)
-                .any(|(s, saved)| s.draft != *saved)
-            || (page.app == "Global" && page.settings.iter().any(|s| s.draft != s.current))
-        {
-            section = section.child(
-                self.button_style(true)
-                    .id("display-apply")
-                    .cursor_pointer()
-                    .child("应用显示设置")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        let result = p.save_display_profile();
-                        p.read_modes();
-                        p.display.status = match result {
-                            Ok(()) => "显示设置已保存".into(),
-                            Err(err) => err.to_string(),
-                        };
-                        cx.notify();
-                    })),
-            );
+        if page.key.is_some() {
+            actions = actions.child(self.transfer_buttons(super::transfer::Kind::Display, cx));
         }
-        if page.displays.is_empty() && page.status.is_empty() {
-            section = section.child("未检测到可用的 AMD 显示器");
-        }
-        section.child(page.status.clone())
+        actions
     }
 }

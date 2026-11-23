@@ -49,10 +49,8 @@ impl Panel {
                     .left(px(if on { 24. } else { 4. }))
                     .w(px(16.))
                     .h(px(16.))
-                    .child(shape::surface_radius(
-                        if on { 0xffffff } else { palette.text },
-                        8.,
-                    )),
+                    .rounded_full()
+                    .bg(rgb(if on { 0xffffff } else { palette.text })),
             )
     }
 
@@ -65,7 +63,8 @@ impl Panel {
             .flex()
             .items_center()
             .justify_center()
-            .smooth_background(palette.control)
+            .relative()
+            .child(shape::surface_radius(palette.control, 6.))
             .when(!enabled, |button| button.opacity(0.45))
     }
 
@@ -74,11 +73,9 @@ impl Panel {
             .flex()
             .w_full()
             .min_h(px(44.))
-            .py_1()
+            .py(px(6.))
             .items_center()
             .gap_4()
-            .border_b_1()
-            .border_color(rgb(self.palette.border))
             .child(div().flex_1().min_w_0().child(label))
             .child(div().flex().flex_shrink_0().justify_end().child(controls))
     }

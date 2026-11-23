@@ -49,12 +49,16 @@ impl Panel {
             ("profile-picker-add", "添加应用…", false),
             ("profile-picker-remove", "移除应用…", true),
         ] {
-            row = row.child(div().id(id).px_2().cursor_pointer().child(label).on_click(
-                cx.listener(move |p, _, _, cx| {
-                    p.open_picker(target, remove);
-                    cx.notify();
-                }),
-            ));
+            row = row.child(
+                self.button_style(true)
+                    .id(id)
+                    .cursor_pointer()
+                    .child(label)
+                    .on_click(cx.listener(move |p, _, _, cx| {
+                        p.open_picker(target, remove);
+                        cx.notify();
+                    })),
+            );
         }
         row
     }

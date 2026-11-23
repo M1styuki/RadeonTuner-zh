@@ -192,9 +192,6 @@ impl Panel {
     }
     pub(super) fn render_graphics(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_0();
-        if !self.graphics.is_empty() || self.fsr_library.is_some() || !self.frames.is_empty() {
-            section = section.child(self.transfer_buttons(super::transfer::Kind::Graphics, cx));
-        }
         for game in &self.fsr_activity {
             section = section.child(game.clone());
         }
@@ -440,9 +437,48 @@ impl Panel {
         if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
             section = section.child("当前显卡没有可读取的图形设置");
         }
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(self.graphics_actions(cx))
+            .child(section)
+            .child(self.graphics_status.clone())
+    }
+
+    fn graphics_actions(&self, cx: &mut Context<Self>) -> Div {
+        let mut actions = div().flex().flex_wrap().items_center().gap_2();
+        if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
+            return actions;
+        }
+        let changed = self.graphics_dirty
+            || self
+                .frames
+                .iter()
+                .any(|c| c.field.enabled(&self.frames) && c.current != c.draft)
+            || self.graphics.iter().any(|s| s.draft != s.current)
+            || self
+                .fsr_library
+                .as_ref()
+                .is_some_and(|f| f.current != f.draft);
+        let apply = self
+            .button_style(changed)
+            .id("graphics-apply")
+            .child("应用");
+        actions = actions.child(if changed {
+            apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+                p.graphics_status = p
+                    .save_graphics(false)
+                    .map(|()| "图形设置已应用".into())
+                    .unwrap_or_else(|e| e.to_string());
+                cx.notify();
+            }))
+        } else {
+            apply
+        });
         if !self.graphics.is_empty() || !self.frames.is_empty() || self.fsr_library.is_some() {
             if self.confirm_graphics_reset {
-                section = section.child(
+                actions = actions.child(
                     div()
                         .flex()
                         .gap_2()
@@ -476,15 +512,11 @@ impl Panel {
                         ),
                 );
             } else {
-                section = section.child(
+                actions = actions.child(
                     self.button_style(true)
                         .id("graphics-reset")
                         .cursor_pointer()
-                        .child(if self.games.selected.is_some() {
-                            "重置游戏图形设置"
-                        } else {
-                            "重置全局图形设置"
-                        })
+                        .child("重置")
                         .on_click(cx.listener(|p, _, _, cx| {
                             p.confirm_graphics_reset = true;
                             cx.notify();
@@ -492,34 +524,10 @@ impl Panel {
                 );
             }
         }
-        if self.graphics_dirty
-            || self
-                .frames
-                .iter()
-                .any(|c| c.field.enabled(&self.frames) && c.current != c.draft)
-            || self.graphics.iter().any(|s| s.draft != s.current)
-            || self
-                .fsr_library
-                .as_ref()
-                .is_some_and(|f| f.current != f.draft)
-        {
-            section = section.child(
-                self.button_style(true)
-                    .id("graphics-apply")
-                    .cursor_pointer()
-                    .child("应用图形设置")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        p.graphics_status = match p.save_graphics(false) {
-                            Ok(()) => "图形设置已应用".into(),
-                            Err(err) => err.to_string(),
-                        };
-                        cx.notify();
-                    })),
-            );
-        }
+        actions = actions.child(self.transfer_buttons(super::transfer::Kind::Graphics, cx));
         if self.devices.get(self.selected).is_some() {
-            section = section.child(
-                div()
+            actions = actions.child(
+                self.button_style(true)
                     .id("clear-shaders")
                     .cursor_pointer()
                     .child(if self.confirm_cache {
@@ -540,7 +548,7 @@ impl Panel {
                     })),
             );
             if self.confirm_cache {
-                section = section.child(
+                actions = actions.child(
                     div()
                         .id("cancel-clear-shaders")
                         .cursor_pointer()
@@ -552,7 +560,7 @@ impl Panel {
                 );
             }
         }
-        section.child(self.graphics_status.clone())
+        actions
     }
     pub(super) fn read_device_details(&mut self) {
         self.read_video();

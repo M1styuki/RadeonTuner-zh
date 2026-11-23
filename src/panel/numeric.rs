@@ -107,14 +107,9 @@ impl Panel {
         cx: &mut Context<Self>,
     ) -> Div {
         let text = self.number_text(field, value, min, max, step, unit, cx);
-        let tuning = matches!(field, Field::Tuning(_));
-        let mut input = div()
-            .flex()
-            .when(tuning, |row| row.flex_1().min_w_0().items_center().gap_2())
-            .when(!tuning, |column| column.flex_col().w(px(160.)))
-            .child(text);
+        let mut input = div().flex().items_center().gap_2();
         if matches!(field, Field::Custom(_)) || max <= min {
-            return input;
+            return input.child(text);
         }
         let position = move |fraction: f32| {
             let range = i64::from(max) - i64::from(min);
@@ -185,8 +180,7 @@ impl Panel {
         .size_full();
         input = input.child(
             div()
-                .when(tuning, |track| track.flex_1().min_w_0())
-                .when(!tuning, |track| track.w_full())
+                .w(px(120.))
                 .h(px(20.))
                 .cursor_pointer()
                 .on_mouse_down(
@@ -205,7 +199,7 @@ impl Panel {
                 )
                 .child(track),
         );
-        input
+        input.child(text)
     }
     fn number_text(
         &self,
@@ -227,17 +221,14 @@ impl Panel {
         };
         let base = div()
             .id(id)
-            .w(px(if matches!(field, Field::Tuning(_)) {
-                92.
-            } else {
-                160.
-            }))
+            .w(px(160.))
             .flex_shrink_0()
             .h(px(32.))
             .flex()
             .justify_center()
             .items_center()
-            .smooth_background(self.palette.control);
+            .smooth_background(self.palette.control)
+            .child(super::shape::outline(self.palette.border));
         if let Some(edit) = self.edit.as_ref().filter(|e| e.field == field) {
             let (l, r) = (edit.anchor.min(edit.cursor), edit.anchor.max(edit.cursor));
             return base

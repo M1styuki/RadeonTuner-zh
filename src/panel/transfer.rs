@@ -70,11 +70,8 @@ impl Panel {
             return row
                 .child("设置文件中的设备与当前选择不同，继续导入？")
                 .child(
-                    div()
+                    self.button_style(true)
                         .id("confirm-import")
-                        .px_3()
-                        .py_1()
-                        .smooth_background(self.palette.control)
                         .cursor_pointer()
                         .child("继续导入")
                         .on_click(cx.listener(move |p, _, _, cx| {
@@ -88,11 +85,8 @@ impl Panel {
                         })),
                 )
                 .child(
-                    div()
+                    self.button_style(true)
                         .id("cancel-import")
-                        .px_3()
-                        .py_1()
-                        .smooth_background(self.palette.control)
                         .cursor_pointer()
                         .child("取消")
                         .on_click(cx.listener(|p, _, _, cx| {
@@ -102,13 +96,10 @@ impl Panel {
                 );
         }
         row = row.child(
-            div()
+            self.button_style(true)
                 .id("import-profile")
-                .px_3()
-                .py_1()
-                .smooth_background(self.palette.control)
                 .cursor_pointer()
-                .child("导入配置…")
+                .child("导入")
                 .on_click(cx.listener(move |p, _, _, cx| {
                     let Some(target) = kind.target(p) else {
                         return;
@@ -169,13 +160,10 @@ impl Panel {
                 })),
         );
         row.child(
-            div()
+            self.button_style(true)
                 .id("export-profile")
-                .px_3()
-                .py_1()
-                .smooth_background(self.palette.control)
                 .cursor_pointer()
-                .child("导出配置…")
+                .child("导出")
                 .on_click(cx.listener(move |p, _, _, cx| {
                     let Some(target) = kind.target(p) else {
                         return;

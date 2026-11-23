@@ -108,7 +108,7 @@ impl Panel {
             .h(px(58.))
             .gap_1()
             .when(selected, |row| {
-                row.smooth_background(palette.sidebar).child(
+                row.smooth_background(palette.selected).child(
                     div()
                         .absolute()
                         .left_0()
@@ -153,7 +153,7 @@ impl Render for Panel {
             return self.render_picker(cx);
         }
         let mut content = div().flex().flex_col().w_full().gap_3().px_4().pb_4();
-        if matches!(self.page, 5 | 6) || self.updates.has_notice() {
+        if self.page == 6 || self.updates.has_notice() {
             content = content.child(self.update_controls(cx));
         }
         if !self.message.is_empty() && self.page != 5 {
@@ -256,7 +256,8 @@ impl Render for Panel {
         );
         div()
             .size_full()
-            .text_sm()
+            .text_size(px(13.))
+            .font_family("Microsoft YaHei UI")
             .flex()
             .text_color(rgb(self.palette.text))
             .bg(rgb(self.palette.canvas))
