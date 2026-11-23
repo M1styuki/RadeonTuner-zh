@@ -78,6 +78,7 @@ impl Panel {
                     .left(px(if on { 24. } else { 4. }))
                     .w(px(16.))
                     .h(px(16.))
+                    // The circular thumb already has constant curvature.
                     .rounded_full()
                     .bg(rgb(if on { 0xffffff } else { palette.text })),
             )
@@ -248,7 +249,7 @@ impl Panel {
                         .when(i == menu.highlighted, |row| {
                             row.smooth_background(palette.selected)
                         })
-                        .hover(move |row| row.bg(rgb(palette.hover)))
+                        .smooth_hover_background(palette.hover)
                         .child(label)
                         .on_click(cx.listener(move |p, _, _, cx| {
                             p.dropdown = None;

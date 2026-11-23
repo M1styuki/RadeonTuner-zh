@@ -107,8 +107,10 @@ impl Panel {
             .justify_center()
             .h(px(58.))
             .gap_1()
+            .when(selected, |row| row.smooth_background(palette.selected))
+            .smooth_hover_background(palette.hover)
             .when(selected, |row| {
-                row.smooth_background(palette.selected).child(
+                row.child(
                     div()
                         .absolute()
                         .left_0()
@@ -118,7 +120,6 @@ impl Panel {
                         .child(shape::surface_radius(palette.accent, 1.)),
                 )
             })
-            .hover(move |row| row.bg(rgb(palette.hover)))
             .child(layout::nav_icon(i, palette.light))
             .child(label.to_string())
     }

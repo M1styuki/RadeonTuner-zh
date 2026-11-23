@@ -1,8 +1,27 @@
-use gpui::{Bounds, ParentElement, PathBuilder, Pixels, Styled, canvas, point, px, rgb};
+use gpui::{
+    Bounds, InteractiveElement, ParentElement, PathBuilder, Pixels, Styled, canvas, div, point, px,
+    rgb,
+};
 
 pub(super) trait ContinuousCorners: Styled + ParentElement + Sized {
     fn smooth_background(self, color: u32) -> Self {
         self.relative().child(surface_radius(color, 8.))
+    }
+
+    fn smooth_hover_background(self, color: u32) -> Self
+    where
+        Self: InteractiveElement,
+    {
+        self.relative().group("continuous-hover").child(
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+                .opacity(0.)
+                .group_hover("continuous-hover", |layer| layer.opacity(1.))
+                .child(surface(color)),
+        )
     }
 }
 
