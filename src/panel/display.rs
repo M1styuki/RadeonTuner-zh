@@ -833,12 +833,17 @@ impl Panel {
                         .draft
                         .saturating_add(step)
                         .clamp(setting.min, setting.max);
-                    let button = self.button_style(next != setting.draft).id((id, i)).child(label);
+                    let button = self
+                        .button_style(next != setting.draft)
+                        .id((id, i))
+                        .child(label);
                     controls = controls.child(if next != setting.draft {
-                        button.cursor_pointer().on_click(cx.listener(move |p, _, _, cx| {
-                            p.display.settings[i].draft = next;
-                            cx.notify();
-                        }))
+                        button
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |p, _, _, cx| {
+                                p.display.settings[i].draft = next;
+                                cx.notify();
+                            }))
                     } else {
                         button
                     });
