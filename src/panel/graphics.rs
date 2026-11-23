@@ -351,7 +351,10 @@ impl Panel {
                     .draft
                     .saturating_add(delta)
                     .clamp(control.min, control.max);
-                let button = self.button_style(next != control.draft).id((id, i)).child(label);
+                let button = self
+                    .button_style(next != control.draft)
+                    .id((id, i))
+                    .child(label);
                 controls = controls.child(if next != control.draft {
                     button
                         .cursor_pointer()
