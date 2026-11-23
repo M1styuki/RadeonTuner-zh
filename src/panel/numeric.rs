@@ -107,7 +107,12 @@ impl Panel {
         cx: &mut Context<Self>,
     ) -> Div {
         let text = self.number_text(field, value, min, max, step, unit, cx);
-        let mut input = div().flex().flex_col().w(px(160.)).child(text);
+        let tuning = matches!(field, Field::Tuning(_));
+        let mut input = div()
+            .flex()
+            .when(tuning, |row| row.flex_1().min_w_0().items_center().gap_2())
+            .when(!tuning, |column| column.flex_col().w(px(160.)))
+            .child(text);
         if matches!(field, Field::Custom(_)) || max <= min {
             return input;
         }
@@ -180,8 +185,9 @@ impl Panel {
         .size_full();
         input = input.child(
             div()
-                .w_full()
-                .h(px(16.))
+                .when(tuning, |track| track.flex_1().min_w_0())
+                .when(!tuning, |track| track.w_full())
+                .h(px(20.))
                 .cursor_pointer()
                 .on_mouse_down(
                     gpui::MouseButton::Left,
@@ -221,7 +227,8 @@ impl Panel {
         };
         let base = div()
             .id(id)
-            .w(px(160.))
+            .w(px(if matches!(field, Field::Tuning(_)) { 92. } else { 160. }))
+            .flex_shrink_0()
             .h(px(32.))
             .flex()
             .justify_center()

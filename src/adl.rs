@@ -39,6 +39,7 @@ pub struct Device {
     pub gamma_key: String,
     pub registry_path: String,
     pub profile_key: String,
+    pub pci_location: Option<(i32, i32, i32)>,
     pub index: i32,
     pub name: String,
 }
@@ -141,6 +142,12 @@ impl Driver {
                         gamma_key,
                         registry_path: string(&adapter.path_ext),
                         profile_key,
+                        pci_location: match (adapter.bus, adapter.device, adapter.function) {
+                            (0..=255, 0..=31, 0..=7) => {
+                                Some((adapter.bus, adapter.device, adapter.function))
+                            }
+                            _ => None,
+                        },
                         index: adapter.index,
                         name: string(&adapter.name),
                     });

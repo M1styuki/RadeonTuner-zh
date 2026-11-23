@@ -7,6 +7,12 @@ pub(super) struct Updates {
     status: String,
     found: Option<update::Update>,
 }
+impl Updates {
+    pub(super) fn has_notice(&self) -> bool {
+        self.found.is_some() || !self.status.is_empty()
+    }
+}
+
 impl Panel {
     pub(super) fn check_updates(&mut self, manual: bool, cx: &mut Context<Self>) {
         if self.updates.busy {

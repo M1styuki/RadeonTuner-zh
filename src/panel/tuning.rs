@@ -2,7 +2,7 @@ use super::Panel;
 use crate::panel::shape::ContinuousCorners;
 use crate::{adl::overdrive::ECC, profile_store, profiles};
 use anyhow::{Context as _, Result, ensure};
-use gpui::{Context, Div, div, prelude::*};
+use gpui::{Context, Div, div, prelude::*, px};
 use serde_json::{Value, json};
 
 pub(super) struct Editor {
@@ -345,15 +345,50 @@ impl Panel {
             );
         }
         choices = choices.child(self.app_picker_buttons(super::picker::Target::Tuning, cx));
-        section = section
-            .child(choices)
+        let changed = self.tuning_changed();
+        let apply = div()
+            .id("apply-tuning")
+            .px_3()
+            .py_1()
+            .smooth_background(if changed {
+                self.palette.selected
+            } else {
+                self.palette.control
+            })
+            .child("应用");
+        let apply = if changed {
+            apply
+                .cursor_pointer()
+                .on_click(cx.listener(|p, _, _, cx| {
+                    p.tuning_status = p
+                        .save_tuning()
+                        .map(|()| "已应用调校配置".to_owned())
+                        .unwrap_or_else(|err| err.to_string());
+                    cx.notify();
+                }))
+        } else {
+            apply.opacity(0.5)
+        };
+        let mut actions = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap_2()
+            .child(apply)
             .child(self.transfer_buttons(super::transfer::Kind::Tuning, cx));
-        section = section.child(
+        actions = actions.child(
             div()
                 .id("keep-tuning")
+                .px_3()
+                .py_1()
+                .smooth_background(if self.tuning.keep {
+                    self.palette.selected
+                } else {
+                    self.palette.control
+                })
                 .cursor_pointer()
                 .child(if self.tuning.keep {
-                    "持续应用配置：开"
+                    "持续应用：开"
                 } else {
                     "持续应用配置：关"
                 })
@@ -363,16 +398,14 @@ impl Panel {
                     cx.notify();
                 })),
         );
-        section = section.child(
+        actions = actions.child(
             div()
                 .id("reset-tuning-profile")
-                .px_2()
+                .px_3()
+                .py_1()
+                .smooth_background(self.palette.control)
                 .cursor_pointer()
-                .child(if self.tuning.confirm_reset {
-                    "确认重置此配置的调校与风扇设置"
-                } else {
-                    "重置调校与风扇设置"
-                })
+                .child(if self.tuning.confirm_reset { "确认重置" } else { "重置" })
                 .on_click(cx.listener(|p, _, _, cx| {
                     if p.tuning.confirm_reset {
                         p.tuning.confirm_reset = false;
@@ -387,9 +420,12 @@ impl Panel {
                 })),
         );
         if self.tuning.confirm_reset {
-            section = section.child(
+            actions = actions.child(
                 div()
                     .id("cancel-tuning-reset")
+                    .px_3()
+                    .py_1()
+                    .smooth_background(self.palette.control)
                     .cursor_pointer()
                     .child("取消")
                     .on_click(cx.listener(|p, _, _, cx| {
@@ -398,10 +434,28 @@ impl Panel {
                     })),
             );
         }
+        section = section.child(choices).child(actions.child(
+            div()
+                .id("reload-tuning")
+                .px_3()
+                .py_1()
+                .smooth_background(self.palette.control)
+                .cursor_pointer()
+                .child("读取驱动")
+                .on_click(cx.listener(|p, _, _, cx| {
+                    p.read_controls();
+                    cx.notify();
+                })),
+        ));
         if self.page != 1 {
             return section;
         }
-        let mut modes = div().flex().gap_2();
+        let mut modes = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap_2()
+            .child("风扇模式");
         for (i, label) in ["驱动默认", "仅零转速", "范围转速", "自定义曲线"]
             .into_iter()
             .enumerate()
@@ -409,7 +463,8 @@ impl Panel {
             modes = modes.child(
                 div()
                     .id(("fan-mode", i))
-                    .px_2()
+                    .px_3()
+                    .py_1()
                     .cursor_pointer()
                     .smooth_background(if self.tuning.mode == i {
                         self.palette.selected
@@ -444,6 +499,141 @@ impl Panel {
         }
         section
     }
+    pub(super) fn render_tuning_fields(&self, cx: &mut Context<Self>) -> Div {
+        let mut page = div().flex().flex_col().gap_3();
+        if self.page == 1 {
+            for (i, control) in self.controls.iter().enumerate() {
+                if control.id == 15 && self.show_control(control.id) {
+                    page = page.child(self.tuning_field(i, cx));
+                }
+            }
+            page = page.child(self.render_curve(cx));
+            if self.tuning.mode == 3 {
+                for point in 0..5 {
+                    let mut pair = div()
+                        .flex()
+                        .flex_col()
+                        .gap_1()
+                        .child(div().text_lg().child(format!("曲线点 {}", point + 1)));
+                    let mut found = false;
+                    for (i, control) in self.controls.iter().enumerate() {
+                        if [19 + 2 * point, 20 + 2 * point].contains(&control.id) {
+                            pair = pair.child(self.tuning_field(i, cx));
+                            found = true;
+                        }
+                    }
+                    if found {
+                        page = page.child(pair);
+                    }
+                }
+            } else {
+                for (i, control) in self.controls.iter().enumerate() {
+                    if (19..=28).contains(&control.id) && self.show_control(control.id) {
+                        page = page.child(self.tuning_field(i, cx));
+                    }
+                }
+            }
+            return page;
+        }
+        for (label, ids) in [
+            ("核心调校", &[0, 1][..]),
+            ("显存调校", &[8, 14, ECC][..]),
+            ("功耗与电压", &[9, 37, 47][..]),
+        ] {
+            let mut group = div()
+                .flex()
+                .flex_col()
+                .gap_2()
+                .child(div().text_lg().child(label));
+            let mut found = false;
+            for (i, control) in self.controls.iter().enumerate() {
+                if ids.contains(&control.id) {
+                    group = group.child(self.tuning_field(i, cx));
+                    found = true;
+                }
+            }
+            if found {
+                page = page.child(group);
+            }
+        }
+        page
+    }
+
+    fn tuning_field(&self, i: usize, cx: &mut Context<Self>) -> Div {
+        let control = &self.controls[i];
+        let label = match (self.tuning.mode, control.id) {
+            (2, 20) => "最低风扇转速",
+            (2, 28) => "最高风扇转速",
+            (3, 19..=28) if control.id % 2 == 1 => "温度",
+            (3, 19..=28) => "转速",
+            _ => control.label,
+        };
+        let card = div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .px_3()
+            .py_2()
+            .smooth_background(self.palette.sidebar);
+        if control.id == 15 && control.min == 0 && control.max == 1 {
+            let on = control.draft == 1;
+            return card.child(
+                div()
+                    .id("fan-zero-rpm")
+                    .flex()
+                    .items_center()
+                    .gap_3()
+                    .cursor_pointer()
+                    .child(label)
+                    .child(
+                        div()
+                            .px_3()
+                            .py_1()
+                            .smooth_background(if on {
+                                self.palette.selected
+                            } else {
+                                self.palette.control
+                            })
+                            .child(if on { "开" } else { "关" }),
+                    )
+                    .on_click(cx.listener(move |p, _, _, cx| {
+                        p.controls[i].draft = i32::from(!on);
+                        cx.notify();
+                    })),
+            );
+        }
+        let mut input = div().flex().items_center().gap_2().child(self.number(
+            super::numeric::Field::Tuning(i),
+            control.draft,
+            control.min,
+            control.max,
+            control.step,
+            control.unit,
+            cx,
+        ));
+        for (key, symbol, step) in [("down", "−", -control.step), ("up", "+", control.step)] {
+            input = input.child(
+                div()
+                    .id((key, i))
+                    .w(px(32.))
+                    .h(px(32.))
+                    .flex_shrink_0()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .smooth_background(self.palette.control)
+                    .cursor_pointer()
+                    .child(symbol)
+                    .on_click(cx.listener(move |p, _, _, cx| {
+                        let c = &mut p.controls[i];
+                        c.draft = c.draft.saturating_add(step).clamp(c.min, c.max);
+                        cx.notify();
+                    })),
+            );
+        }
+        card.child(label).child(input)
+    }
+
     pub(super) fn tuning_changed(&self) -> bool {
         self.tuning.dirty || self.controls.iter().any(|c| c.draft != c.current)
     }

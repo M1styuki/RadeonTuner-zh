@@ -14,6 +14,7 @@ pub const TITLE: &str = "RadeonTuner · Rust";
 mod curve;
 mod display;
 mod graphics;
+mod layout;
 mod multimedia;
 mod numeric;
 mod picker;
@@ -123,136 +124,22 @@ impl Render for Panel {
             return self.render_picker(cx);
         }
         let mut content = div()
-            .id(("content", self.page))
-            .size_full()
-            .overflow_y_scroll()
             .flex()
             .flex_col()
+            .w_full()
             .gap_3()
-            .p_5()
-            .bg(rgb(self.palette.canvas))
-            .text_color(rgb(self.palette.text))
-            .child(div().text_xl().child(PAGES[self.page]));
-        content = content.child(self.update_controls(cx));
-        if self.page != 5 {
-            for (i, device) in self.devices.iter().enumerate() {
-                content = content.child(
-                    div()
-                        .id(("gpu", i))
-                        .cursor_pointer()
-                        .px_3()
-                        .py_1()
-                        .smooth_background(if self.selected == i {
-                            self.palette.selected
-                        } else {
-                            self.palette.control
-                        })
-                        .child(format!("{} ({})", device.name, device.index))
-                        .on_click(cx.listener(move |panel, _, _, cx| {
-                            panel.finish_preview(false);
-                            panel.selected = i;
-                            panel.reset_tuning_editor();
-                            panel.video_app = "Global".into();
-                            panel.read_device_details();
-                            panel.read_displays();
-                            panel.read_controls();
-                            panel.refresh();
-                            cx.notify();
-                        })),
-                );
-            }
-            if !self.message.is_empty() {
-                content = content.child(self.message.clone());
-            }
+            .px_4()
+            .pb_4();
+        if matches!(self.page, 5 | 6) || self.updates.has_notice() {
+            content = content.child(self.update_controls(cx));
         }
-        if matches!(self.page, 0 | 1 | 2 | 6) {
-            let mut grid = div().flex().flex_wrap();
-            for item in &self.metrics {
-                let value = item
-                    .value
-                    .map(|n| format!("{n} {}", item.unit))
-                    .unwrap_or_else(|| "—".into());
-                grid = grid.child(
-                    div()
-                        .w(gpui::relative(0.2))
-                        .flex()
-                        .flex_col()
-                        .py_1()
-                        .child(item.label)
-                        .child(value),
-                );
-            }
-            content = content.child(grid);
+        if !self.message.is_empty() && self.page != 5 {
+            content = content.child(self.message.clone());
         }
         if matches!(self.page, 0 | 1) && !self.controls.is_empty() {
-            content = content.child(self.render_tuning_profiles(cx));
-            if self.page == 1 {
-                content = content.child(self.render_curve(cx));
-            }
-            for (i, control) in self.controls.iter().enumerate() {
-                if ((control.id == 15 || (19..=28).contains(&control.id)) != (self.page == 1))
-                    || !self.show_control(control.id)
-                {
-                    continue;
-                }
-                let mut row = div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .child(control.label)
-                    .child(self.number(
-                        numeric::Field::Tuning(i),
-                        control.draft,
-                        control.min,
-                        control.max,
-                        control.step,
-                        control.unit,
-                        cx,
-                    ));
-                for (key, label, step) in [("down", "−", -control.step), ("up", "+", control.step)]
-                {
-                    row = row.child(
-                        div()
-                            .id((key, i))
-                            .cursor_pointer()
-                            .px_3()
-                            .smooth_background(self.palette.control)
-                            .child(label)
-                            .on_click(cx.listener(move |panel, _, _, cx| {
-                                let c = &mut panel.controls[i];
-                                c.draft = c.draft.saturating_add(step).clamp(c.min, c.max);
-                                cx.notify();
-                            })),
-                    );
-                }
-                content = content.child(row);
-            }
-            if self.tuning_changed() {
-                content = content.child(
-                    div()
-                        .id("apply")
-                        .cursor_pointer()
-                        .p_2()
-                        .child("应用更改")
-                        .on_click(cx.listener(|panel, _, _, cx| {
-                            if let Err(err) = panel.save_tuning() {
-                                panel.tuning_status = err.to_string();
-                            }
-                            cx.notify();
-                        })),
-                );
-            }
-            content = content.child(
-                div()
-                    .id("reload")
-                    .cursor_pointer()
-                    .p_2()
-                    .child("重新读取驱动设置")
-                    .on_click(cx.listener(|panel, _, _, cx| {
-                        panel.read_controls();
-                        cx.notify();
-                    })),
-            );
+            content = content
+                .child(self.render_tuning_profiles(cx))
+                .child(self.render_tuning_fields(cx));
         }
         if matches!(self.page, 0 | 1) && !self.tuning_status.is_empty() {
             content = content.child(self.tuning_status.clone());
@@ -499,24 +386,27 @@ impl Render for Panel {
             }
         }
         let mut nav = div()
+            .id("navigation")
             .w(px(110.))
             .flex_shrink_0()
+            .overflow_y_scroll()
             .p_2()
             .flex()
             .flex_col()
-            .gap_1()
+            .gap_2()
             .bg(rgb(self.palette.sidebar));
         for (i, label) in PAGES.iter().enumerate() {
             nav = nav.child(
                 div()
                     .id(("nav", i))
+                    .flex_shrink_0()
                     .px_3()
                     .py_2()
                     .cursor_pointer()
                     .smooth_background(if i == self.page {
                         self.palette.selected
                     } else {
-                        self.palette.sidebar
+                        self.palette.control
                     })
                     .child(*label)
                     .on_click(cx.listener(move |p, _, _, cx| {
@@ -552,8 +442,24 @@ impl Render for Panel {
             .size_full()
             .flex()
             .text_color(rgb(self.palette.text))
+            .bg(rgb(self.palette.canvas))
             .child(nav)
-            .child(content)
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .child(self.render_header(cx))
+                    .child(
+                        div()
+                            .id(("content", self.page))
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_y_scroll()
+                            .child(content),
+                    ),
+            )
     }
 }
 
@@ -637,7 +543,7 @@ pub fn run() -> Result<()> {
         Err(err) => panel.message = format!("{err:#}"),
     }
     Application::new().run(move |cx: &mut App| {
-        let bounds = Bounds::centered(None, size(px(670.), px(740.)), cx);
+        let bounds = Bounds::centered(None, size(px(860.), px(720.)), cx);
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),

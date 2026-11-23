@@ -1,3 +1,4 @@
+use super::shape::ContinuousCorners;
 use super::Panel;
 use crate::profile_store;
 use anyhow::{Result, ensure};
@@ -57,7 +58,7 @@ impl Panel {
         }
     }
     pub(super) fn transfer_buttons(&self, kind: Kind, cx: &mut Context<Self>) -> Div {
-        let mut row = div().flex().gap_3();
+        let mut row = div().flex().flex_wrap().items_center().gap_2();
         let Some(target) = kind.target(self) else {
             return row;
         };
@@ -71,6 +72,9 @@ impl Panel {
                 .child(
                     div()
                         .id("confirm-import")
+                        .px_3()
+                        .py_1()
+                        .smooth_background(self.palette.control)
                         .cursor_pointer()
                         .child("继续导入")
                         .on_click(cx.listener(move |p, _, _, cx| {
@@ -86,6 +90,9 @@ impl Panel {
                 .child(
                     div()
                         .id("cancel-import")
+                        .px_3()
+                        .py_1()
+                        .smooth_background(self.palette.control)
                         .cursor_pointer()
                         .child("取消")
                         .on_click(cx.listener(|p, _, _, cx| {
@@ -97,6 +104,9 @@ impl Panel {
         row = row.child(
             div()
                 .id("import-profile")
+                .px_3()
+                .py_1()
+                .smooth_background(self.palette.control)
                 .cursor_pointer()
                 .child("导入配置…")
                 .on_click(cx.listener(move |p, _, _, cx| {
@@ -161,6 +171,9 @@ impl Panel {
         row.child(
             div()
                 .id("export-profile")
+                .px_3()
+                .py_1()
+                .smooth_background(self.palette.control)
                 .cursor_pointer()
                 .child("导出配置…")
                 .on_click(cx.listener(move |p, _, _, cx| {
