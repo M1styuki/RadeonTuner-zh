@@ -1,7 +1,8 @@
+use crate::panel::shape::ContinuousCorners;
 use super::{Panel, Preview};
 use crate::adl::display::custom::{STANDARDS, Timing};
 use anyhow::{Context as _, Result, ensure};
-use gpui::{Context, Div, div, prelude::*, rgb};
+use gpui::{Context, Div, div, prelude::*};
 
 pub(super) struct Editor {
     basic: [i32; 3],
@@ -76,6 +77,7 @@ impl Panel {
         }
     }
     fn remove_custom(&mut self, index: usize) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let page = &mut self.display;
         let driver = self.driver.as_ref().context("驱动不可用")?;
         let d = page
@@ -118,11 +120,11 @@ impl Panel {
                     .id(("timing-standard", i))
                     .px_2()
                     .cursor_pointer()
-                    .bg(rgb(if editor.standard == i {
+                    .smooth_background(if editor.standard == i {
                         self.palette.selected
                     } else {
                         self.palette.control
-                    }))
+                    })
                     .child(*label)
                     .on_click(cx.listener(move |p, _, _, cx| {
                         if let Some(e) = &mut p.display.custom {

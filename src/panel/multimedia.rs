@@ -1,57 +1,46 @@
 use super::Panel;
+use super::shape::ContinuousCorners;
 use crate::{
-    adl::multimedia::{Feature, VideoControl},
-    profile_store,
+    adl::multimedia::{Feature, VideoControl, video_draft},
+    profile_store, profiles,
 };
-use anyhow::{Context as _, Result, ensure};
+use anyhow::{Context as _, Result};
 use serde_json::{Value, json};
 use std::path::Path;
 
-fn video_record(device: &str, controls: &[VideoControl]) -> Value {
-    let mut row = json!({"DeviceId":device,"Application":"Global"});
+fn video_record(device: &str, app: &str, controls: &[VideoControl]) -> Value {
+    let mut row = json!({"DeviceId":device,"Application":app});
     for c in controls {
         row[c.feature.profile_key()] = json!(c.draft);
     }
     row
 }
-fn read_profile(path: &Path, device: &str, controls: &mut [VideoControl]) -> Result<()> {
+fn read_profile(path: &Path, device: &str, app: &str, controls: &mut [VideoControl]) -> Result<()> {
     if device.is_empty() || controls.is_empty() {
         return Ok(());
     }
     let rows = profile_store::load(path)?;
     let Some(row) = rows
         .iter()
-        .find(|row| profile_store::matches(row, device, "Global"))
+        .find(|row| profile_store::matches(row, device, app))
+        .or_else(|| rows.iter().find(|row| profile_store::matches(row, device, "Global")))
     else {
-        return profile_store::save(path, device, "Global", &video_record(device, controls));
+        return Ok(());
     };
+    video_draft(controls, row)?;
     for c in controls {
-        let value = &row[c.feature.profile_key()];
-        if value.is_null() {
-            continue;
-        }
-        let integer = value
-            .as_i64()
-            .or_else(|| value.as_bool().map(i64::from))
-            .context("视频配置数值无效")?;
-        let (min, max, _) = c.feature.limits();
-        ensure!(
-            (i64::from(min)..=i64::from(max)).contains(&integer),
-            "{} 超出范围",
-            c.feature.label()
-        );
-        c.saved = integer as i32;
-        c.draft = c.saved;
+        c.saved = c.draft;
     }
     Ok(())
 }
 
-use gpui::{Context, Div, div, prelude::*, rgb};
+use gpui::{Context, Div, div, prelude::*};
 
 impl Panel {
     pub(super) fn read_video(&mut self) {
         self.confirm_video_reset = false;
         self.video.clear();
+        self.video_apps = vec!["Global".into()];
         self.video_status.clear();
         if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
             match driver.video_controls(device.index) {
@@ -59,7 +48,21 @@ impl Panel {
                     let result = self
                         .settings
                         .profiles_path("MultimediaProfiles.json")
-                        .and_then(|path| read_profile(&path, &device.profile_key, &mut controls));
+                        .and_then(|path| {
+                            for row in profile_store::load(&path)? {
+                                if row["DeviceId"].as_str() == Some(&device.profile_key) {
+                                    if let Some(app) = row["Application"].as_str().filter(|a| !a.is_empty()) {
+                                        if !self.video_apps.iter().any(|name| name.eq_ignore_ascii_case(app)) {
+                                            self.video_apps.push(app.into());
+                                        }
+                                    }
+                                }
+                            }
+                            if !self.video_apps.iter().any(|a| a.eq_ignore_ascii_case(&self.video_app)) {
+                                self.video_app = "Global".into();
+                            }
+                            read_profile(&path, &device.profile_key, &self.video_app, &mut controls)
+                        });
                     match result {
                         Ok(()) => self.video = controls,
                         Err(err) => self.video_status = err.to_string(),
@@ -71,28 +74,34 @@ impl Panel {
     }
 
     fn apply_video_profile(&mut self, reset: bool) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
         let device = self.devices.get(self.selected).context("未选择显卡")?;
+        let mut live = driver.video_controls(device.index)?;
+        let mut row = video_record(&device.profile_key, &self.video_app, &self.video);
         if reset {
-            self.video = driver.video_controls(device.index)?;
-            for c in &mut self.video {
-                c.draft = c.feature.limits().2;
+            for c in &live {
+                row[c.feature.profile_key()] = json!(c.feature.limits().2);
             }
         }
-        if !device.profile_key.is_empty() {
-            let path = self.settings.profiles_path("MultimediaProfiles.json")?;
-            profile_store::save(
-                &path,
-                &device.profile_key,
-                "Global",
-                &video_record(&device.profile_key, &self.video),
-            )?;
+        let path = self.settings.profiles_path("MultimediaProfiles.json")?;
+        let mut rows = profile_store::load(&path)?;
+        profile_store::upsert(&mut rows, &device.profile_key, &self.video_app, &row, false)?;
+        let staged = profile_store::staged_json(&path, &json!(&rows))?;
+        let running = profiles::process_names()?;
+        let active = profiles::select_profile(&rows, &device.profile_key, &running);
+        let apply = active.is_some_and(|row| profile_store::matches(row, &device.profile_key, &self.video_app));
+        if apply {
+            video_draft(&mut live, &row)?;
+            driver.apply_video(device.index, &live)?;
         }
-        let result = driver.apply_video(device.index, &self.video);
+        staged.persist(&path).context("多媒体配置保存失败")?;
+        crate::tray::settings_changed()?;
         self.read_video();
-        result?;
         if self.video_status.is_empty() {
-            self.video_status = if reset {
+            self.video_status = if !apply {
+                "应用配置已保存"
+            } else if reset {
                 "多媒体设置已重置"
             } else {
                 "多媒体设置已应用"
@@ -101,8 +110,57 @@ impl Panel {
         }
         Ok(())
     }
+    pub(super) fn add_video_app(&mut self, app: &str) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
+        let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
+        let device = self.devices.get(self.selected).context("未选择显卡")?;
+        let path = self.settings.profiles_path("MultimediaProfiles.json")?;
+        let mut rows = profile_store::load(&path)?;
+        let mut controls = driver.video_controls(device.index)?;
+        if let Some(global) = rows.iter().find(|row| profile_store::matches(row, &device.profile_key, "Global")) {
+            video_draft(&mut controls, global)?;
+        } else {
+            let global = video_record(&device.profile_key, "Global", &controls);
+            profile_store::upsert(&mut rows, &device.profile_key, "Global", &global, false)?;
+        }
+        if !rows.iter().any(|row| profile_store::matches(row, &device.profile_key, app)) {
+            let row = video_record(&device.profile_key, app, &controls);
+            profile_store::upsert(&mut rows, &device.profile_key, app, &row, false)?;
+            profile_store::write_json(&path, &json!(rows))?;
+        }
+        self.video_app = app.into();
+        self.read_video();
+        crate::tray::settings_changed()
+    }
+    pub(super) fn remove_video_apps(&mut self, names: &[String]) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
+        let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
+        let device = self.devices.get(self.selected).context("未选择显卡")?;
+        let path = self.settings.profiles_path("MultimediaProfiles.json")?;
+        let mut rows = profile_store::load(&path)?;
+        let running = profiles::process_names()?;
+        let active_removed = profiles::select_profile(&rows, &device.profile_key, &running)
+            .is_some_and(|row| names.iter().any(|name| profile_store::matches(row, &device.profile_key, name)));
+        rows.retain(|row| !names.iter().any(|name| profile_store::matches(row, &device.profile_key, name)));
+        let staged = profile_store::staged_json(&path, &json!(&rows))?;
+        if active_removed {
+            let mut controls = driver.video_controls(device.index)?;
+            if let Some(row) = profiles::select_profile(&rows, &device.profile_key, &running) {
+                video_draft(&mut controls, row)?;
+            } else {
+                for control in &mut controls {
+                    control.draft = control.feature.limits().2;
+                }
+            }
+            driver.apply_video(device.index, &controls)?;
+        }
+        staged.persist(&path).context("多媒体配置保存失败")?;
+        self.video_app = "Global".into();
+        self.read_video();
+        crate::tray::settings_changed()
+    }
     pub(super) fn render_video(&self, cx: &mut Context<Self>) -> Div {
-        let mut section = div().flex().flex_col().gap_2().child("全局配置");
+        let mut section = div().flex().flex_col().gap_2();
         if self.video.is_empty() {
             return section.child(if self.video_status.is_empty() {
                 "当前设备无可用的视频设置".to_string()
@@ -110,6 +168,20 @@ impl Panel {
                 self.video_status.clone()
             });
         }
+        let mut apps = div().flex().flex_wrap().gap_2();
+        for (i, app) in self.video_apps.iter().cloned().enumerate() {
+            let selected = app == self.video_app;
+            let label = if app == "Global" { "全局".into() } else { app.clone() };
+            apps = apps.child(div().id(("video-app", i)).px_2().cursor_pointer()
+                .smooth_background(if selected { self.palette.selected } else { self.palette.control })
+                .child(label)
+                .on_click(cx.listener(move |panel, _, _, cx| {
+                    panel.video_app = app.clone();
+                    panel.read_video();
+                    cx.notify();
+                })));
+        }
+        section = section.child(apps.child(self.app_picker_buttons(super::picker::Target::Multimedia, cx)));
         let upscale = self
             .video
             .iter()
@@ -126,7 +198,7 @@ impl Panel {
                         .id("video-upscale")
                         .cursor_pointer()
                         .px_3()
-                        .bg(rgb(self.palette.control))
+                        .smooth_background(self.palette.control)
                         .child(if control.draft == 0 { "关" } else { "开" })
                         .on_click(cx.listener(move |panel, _, _, cx| {
                             panel.video[i].draft = i32::from(panel.video[i].draft == 0);
@@ -154,7 +226,7 @@ impl Panel {
                     let button = div()
                         .id((key, i))
                         .px_3()
-                        .bg(rgb(self.palette.control))
+                        .smooth_background(self.palette.control)
                         .child(label);
                     row = row.child(if enabled {
                         button
@@ -250,8 +322,7 @@ mod tests {
             saved: -5,
             draft: -5,
         }];
-        read_profile(&path, "A", &mut controls).unwrap();
-        let mut row = video_record("A", &controls);
+        let mut row = video_record("A", "Global", &controls);
         row["VideoBrightness.Current"] = json!(12);
         profile_store::save(&path, "A", "Global", &row).unwrap();
         profile_store::save(
@@ -261,12 +332,13 @@ mod tests {
             &json!({"DeviceId":"A","Application":"player.exe","VideoBrightness.Current":20}),
         )
         .unwrap();
-        read_profile(&path, "B", &mut controls).unwrap();
-        read_profile(&path, "A", &mut controls).unwrap();
+        read_profile(&path, "A", "player.exe", &mut controls).unwrap();
+        assert_eq!(controls[0].draft, 20);
+        read_profile(&path, "A", "Global", &mut controls).unwrap();
         assert_eq!(
             (controls[0].current, controls[0].saved, controls[0].draft),
             (-5, 12, 12)
         );
-        assert_eq!(profile_store::load(&path).unwrap().len(), 3);
+        assert_eq!(profile_store::load(&path).unwrap().len(), 2);
     }
 }

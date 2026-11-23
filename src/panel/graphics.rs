@@ -140,21 +140,17 @@ impl Panel {
         if self.games.selected.is_some() {
             return self.save_game(reset);
         }
+        let _write = crate::driver_write::lock()?;
         let (key, app) = self.graphics_target().context("未选择显卡")?;
         let row = self.graphics_record()?;
-        if !key.is_empty() {
-            let write = if reset {
-                profile_store::replace
-            } else {
-                profile_store::save
-            };
-            write(
-                &self.settings.profiles_path("GraphicsProfiles.json")?,
-                &key,
-                &app,
-                &row,
-            )?;
-        }
+        let path = self.settings.profiles_path("GraphicsProfiles.json")?;
+        let mut rows = profile_store::load(&path)?;
+        let staged = if key.is_empty() {
+            None
+        } else {
+            profile_store::upsert(&mut rows, &key, &app, &row, reset)?;
+            Some(profile_store::staged_json(&path, &json!(&rows))?)
+        };
         let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
         let device = &self.devices[self.selected];
         let result = driver
@@ -167,6 +163,11 @@ impl Panel {
         self.graphics = driver.graphics(device, self.skip_graphics_check);
         self.frames = driver.frame_controls(device, self.skip_graphics_check);
         self.fsr_library = driver.fsr_library(device, self.skip_graphics_check);
+        if result.is_ok() {
+            if let Some(staged) = staged {
+                staged.persist(&path).context("已应用图形设置，但保存配置失败")?;
+            }
+        }
         self.read_graphics_profile()?;
         result
     }

@@ -136,6 +136,58 @@ pub fn active_display<'a>(profiles: &[&'a Value], running: &HashSet<String>) -> 
         })
 }
 
+fn global_display<'a>(profiles: &[&'a Value]) -> Option<&'a Value> {
+    profiles.iter().copied().find(|p| {
+        p["Application"].as_str().is_some_and(|app| app.eq_ignore_ascii_case("Global"))
+    })
+}
+
+pub fn display_live_draft(
+    settings: &mut [crate::adl::display::settings::Setting],
+    candidates: &[&Value],
+    running: &HashSet<String>,
+) -> Result<()> {
+    if let Some(global) = global_display(candidates) {
+        display_draft(settings, global, false)?;
+    }
+    if let Some(active) = active_display(candidates, running) {
+        let is_app = active["Application"].as_str().is_some_and(|app| !app.eq_ignore_ascii_case("Global"));
+        if is_app {
+            display_draft(settings, active, true)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn sync_display_policy(
+    driver: &Driver,
+    device: &Device,
+    rows: &[Value],
+    running: &HashSet<String>,
+    recovery_path: &std::path::Path,
+) -> Result<()> {
+    let mut gamma = None;
+    let mut eyefinity = None;
+    for display in driver.displays(device.index)? {
+        let Some(key) = driver.display_profile_key(&display) else { continue; };
+        let candidates = display_profiles(rows, &key);
+        if let Some(wanted) = wanted_eyefinity(&candidates, running) {
+            eyefinity = Some(eyefinity.unwrap_or(false) || wanted);
+        }
+        if let Some(active) = active_display(&candidates, running) {
+            let profile = Gamma::read(active)?;
+            let is_app = active["Application"].as_str().is_some_and(|app| !app.eq_ignore_ascii_case("Global"));
+            let rank = (is_app, profile.enabled);
+            if gamma.as_ref().is_none_or(|(priority, _)| rank > *priority) {
+                gamma = Some((rank, profile));
+            }
+        }
+    }
+    let eye_result = eyefinity.map_or(Ok(()), |wanted| driver.set_eyefinity(device.index, wanted));
+    let gamma_result = driver.sync_gamma(device, gamma.map(|(_, value)| value).unwrap_or_default(), recovery_path);
+    eye_result.and(gamma_result)
+}
+
 pub fn display_draft(
     settings: &mut [crate::adl::display::settings::Setting],
     profile: &Value,
@@ -243,14 +295,16 @@ pub fn tuning_draft(controls: &mut [Control], profile: &Value) -> Result<()> {
 }
 
 pub struct Background {
-    gamma_owned: HashSet<String>,
+    recovery_path: PathBuf,
     path: PathBuf,
     profiles: Vec<Value>,
     display_path: PathBuf,
     display_rows: Vec<Value>,
-    applied_display: HashMap<(i32, i32, String), Value>,
     driver: Option<Driver>,
     applied: HashMap<i32, Value>,
+    video_path: PathBuf,
+    video_rows: Vec<Value>,
+    applied_video: HashMap<(i32, String), Value>,
 }
 
 impl Background {
@@ -260,27 +314,45 @@ impl Background {
             profiles: Vec::new(),
             display_path: settings.profiles_path("DisplayProfiles.json")?,
             display_rows: Vec::new(),
-            gamma_owned: HashSet::new(),
-            applied_display: HashMap::new(),
+            recovery_path: settings.gamma_recovery_path()?,
             driver: None,
             applied: HashMap::new(),
+            video_path: settings.profiles_path("MultimediaProfiles.json")?,
+            video_rows: Vec::new(),
+            applied_video: HashMap::new(),
         })
     }
     pub fn reload(&mut self) -> Result<()> {
         let tuning = crate::profile_store::load(&self.path)?;
         let displays = crate::profile_store::load(&self.display_path)?;
+        let video = crate::profile_store::load(&self.video_path)?;
         if tuning != self.profiles {
             self.applied.clear();
             self.profiles = tuning;
         }
         if displays != self.display_rows {
-            self.applied_display.clear();
             self.display_rows = displays;
+        }
+        if video != self.video_rows {
+            self.applied_video.clear();
+            self.video_rows = video;
         }
         Ok(())
     }
     pub fn active(&self) -> bool {
-        !self.profiles.is_empty() || !self.display_rows.is_empty() || !self.gamma_owned.is_empty()
+        !self.profiles.is_empty() || !self.display_rows.is_empty() || !self.video_rows.is_empty() || self.recovery_path.is_file()
+    }
+    pub fn finish_display_policy(&mut self) -> Result<()> {
+        if !self.recovery_path.is_file() {
+            return Ok(());
+        }
+        self.display_rows = crate::profile_store::load(&self.display_path)?;
+        let driver = Driver::open()?;
+        let running = process_names()?;
+        for device in driver.devices()? {
+            sync_display_policy(&driver, &device, &self.display_rows, &running, &self.recovery_path)?;
+        }
+        Ok(())
     }
     pub fn tick(&mut self) -> Result<()> {
         if !self.active() {
@@ -293,14 +365,8 @@ impl Background {
         let running = process_names()?;
         let devices = driver.devices()?;
         let mut display_error = None;
-        self.gamma_owned
-            .retain(|id| devices.iter().any(|d| &d.gamma_key == id));
-        if !self.display_rows.is_empty() || !self.gamma_owned.is_empty() {
-            let mut connected = HashSet::new();
+        if !self.display_rows.is_empty() || self.recovery_path.is_file() {
             for device in &devices {
-                let mut eyefinity = None;
-                let mut gamma = None;
-                let mut gamma_valid = true;
                 let displays = match driver.displays(device.index) {
                     Ok(d) => d,
                     Err(e) => {
@@ -313,64 +379,40 @@ impl Background {
                         continue;
                     };
                     let candidates = display_profiles(&self.display_rows, &key);
-                    if let Some(wanted) = wanted_eyefinity(&candidates, &running) {
-                        eyefinity = Some(eyefinity.unwrap_or(false) || wanted);
-                    }
-                    let Some(profile) = active_display(&candidates, &running) else {
-                        continue;
-                    };
-                    let per_app = profile["Application"]
-                        .as_str()
-                        .is_some_and(|a| !a.eq_ignore_ascii_case("Global"));
-                    match Gamma::read(profile) {
-                        Ok(g) => {
-                            // The LUT is shared across an adapter. Running application
-                            // profiles take priority, then enabled global profiles.
-                            let rank = (per_app, g.enabled);
-                            if gamma.as_ref().is_none_or(|(priority, _)| rank > *priority) {
-                                gamma = Some((rank, g));
-                            }
-                        }
-                        Err(e) => {
-                            display_error = Some(e);
-                            gamma_valid = false;
-                        }
-                    }
-                    let target = (device.index, display.logical, key);
-                    connected.insert(target.clone());
-                    if self.applied_display.get(&target) == Some(profile) {
+                    if active_display(&candidates, &running).is_none() {
                         continue;
                     }
                     let mut settings = driver.display_settings(&display);
-                    match display_draft(&mut settings, profile, true)
+                    if let Err(e) = display_live_draft(&mut settings, &candidates, &running)
                         .and_then(|()| driver.apply_display(&display, &settings))
                     {
-                        Ok(()) => {
-                            self.applied_display.insert(target, profile.clone());
-                        }
-                        Err(e) => display_error = Some(e),
-                    }
-                }
-                if let Some((_, g)) = gamma {
-                    if let Err(e) = driver.sync_gamma(device, g, &mut self.gamma_owned) {
-                        display_error = Some(e);
-                    }
-                } else if gamma_valid {
-                    if let Err(e) =
-                        driver.sync_gamma(device, Gamma::default(), &mut self.gamma_owned)
-                    {
                         display_error = Some(e);
                     }
                 }
-                if let Some(wanted) = eyefinity {
-                    if let Err(e) = driver.set_eyefinity(device.index, wanted) {
-                        display_error = Some(e);
-                    }
+                if let Err(e) = sync_display_policy(driver, device, &self.display_rows, &running, &self.recovery_path) {
+                    display_error = Some(e);
                 }
             }
-            self.applied_display
-                .retain(|key, _| connected.contains(key));
         }
+        let mut connected_video = HashSet::new();
+        for device in &devices {
+            let Some(row) = select_profile(&self.video_rows, &device.profile_key, &running) else {
+                continue;
+            };
+            let key = (device.index, device.profile_key.clone());
+            connected_video.insert(key.clone());
+            if self.applied_video.get(&key) != Some(row) {
+                let result = driver.video_controls(device.index).and_then(|mut controls| {
+                    crate::adl::multimedia::video_draft(&mut controls, row)?;
+                    driver.apply_video(device.index, &controls)
+                });
+                match result {
+                    Ok(()) => { self.applied_video.insert(key, row.clone()); }
+                    Err(err) => display_error = Some(err),
+                }
+            }
+        }
+        self.applied_video.retain(|key, _| connected_video.contains(key));
         for Device {
             index, profile_key, ..
         } in driver.enumerate_devices(false)?
@@ -453,6 +495,29 @@ mod tests {
             Some(&profiles[0])
         );
         assert_eq!(select_profile(&profiles, "C", &running), None);
+    }
+
+    #[test]
+    fn background_applies_global_display_fields_and_overlays_app_fields() {
+        use crate::adl::display::settings::{Feature, Setting};
+        let control = |feature| Setting {
+            feature,
+            label: "test",
+            current: 0,
+            draft: 0,
+            default: 0,
+            min: 0,
+            max: 2,
+            step: 1,
+        };
+        let global = json!({"Application":"Global","HdrEnabled.Current":1,"FreeSyncMode.Current":2});
+        let app = json!({"Application":"Game.exe","HdrEnabled.Current":0,"FreeSyncMode.Current":1});
+        let candidates = [&global, &app];
+        let mut controls = [control(Feature::Hdr), control(Feature::FreeSync)];
+        display_live_draft(&mut controls, &candidates, &HashSet::new()).unwrap();
+        assert_eq!([controls[0].draft, controls[1].draft], [1, 2]);
+        display_live_draft(&mut controls, &candidates, &HashSet::from(["game.exe".into()])).unwrap();
+        assert_eq!([controls[0].draft, controls[1].draft], [1, 1]);
     }
 
     #[test]

@@ -11,7 +11,7 @@ use tray_icon::{
     menu::{Menu, MenuEvent, MenuItem},
 };
 use windows_sys::Win32::{
-    Foundation::{ERROR_ALREADY_EXISTS, GetLastError, WAIT_FAILED, WAIT_OBJECT_0, WAIT_TIMEOUT},
+    Foundation::{ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, GetLastError, WAIT_FAILED, WAIT_OBJECT_0, WAIT_TIMEOUT},
     System::Threading::{CreateEventW, EVENT_MODIFY_STATE, INFINITE, OpenEventW, SetEvent},
     UI::WindowsAndMessaging::*,
 };
@@ -41,7 +41,11 @@ fn signal(name: &str) -> Result<()> {
     Ok(())
 }
 pub fn settings_changed() -> Result<()> {
-    signal(OPTIONS)
+    match signal(OPTIONS) {
+        Err(err) if err.downcast_ref::<std::io::Error>().and_then(std::io::Error::raw_os_error)
+            == Some(ERROR_FILE_NOT_FOUND as i32) => Ok(()),
+        result => result,
+    }
 }
 pub fn restart_after_update() -> Result<()> {
     signal(RESTART)
@@ -168,9 +172,13 @@ pub fn run() -> Result<()> {
             last_error = error;
         }
     };
-    if let Ok(driver) = crate::adl::Driver::open() {
-        show_status(driver.initialize_profiles(&settings));
-    }
+    show_status((|| {
+        let _write = crate::driver_write::lock()?;
+        if let Ok(driver) = crate::adl::Driver::open() {
+            driver.initialize_profiles(&settings)?;
+        }
+        Ok(())
+    })());
     if let Err(err) = background.reload() {
         show_status(Err(err));
     }
@@ -180,13 +188,24 @@ pub fn run() -> Result<()> {
         || settings.flag("FirstLaunch", true)?
         || settings.flag("StartWindowVisible", false)?
     {
+        show_status((|| {
+            let _write = crate::driver_write::lock()?;
+            background.reload()?;
+            background.tick()
+        })());
         open_panel(&mut child)?;
     }
     'host: loop {
         let mut timeout = INFINITE;
-        if background.active() {
+        // The panel owns interactive writes until its process exits, as in the
+        // WinUI host. A direct --panel process is covered by the shared mutex.
+        if child.is_none() && background.active() {
             if std::time::Instant::now() >= next_check {
-                show_status(background.tick());
+                show_status((|| {
+                    let _write = crate::driver_write::lock()?;
+                    background.reload()?;
+                    background.tick()
+                })());
                 next_check = std::time::Instant::now() + std::time::Duration::from_secs(10);
             }
             timeout = next_check
@@ -297,9 +316,13 @@ pub fn run() -> Result<()> {
         }
         process.wait()?;
     }
+    let final_result = (|| {
+        let _write = crate::driver_write::lock()?;
+        background.finish_display_policy()
+    })();
     if restarting {
         drop(recall);
         Command::new(installed).arg("--updated").spawn()?;
     }
-    Ok(())
+    final_result
 }

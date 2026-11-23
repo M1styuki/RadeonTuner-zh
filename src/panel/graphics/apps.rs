@@ -1,3 +1,4 @@
+use crate::panel::shape::ContinuousCorners;
 use super::*;
 use crate::adl::graphics::apps::{App, settings};
 #[derive(Default)]
@@ -48,6 +49,7 @@ impl Panel {
         self.read_graphics_profile()
     }
     pub(in crate::panel) fn add_game(&mut self, file: String) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let driver = self.driver.as_ref().context("驱动不可用")?;
         let apps = driver.game_apps()?;
         if let Some(existing) = apps
@@ -82,6 +84,7 @@ impl Panel {
         self.load_game(selected)
     }
     pub(super) fn save_game(&mut self, all: bool) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let selected = self.games.selected.clone().context("未选择游戏")?;
         let driver = self.driver.as_ref().context("驱动不可用")?;
         let app = driver
@@ -101,18 +104,27 @@ impl Panel {
             self.fsr_library.as_ref(),
             all,
         )?;
+        let (key, name) = self.graphics_target().context("未选择显卡")?;
+        let path = self.settings.profiles_path("GraphicsProfiles.json")?;
+        let mut rows = profile_store::load(&path)?;
+        profile_store::upsert(&mut rows, &key, &name, &self.graphics_record()?, false)?;
+        let staged = profile_store::staged_json(&path, &json!(&rows))?;
         if updated != original {
             driver.write_game_app(&app, &updated)?;
         }
-        let (key, name) = self.graphics_target().context("未选择显卡")?;
-        let path = self.settings.profiles_path("GraphicsProfiles.json")?;
-        profile_store::save(&path, &key, &name, &self.graphics_record()?)?;
+        if let Err(err) = staged.persist(&path) {
+            if updated != original {
+                driver.write_game_app(&app, &original).context("保存应用配置失败，无法恢复驱动数据")?;
+            }
+            return Err(err).context("无法保存应用图形配置");
+        }
         self.select_written_game(&selected)
     }
     pub(in crate::panel) fn game_names(&self) -> Vec<String> {
         self.games.list.iter().map(|a| a.file.clone()).collect()
     }
     pub(in crate::panel) fn remove_games(&mut self, names: &[String]) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let driver = self.driver.as_ref().context("驱动不可用")?;
         let path = self.settings.profiles_path("GraphicsProfiles.json")?;
         let mut rows = profile_store::load(&path)?;
@@ -166,11 +178,11 @@ impl Panel {
                     .id(("game-item", i))
                     .cursor_pointer()
                     .px_2()
-                    .bg(gpui::rgb(if selected {
+                    .smooth_background(if selected {
                         self.palette.selected
                     } else {
                         self.palette.control
-                    }))
+                    })
                     .child(label)
                     .on_click(cx.listener(move |p, _, _, cx| {
                         if let Err(e) = p.load_game(app.clone()) {

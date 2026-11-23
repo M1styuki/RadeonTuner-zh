@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 mod adl;
+mod driver_write;
 mod integration;
 mod mode_preview;
 mod panel;

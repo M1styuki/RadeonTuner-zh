@@ -1,7 +1,8 @@
+use crate::panel::shape::ContinuousCorners;
 use super::Panel;
 use crate::{adl::overdrive::ECC, profile_store, profiles};
 use anyhow::{Context as _, Result, ensure};
-use gpui::{Context, Div, div, prelude::*, rgb};
+use gpui::{Context, Div, div, prelude::*};
 use serde_json::{Value, json};
 
 pub(super) struct Editor {
@@ -66,6 +67,32 @@ impl Panel {
                 })
             })
             .collect()
+    }
+
+    pub(super) fn editable_curve(&self) -> bool {
+        self.tuning.mode == 3 && self.curve_points().len() == 5
+    }
+
+    pub(super) fn move_curve_point(&mut self, point: usize, temperature: i32, speed: i32) {
+        if !self.editable_curve() || point >= 5 {
+            return;
+        }
+        let points = self.curve_points();
+        for (axis, desired) in [temperature, speed].into_iter().enumerate() {
+            let gap = i32::from(axis == 0);
+            let axis_value = |(temp, speed)| if axis == 0 { temp } else { speed };
+            let previous = point.checked_sub(1).map(|i| axis_value(points[i]) + gap);
+            let next = points.get(point + 1).copied().map(|value| axis_value(value) - gap);
+            if let Some(control) = self.controls.iter_mut().find(|c| c.id == 19 + point * 2 + axis) {
+                let min = previous.unwrap_or(control.min).max(control.min);
+                let max = next.unwrap_or(control.max).min(control.max);
+                if min <= max {
+                    let draft = desired.clamp(min, max);
+                    self.tuning.dirty |= draft != control.draft;
+                    control.draft = draft;
+                }
+            }
+        }
     }
     pub(super) fn load_tuning(&mut self) -> Result<()> {
         let device = self.devices.get(self.selected).context("未选择显卡")?;
@@ -193,14 +220,16 @@ impl Panel {
         Ok(row)
     }
     pub(super) fn save_tuning(&mut self) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let device = &self.devices[self.selected];
         let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
         let path = self.settings.profiles_path("TuningProfiles.json")?;
         let row = self.tuning_record()?;
         let mut controls = driver.controls(device.index)?;
         profiles::tuning_draft(&mut controls, &row)?;
-        profile_store::save(&path, &device.profile_key, &self.tuning.app, &row)?;
-        let rows = profile_store::load(&path)?;
+        let mut rows = profile_store::load(&path)?;
+        profile_store::upsert(&mut rows, &device.profile_key, &self.tuning.app, &row, false)?;
+        let staged = profile_store::staged_json(&path, &json!(&rows))?;
         let running = profiles::process_names()?;
         if profiles::select_profile(&rows, &device.profile_key, &running)
             .is_some_and(|p| profile_store::matches(p, &device.profile_key, &self.tuning.app))
@@ -209,12 +238,14 @@ impl Panel {
                 driver.apply(device.index, &controls)?;
             }
         }
+        staged.persist(&path).context("驱动已更新，调校配置保存失败")?;
         crate::tray::settings_changed()?;
         self.read_controls();
         Ok(())
     }
 
     pub(super) fn add_tuning_app(&mut self, name: &str) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let device = self.devices.get(self.selected).context("未选择显卡")?;
         let path = self.settings.profiles_path("TuningProfiles.json")?;
         let rows = profile_store::load(&path)?;
@@ -238,6 +269,7 @@ impl Panel {
         self.tuning.apps.clone()
     }
     pub(super) fn remove_tuning_apps(&mut self, names: &[String]) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let (key, _) = self.tuning_target().context("未选择显卡")?;
         let path = self.settings.profiles_path("TuningProfiles.json")?;
         let mut rows = profile_store::load(&path)?;
@@ -248,6 +280,7 @@ impl Panel {
         crate::tray::settings_changed()
     }
     fn reset_tuning_profile(&mut self) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let device = self.devices.get(self.selected).context("未选择显卡")?;
         let path = self.settings.profiles_path("TuningProfiles.json")?;
         let mut rows = profile_store::load(&path)?;
@@ -255,14 +288,15 @@ impl Panel {
         let active = profiles::select_profile(&rows, &device.profile_key, &running)
             .map(|row| profile_store::matches(row, &device.profile_key, &self.tuning.app))
             .unwrap_or_else(|| self.tuning.app == "Global");
+        rows.retain(|row| !profile_store::matches(row, &device.profile_key, &self.tuning.app));
+        let staged = profile_store::staged_json(&path, &json!(&rows))?;
         if active {
             self.driver
                 .as_ref()
                 .context("显卡驱动不可用")?
                 .reset_tuning(device.index)?;
         }
-        rows.retain(|row| !profile_store::matches(row, &device.profile_key, &self.tuning.app));
-        profile_store::write_json(&path, &json!(rows))?;
+        staged.persist(&path).context("驱动已重置，调校配置保存失败")?;
         self.read_controls();
         crate::tray::settings_changed()
     }
@@ -276,11 +310,11 @@ impl Panel {
                     .id(("tuning-app", i))
                     .cursor_pointer()
                     .px_2()
-                    .bg(rgb(if app == &self.tuning.app {
+                    .smooth_background(if app == &self.tuning.app {
                         self.palette.selected
                     } else {
                         self.palette.control
-                    }))
+                    })
                     .child(if app == "Global" {
                         "全局".to_string()
                     } else {
@@ -360,11 +394,11 @@ impl Panel {
                     .id(("fan-mode", i))
                     .px_2()
                     .cursor_pointer()
-                    .bg(rgb(if self.tuning.mode == i {
+                    .smooth_background(if self.tuning.mode == i {
                         self.palette.selected
                     } else {
                         self.palette.control
-                    }))
+                    })
                     .child(label)
                     .on_click(cx.listener(move |p, _, _, cx| {
                         p.tuning.mode = i;
@@ -397,6 +431,7 @@ impl Panel {
         self.tuning.dirty || self.controls.iter().any(|c| c.draft != c.current)
     }
     pub(super) fn reset_tuning_editor(&mut self) {
+        self.curve_drag = None;
         self.tuning = Editor::default();
     }
 }

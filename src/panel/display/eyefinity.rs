@@ -1,7 +1,8 @@
+use crate::panel::shape::ContinuousCorners;
 use super::Panel;
 use crate::adl::display::Display;
 use anyhow::{Context as _, Result};
-use gpui::{Context, Div, div, prelude::*, rgb};
+use gpui::{Context, Div, div, prelude::*};
 pub(super) struct Editor {
     adapter: i32,
     displays: Vec<Display>,
@@ -52,6 +53,7 @@ impl Panel {
         Ok(())
     }
     fn eyefinity_action(&mut self, action: usize) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let editor = self.display.eyefinity.as_ref().context("未选择显示器")?;
         let driver = self.driver.as_ref().context("驱动不可用")?;
         match action {
@@ -107,11 +109,11 @@ impl Panel {
                         .id(("eye-axis", axis * 360 + v as usize))
                         .px_2()
                         .cursor_pointer()
-                        .bg(rgb(if v == current {
+                        .smooth_background(if v == current {
                             self.palette.selected
                         } else {
                             self.palette.control
-                        }))
+                        })
                         .child(if axis == 2 {
                             format!("{v}°")
                         } else {

@@ -1,3 +1,4 @@
+use crate::panel::shape::ContinuousCorners;
 mod custom;
 mod eyefinity;
 use super::Panel;
@@ -8,7 +9,7 @@ use crate::{
 };
 use crate::{profile_store, profiles};
 use anyhow::{Context as _, Result};
-use gpui::{Context, Div, div, prelude::*, rgb};
+use gpui::{Context, Div, div, prelude::*};
 use serde_json::{Value, json};
 
 #[derive(Default)]
@@ -233,6 +234,7 @@ impl Panel {
         Ok(record)
     }
     fn save_display_profile(&mut self) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
         let page = &self.display;
         let display = page
@@ -243,7 +245,7 @@ impl Panel {
             return driver.apply_display(display, &page.settings);
         };
         let path = self.settings.profiles_path("DisplayProfiles.json")?;
-        let rows = profile_store::load(&path)?;
+        let mut rows = profile_store::load(&path)?;
         let profiles = profiles::display_profiles(&rows, key);
         if page.app != "Global"
             && !profiles
@@ -254,23 +256,31 @@ impl Panel {
             for s in &page.settings {
                 baseline[format!("{}.Current", s.feature.profile_name())] = Value::from(s.current);
             }
-            profile_store::save(&path, key, "Global", &baseline)?;
+            profile_store::upsert(&mut rows, key, "Global", &baseline, false)?;
         }
         let record = self.display_record()?;
-        profile_store::save(&path, key, &page.app, &record)?;
-        let rows = profile_store::load(&path)?;
+        profile_store::upsert(&mut rows, key, &page.app, &record, false)?;
+        let staged = profile_store::staged_json(&path, &json!(&rows))?;
         let candidates = profiles::display_profiles(&rows, key);
-        let active = profiles::active_display(&candidates, &profiles::process_names()?);
-        if active.is_some_and(|p| {
+        let running = profiles::process_names()?;
+        let active = profiles::active_display(&candidates, &running);
+        if page.app.eq_ignore_ascii_case("Global") || active.is_some_and(|p| {
             p["Application"]
                 .as_str()
                 .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
         }) {
-            driver.apply_display(display, &page.settings)?;
+            let mut settings = driver.display_settings(display);
+            profiles::display_live_draft(&mut settings, &candidates, &running)?;
+            driver.apply_display(display, &settings)?;
         }
+        let device = self.devices.iter().find(|d| d.index == display.adapter)
+            .context("显示器所属的显卡已断开")?;
+        profiles::sync_display_policy(driver, device, &rows, &running, &self.settings.gamma_recovery_path()?)?;
+        staged.persist(&path).context("驱动已更新，显示配置保存失败")?;
         crate::tray::settings_changed()
     }
     fn reset_display_profile(&mut self) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let page = &self.display;
         let d = page
             .displays
@@ -289,16 +299,13 @@ impl Panel {
             let mut rows = profile_store::load(&path)?;
             let candidates = profiles::display_profiles(&rows, key);
             let running = profiles::process_names()?;
-            let active = profiles::active_display(&candidates, &running)
-                .map(|r| {
+            let active = page.app.eq_ignore_ascii_case("Global")
+                || profiles::active_display(&candidates, &running)
+                .is_some_and(|r| {
                     r["Application"]
                         .as_str()
                         .is_some_and(|n| n.eq_ignore_ascii_case(&page.app))
-                })
-                .unwrap_or(page.app == "Global");
-            if active {
-                driver.apply_display(d, &settings)?;
-            }
+                });
             let legacy = key.rsplit_once(' ').map(|(s, _)| s);
             rows.retain(|r| !profile_store::matches(r, key, &page.app));
             // A serial-specific reset must supersede an inherited legacy row.
@@ -318,7 +325,16 @@ impl Panel {
                 }
                 rows.push(defaults);
             }
-            profile_store::write_json(&path, &json!(rows))?;
+            let staged = profile_store::staged_json(&path, &json!(&rows))?;
+            if active {
+                let new_candidates = profiles::display_profiles(&rows, key);
+                profiles::display_live_draft(&mut settings, &new_candidates, &running)?;
+                driver.apply_display(d, &settings)?;
+            }
+            let device = self.devices.iter().find(|device| device.index == d.adapter)
+                .context("显示器所属的显卡已断开")?;
+            profiles::sync_display_policy(driver, device, &rows, &running, &self.settings.gamma_recovery_path()?)?;
+            staged.persist(&path).context("驱动已更新，显示配置保存失败")?;
             crate::tray::settings_changed()?;
         } else {
             driver.apply_display(d, &settings)?;
@@ -330,6 +346,7 @@ impl Panel {
         self.display.apps.clone()
     }
     pub(super) fn add_display_app(&mut self, name: &str) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let (key, _) = self.display_target().context("未选择显示器")?;
         let path = self.settings.profiles_path("DisplayProfiles.json")?;
         let rows = profile_store::load(&path)?;
@@ -354,6 +371,7 @@ impl Panel {
         crate::tray::settings_changed()
     }
     pub(super) fn remove_display_apps(&mut self, names: &[String]) -> Result<()> {
+        let _write = crate::driver_write::lock()?;
         let (key, _) = self.display_target().context("未选择显示器")?;
         let path = self.settings.profiles_path("DisplayProfiles.json")?;
         let mut rows = profile_store::load(&path)?;
@@ -374,7 +392,16 @@ impl Panel {
                 row["ExcludedDisplayIds"] = Value::Array(excluded);
             }
         }
-        profile_store::write_json(&path, &json!(rows))?;
+        let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
+        let display = self.display.displays.get(self.display.display_index).context("未选择显示器")?;
+        let device = self.devices.iter().find(|d| d.index == display.adapter).context("显卡已断开")?;
+        let running = profiles::process_names()?;
+        let staged = profile_store::staged_json(&path, &json!(&rows))?;
+        let mut settings = driver.display_settings(display);
+        profiles::display_live_draft(&mut settings, &profiles::display_profiles(&rows, &key), &running)?;
+        driver.apply_display(display, &settings)?;
+        profiles::sync_display_policy(driver, device, &rows, &running, &self.settings.gamma_recovery_path()?)?;
+        staged.persist(&path).context("驱动已更新，显示配置保存失败")?;
         self.display.app = "Global".into();
         self.read_modes();
         crate::tray::settings_changed()
@@ -392,11 +419,11 @@ impl Panel {
                     .id(("display-app", i))
                     .px_2()
                     .cursor_pointer()
-                    .bg(rgb(if page.app.eq_ignore_ascii_case(app) {
+                    .smooth_background(if page.app.eq_ignore_ascii_case(app) {
                         self.palette.selected
                     } else {
                         self.palette.control
-                    }))
+                    })
                     .child(if app == "Global" {
                         "全局".to_owned()
                     } else {
@@ -478,11 +505,11 @@ impl Panel {
                     .id(("display", index))
                     .cursor_pointer()
                     .px_3()
-                    .bg(rgb(if index == page.display_index {
+                    .smooth_background(if index == page.display_index {
                         self.palette.selected
                     } else {
                         self.palette.control
-                    }))
+                    })
                     .child(format!(
                         "{} ({}/{})",
                         display.name, display.adapter, display.logical
@@ -620,11 +647,11 @@ impl Panel {
                         .id(("orientation", i))
                         .cursor_pointer()
                         .px_2()
-                        .bg(rgb(if page.angle == angle {
+                        .smooth_background(if page.angle == angle {
                             self.palette.selected
                         } else {
                             self.palette.control
-                        }))
+                        })
                         .child(format!("{angle}°"))
                         .on_click(cx.listener(move |panel, _, _, cx| {
                             panel.display.angle = angle;

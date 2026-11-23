@@ -1,3 +1,4 @@
+use crate::panel::shape::ContinuousCorners;
 use super::Panel;
 use gpui::{
     Context, Div, FocusHandle, KeyDownEvent, Stateful, Subscription, div, prelude::*, px, rgb,
@@ -225,8 +226,7 @@ impl Panel {
             .flex()
             .justify_center()
             .items_center()
-            .bg(rgb(self.palette.control))
-            .rounded_md();
+            .smooth_background(self.palette.control);
         if let Some(edit) = self.edit.as_ref().filter(|e| e.field == field) {
             let (l, r) = (edit.anchor.min(edit.cursor), edit.anchor.max(edit.cursor));
             return base

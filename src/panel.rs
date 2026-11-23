@@ -1,3 +1,4 @@
+use crate::panel::shape::ContinuousCorners;
 use crate::{
     adl::{Device, Driver, Metric},
     settings::Settings,
@@ -16,6 +17,7 @@ mod graphics;
 mod multimedia;
 mod numeric;
 mod picker;
+mod shape;
 mod theme;
 mod transfer;
 mod updates;
@@ -34,6 +36,7 @@ struct Panel {
     admin: bool,
     edit: Option<numeric::Edit>,
     slider: Option<numeric::Field>,
+    curve_drag: Option<usize>,
     page: usize,
     info: Vec<String>,
     games: graphics::apps::Games,
@@ -57,6 +60,8 @@ struct Panel {
     tuning: tuning::Editor,
     display: display::DisplayPage,
     video: Vec<crate::adl::multimedia::VideoControl>,
+    video_app: String,
+    video_apps: Vec<String>,
     video_status: String,
     confirm_video_reset: bool,
     driver: Option<Driver>,
@@ -137,16 +142,17 @@ impl Render for Panel {
                         .cursor_pointer()
                         .px_3()
                         .py_1()
-                        .bg(rgb(if self.selected == i {
+                        .smooth_background(if self.selected == i {
                             self.palette.selected
                         } else {
                             self.palette.control
-                        }))
+                        })
                         .child(format!("{} ({})", device.name, device.index))
                         .on_click(cx.listener(move |panel, _, _, cx| {
                             panel.finish_preview(false);
                             panel.selected = i;
                             panel.reset_tuning_editor();
+                            panel.video_app = "Global".into();
                             panel.read_device_details();
                             panel.read_displays();
                             panel.read_controls();
@@ -210,7 +216,7 @@ impl Render for Panel {
                             .id((key, i))
                             .cursor_pointer()
                             .px_3()
-                            .bg(rgb(self.palette.control))
+                            .smooth_background(self.palette.control)
                             .child(label)
                             .on_click(cx.listener(move |panel, _, _, cx| {
                                 let c = &mut panel.controls[i];
@@ -305,11 +311,11 @@ impl Render for Panel {
                         .id(("theme", i))
                         .cursor_pointer()
                         .px_2()
-                        .bg(rgb(if self.style == i as i64 {
+                        .smooth_background(if self.style == i as i64 {
                             self.palette.selected
                         } else {
                             self.palette.control
-                        }))
+                        })
                         .child(name)
                         .on_click(cx.listener(move |p, _, _, cx| {
                             match p.settings.set("ThemeStyle", serde_json::json!(i)) {
@@ -421,7 +427,7 @@ impl Render for Panel {
                         .id(key)
                         .cursor_pointer()
                         .p_2()
-                        .bg(rgb(self.palette.control))
+                        .smooth_background(self.palette.control)
                         .flex()
                         .justify_between()
                         .child(label)
@@ -507,11 +513,11 @@ impl Render for Panel {
                     .px_3()
                     .py_2()
                     .cursor_pointer()
-                    .bg(rgb(if i == self.page {
+                    .smooth_background(if i == self.page {
                         self.palette.selected
                     } else {
                         self.palette.sidebar
-                    }))
+                    })
                     .child(*label)
                     .on_click(cx.listener(move |p, _, _, cx| {
                         if p.page == 3 && i != 3 {
@@ -569,6 +575,7 @@ pub fn run() -> Result<()> {
         excludes_drivers: crate::integration::excludes_drivers(),
         edit: None,
         slider: None,
+        curve_drag: None,
         page: usize::try_from(settings.integer("MenuIndex", 0)?)
             .ok()
             .filter(|i| *i < PAGES.len())
@@ -600,6 +607,8 @@ pub fn run() -> Result<()> {
         tuning: Default::default(),
         display: Default::default(),
         video: Vec::new(),
+        video_app: "Global".into(),
+        video_apps: Vec::new(),
         video_status: String::new(),
         confirm_video_reset: false,
         driver: None,

@@ -2,7 +2,7 @@ use super::{Driver, Handle};
 use crate::adl::Device;
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
-use std::collections::HashSet;
+use std::{collections::BTreeMap, fs, io, path::Path};
 
 const NAMES: [&str; 4] = [
     "GammaBase.Current",
@@ -47,7 +47,7 @@ impl Gamma {
     }
 }
 #[repr(C)]
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 struct Ramp {
     rgb: [u32; 1024],
 }
@@ -66,6 +66,27 @@ impl Ramp {
 }
 type Get = unsafe extern "C" fn(Handle, i32, *mut Ramp) -> i32;
 type Set = unsafe extern "C" fn(Handle, i32, Ramp) -> i32;
+
+fn load_recovery(path: &Path) -> Result<BTreeMap<String, Vec<u32>>> {
+    match fs::read(path) {
+        Ok(bytes) => serde_json::from_slice(&bytes).context("伽马恢复记录损坏"),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(BTreeMap::new()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+fn save_recovery(path: &Path, records: &BTreeMap<String, Vec<u32>>) -> Result<()> {
+    if records.is_empty() {
+        match fs::remove_file(path) {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(err) => Err(err.into()),
+        }
+    } else {
+        crate::profile_store::write_json(path, &serde_json::to_value(records)?)
+    }
+}
+
 impl Driver {
     fn gamma_ramp(&self, adapter: i32) -> Result<Ramp> {
         let mut ramp = Ramp { rgb: [0; 1024] };
@@ -83,34 +104,41 @@ impl Driver {
         &self,
         device: &Device,
         profile: Gamma,
-        owned: &mut HashSet<String>,
+        path: &Path,
     ) -> Result<()> {
-        if !profile.enabled && !owned.contains(&device.gamma_key) {
-            return Ok(());
-        }
-        ensure!(!device.gamma_key.is_empty(), "无法识别伽马目标显卡");
-        let values = if profile.enabled {
-            profile.values
+        let mut records = load_recovery(path)?;
+        let saved = records.get(&device.gamma_key);
+        let desired = if profile.enabled {
+            ensure!(!device.gamma_key.is_empty(), "无法识别伽马目标显卡");
+            Ramp::build(profile.values, 0.0)
         } else {
-            [100; 4]
-        };
-        let desired = Ramp::build(values, 0.0);
-        if self.gamma_ramp(device.index)? == desired {
-            if !profile.enabled {
-                owned.remove(&device.gamma_key);
+            let Some(saved) = saved else { return Ok(()); };
+            Ramp {
+                rgb: saved.as_slice().try_into().context("伽马恢复记录长度无效")?,
             }
-            return Ok(());
+        };
+        let current = self.gamma_ramp(device.index)?;
+        if current != desired {
+            let set = unsafe { self.library.get::<Set>(b"ADL2_Adapter_Gamma_Set\0")? };
+            if profile.enabled {
+                if saved.is_none() {
+                    // Commit the original LUT before any driver write. A new process can
+                    // recover it even after an interrupted Apply or a disconnected adapter.
+                    records.insert(device.gamma_key.clone(), current.rgb.to_vec());
+                    save_recovery(path, &records)?;
+                }
+                let intermediate = Ramp::build(profile.values, 0.01);
+                unsafe { set(self.context, device.index, intermediate); }
+            }
+            let status = unsafe { set(self.context, device.index, desired) };
+            if status != 0 && profile.enabled {
+                unsafe { set(self.context, device.index, current); }
+            }
+            ensure!(status == 0, "设置伽马曲线失败 ({status})");
         }
-        let set = unsafe { self.library.get::<Set>(b"ADL2_Adapter_Gamma_Set\0")? };
-        // A short intermediate ramp forces drivers that cache LUT updates to reload.
-        let intermediate = unsafe { set(self.context, device.index, Ramp::build(values, 0.01)) };
-        let status = unsafe { set(self.context, device.index, desired) };
-        if profile.enabled && (status == 0 || intermediate == 0) {
-            owned.insert(device.gamma_key.clone());
-        }
-        ensure!(status == 0, "设置伽马曲线失败 ({status})");
         if !profile.enabled {
-            owned.remove(&device.gamma_key);
+            records.remove(&device.gamma_key);
+            save_recovery(path, &records)?;
         }
         Ok(())
     }
@@ -118,6 +146,21 @@ impl Driver {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recovery_file_retains_the_original_lut_across_processes() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("gamma.json");
+        let original = Ramp::build([117, 95, 100, 102], 0.0);
+        let mut records = BTreeMap::from([("gpu".into(), original.rgb.to_vec())]);
+        save_recovery(&path, &records).unwrap();
+        assert_eq!(load_recovery(&path).unwrap(), records);
+        records.remove("gpu");
+        save_recovery(&path, &records).unwrap();
+        assert!(load_recovery(&path).unwrap().is_empty());
+        assert!(!path.exists());
+    }
+
     #[test]
     fn native_gamma_encoding_and_profile_precision() {
         let mut row = json!({"GammaControl.Current":1,"GammaRed.Current":0.5,"GammaGreen.Current":3.0,"GammaBase.Current":1.25});

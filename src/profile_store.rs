@@ -26,12 +26,14 @@ pub fn save(path: &Path, device: &str, app: &str, update: &Value) -> Result<()> 
     save_row(path, device, app, update, false)
 }
 
-pub fn replace(path: &Path, device: &str, app: &str, update: &Value) -> Result<()> {
-    save_row(path, device, app, update, true)
-}
 fn save_row(path: &Path, device: &str, app: &str, update: &Value, replace: bool) -> Result<()> {
-    ensure!(!device.is_empty() && !app.is_empty(), "配置身份无效");
     let mut rows = load(path)?;
+    upsert(&mut rows, device, app, update, replace)?;
+    write_json(path, &Value::Array(rows))
+}
+
+pub fn upsert(rows: &mut Vec<Value>, device: &str, app: &str, update: &Value, replace: bool) -> Result<()> {
+    ensure!(!device.is_empty() && !app.is_empty(), "配置身份无效");
     if let Some(row) = rows.iter_mut().find(|row| matches(row, device, app)) {
         if replace {
             *row = update.clone();
@@ -44,7 +46,7 @@ fn save_row(path: &Path, device: &str, app: &str, update: &Value, replace: bool)
     } else {
         rows.push(update.clone());
     }
-    write_json(path, &Value::Array(rows))
+    Ok(())
 }
 
 pub fn read_export(path: &Path) -> Result<Value> {
@@ -63,14 +65,18 @@ pub fn read_export(path: &Path) -> Result<Value> {
 }
 
 pub fn write_json(path: &Path, data: &Value) -> Result<()> {
+    staged_json(path, data)?.persist(path)?;
+    Ok(())
+}
+
+pub fn staged_json(path: &Path, data: &Value) -> Result<tempfile::NamedTempFile> {
     let dir = path.parent().context("配置目录无效")?;
     fs::create_dir_all(dir)?;
     let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
     serde_json::to_writer_pretty(tmp.as_file_mut(), data)?;
     tmp.flush()?;
     tmp.as_file().sync_all()?;
-    tmp.persist(path)?;
-    Ok(())
+    Ok(tmp)
 }
 
 #[cfg(test)]

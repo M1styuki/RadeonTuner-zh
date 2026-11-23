@@ -7,12 +7,13 @@ use std::{
     io::{Read, Write},
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Output, Stdio},
 };
 
 const API: &str = "https://api.github.com/repos/M1styuki/RadeonTuner-zh";
 pub const RELEASES: &str = "https://github.com/M1styuki/RadeonTuner-zh/releases";
 const ASSET: &str = "RadeonTuner-Rust-x64.exe";
+const TOKEN_ENV: &str = "RADEONTUNER_GITHUB_TOKEN";
 #[derive(Deserialize)]
 struct Release {
     tag_name: String,
@@ -38,6 +39,7 @@ pub struct Update {
 #[derive(Clone, Copy)]
 enum Access {
     Public,
+    Token,
     GithubCli,
 }
 fn select(releases: Vec<Release>, current: &Version, access: Access) -> Result<Option<Update>> {
@@ -101,7 +103,7 @@ fn gh() -> Result<Command> {
         .join("GitHub CLI/gh.exe");
     ensure!(
         path.is_file(),
-        "此仓库需要登录 GitHub。可通过发布页面下载，或在 GitHub CLI 登录后再次检查"
+        "私有仓库可通过 GitHub 下载页获取更新，或配置 RADEONTUNER_GITHUB_TOKEN 后在应用内检查"
     );
     let mut cmd = Command::new(path);
     cmd.creation_flags(0x08000000)
@@ -110,14 +112,17 @@ fn gh() -> Result<Command> {
     Ok(cmd)
 }
 fn request(access: Access, route: &str, accept: &str) -> Result<Command> {
-    let mut cmd = match access {
-        Access::Public => {
+    let cmd = match access {
+        Access::Public | Access::Token => {
             let mut c = curl()?;
             c.args([
                 "--header",
                 &format!("Accept: {accept}"),
                 &format!("{API}/{route}"),
             ]);
+            if matches!(access, Access::Token) {
+                c.args(["--header", "@-"]);
+            }
             c
         }
         Access::GithubCli => {
@@ -132,22 +137,44 @@ fn request(access: Access, route: &str, accept: &str) -> Result<Command> {
             c
         }
     };
-    cmd.stdin(Stdio::null());
     Ok(cmd)
+}
+
+fn fetch(access: Access, route: &str, accept: &str, stdout: Stdio) -> Result<Output> {
+    let mut cmd = request(access, route, accept)?;
+    let token = matches!(access, Access::Token)
+        .then(|| std::env::var(TOKEN_ENV).context("未读取到 RadeonTuner GitHub 更新令牌"))
+        .transpose()?;
+    if let Some(token) = &token {
+        ensure!(!token.is_empty() && token.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-'),
+            "RadeonTuner GitHub 更新令牌格式无效");
+    }
+    let mut child = cmd.stdin(if token.is_some() { Stdio::piped() } else { Stdio::null() })
+        .stdout(stdout).stderr(Stdio::piped()).spawn()?;
+    if let Some(token) = token {
+        let mut input = child.stdin.take().context("无法传入 GitHub 更新令牌")?;
+        writeln!(input, "Authorization: Bearer {token}").context("无法传入 GitHub 更新令牌")?;
+    }
+    Ok(child.wait_with_output()?)
 }
 pub fn check() -> Result<Option<Update>> {
     let current = Version::parse(env!("CARGO_PKG_VERSION"))?;
-    let mut access = Access::Public;
+    let mut access = if std::env::var_os(TOKEN_ENV).is_some_and(|v| !v.is_empty()) {
+        Access::Token
+    } else {
+        Access::Public
+    };
     let mut releases = Vec::new();
     for page in 1.. {
         let route = format!("releases?per_page=100&page={page}");
-        let mut res = request(access, &route, "application/vnd.github+json")?.output()?;
+        let mut res = fetch(access, &route, "application/vnd.github+json", Stdio::piped())?;
         if !res.status.success()
             && page == 1
+            && matches!(access, Access::Public)
             && String::from_utf8_lossy(&res.stderr).contains("404")
         {
             access = Access::GithubCli;
-            res = request(access, &route, "application/vnd.github+json")?.output()?;
+            res = fetch(access, &route, "application/vnd.github+json", Stdio::piped())?;
         }
         ensure!(
             res.status.success(),
@@ -187,11 +214,12 @@ pub fn install(update: &Update) -> Result<()> {
         .suffix(".exe")
         .tempfile()?;
     let route = format!("releases/assets/{}", update.id);
-    let result = request(update.access, &route, "application/octet-stream")?
-        .stdout(Stdio::from(file.reopen()?))
-        .stderr(Stdio::piped())
-        .spawn()?
-        .wait_with_output()?;
+    let result = fetch(
+        update.access,
+        &route,
+        "application/octet-stream",
+        Stdio::from(file.reopen()?),
+    )?;
     ensure!(
         result.status.success(),
         "下载 Rust 更新失败：{}",

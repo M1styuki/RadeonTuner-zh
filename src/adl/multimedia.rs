@@ -1,5 +1,6 @@
 use super::{Driver, Handle, string};
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
+use serde_json::Value;
 use std::{ptr, slice};
 
 type Read<T> = unsafe extern "C" fn(Handle, i32, *mut *mut T, *mut i32) -> i32;
@@ -81,6 +82,21 @@ pub struct VideoControl {
     pub current: i32,
     pub saved: i32,
     pub draft: i32,
+}
+
+pub fn video_draft(controls: &mut [VideoControl], row: &Value) -> Result<()> {
+    for control in controls {
+        let value = &row[control.feature.profile_key()];
+        if value.is_null() {
+            continue;
+        }
+        let value = value.as_i64().or_else(|| value.as_bool().map(i64::from))
+            .context("视频配置数值无效")?;
+        let (min, max, _) = control.feature.limits();
+        ensure!((i64::from(min)..=i64::from(max)).contains(&value), "{} 超出范围", control.feature.label());
+        control.draft = value as i32;
+    }
+    Ok(())
 }
 
 impl Driver {

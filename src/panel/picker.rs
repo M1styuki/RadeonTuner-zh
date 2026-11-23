@@ -1,3 +1,4 @@
+use crate::panel::shape::ContinuousCorners;
 use super::Panel;
 use crate::integration::games::{self, Entry};
 use anyhow::{Context as _, Result, ensure};
@@ -9,6 +10,7 @@ pub(super) enum Target {
     Graphics,
     Display,
     Tuning,
+    Multimedia,
 }
 pub(super) struct Picker {
     target: Target,
@@ -25,6 +27,7 @@ impl Panel {
                 Target::Tuning => self.tuning_app_names(),
                 Target::Display => self.display_app_names(),
                 Target::Graphics => self.game_names(),
+                Target::Multimedia => self.video_apps.clone(),
             }
         } else {
             Vec::new()
@@ -92,6 +95,7 @@ impl Panel {
                 Target::Display => self.remove_display_apps(&names),
                 Target::Tuning => self.remove_tuning_apps(&names),
                 Target::Graphics => self.remove_games(&names),
+                Target::Multimedia => self.remove_video_apps(&names),
             };
             if let Err(e) = result {
                 failed.push(e.to_string());
@@ -102,6 +106,7 @@ impl Panel {
                     Target::Display => self.add_display_app(name),
                     Target::Tuning => self.add_tuning_app(name),
                     Target::Graphics => self.add_game(name.clone()),
+                    Target::Multimedia => self.add_video_app(name),
                 };
                 if let Err(e) = result {
                     failed.push(format!("{name}：{e}"));
@@ -121,6 +126,7 @@ impl Panel {
             Target::Display => self.display.set_status(msg),
             Target::Tuning => self.tuning_status = msg,
             Target::Graphics => self.graphics_status = msg,
+            Target::Multimedia => self.video_status = msg,
         }
     }
     pub(super) fn render_picker(&self, cx: &mut Context<Self>) -> Div {
@@ -243,11 +249,11 @@ impl Panel {
                     .id(("picker-choice", i))
                     .cursor_pointer()
                     .p_1()
-                    .bg(rgb(if picker.selected.contains(&i) {
+                    .smooth_background(if picker.selected.contains(&i) {
                         self.palette.selected
                     } else {
                         self.palette.canvas
-                    }))
+                    })
                     .child(label)
                     .on_click(cx.listener(move |p, _, _, cx| {
                         if let Some(v) = &mut p.picker {

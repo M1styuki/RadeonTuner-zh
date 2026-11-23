@@ -80,6 +80,7 @@ impl Preview {
 
 // The independent process still owns the original mode if the panel or host exits.
 fn run() -> Result<bool> {
+    let _write = crate::driver_write::lock()?;
     let args: Vec<_> = std::env::args().skip(2).collect();
     ensure!(matches!(args.len(), 5 | 7), "预览参数无效");
     let adapter = args[0].parse()?;
