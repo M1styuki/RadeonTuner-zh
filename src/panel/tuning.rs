@@ -355,16 +355,7 @@ impl Panel {
     pub(super) fn render_tuning_profiles(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_2();
         let changed = self.tuning_changed();
-        let apply = div()
-            .id("apply-tuning")
-            .px_3()
-            .py_1()
-            .smooth_background(if changed {
-                self.palette.selected
-            } else {
-                self.palette.control
-            })
-            .child("应用");
+        let apply = self.button_style(changed).id("apply-tuning").child("应用");
         let apply = if changed {
             apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
                 p.tuning_status = p
@@ -374,21 +365,12 @@ impl Panel {
                 cx.notify();
             }))
         } else {
-            apply.opacity(0.5)
+            apply
         };
-        let mut actions = div()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .gap_2()
-            .child(apply)
-            .child(self.transfer_buttons(super::transfer::Kind::Tuning, cx));
+        let mut actions = div().flex().flex_wrap().items_center().gap_2().child(apply);
         actions = actions.child(
-            div()
+            self.button_style(true)
                 .id("reset-tuning-profile")
-                .px_3()
-                .py_1()
-                .smooth_background(self.palette.control)
                 .cursor_pointer()
                 .child(if self.tuning.confirm_reset {
                     "确认重置"
@@ -408,13 +390,11 @@ impl Panel {
                     cx.notify();
                 })),
         );
+        actions = actions.child(self.transfer_buttons(super::transfer::Kind::Tuning, cx));
         if self.tuning.confirm_reset {
             actions = actions.child(
-                div()
+                self.button_style(true)
                     .id("cancel-tuning-reset")
-                    .px_3()
-                    .py_1()
-                    .smooth_background(self.palette.control)
                     .cursor_pointer()
                     .child("取消")
                     .on_click(cx.listener(|p, _, _, cx| {
@@ -425,11 +405,8 @@ impl Panel {
         }
         section = section.child(
             actions.child(
-                div()
+                self.button_style(true)
                     .id("reload-tuning")
-                    .px_3()
-                    .py_1()
-                    .smooth_background(self.palette.control)
                     .cursor_pointer()
                     .child("读取驱动")
                     .on_click(cx.listener(|p, _, _, cx| {

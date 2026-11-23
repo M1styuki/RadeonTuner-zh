@@ -1,6 +1,5 @@
 use super::Panel;
 use crate::adl::display::Display;
-use crate::panel::shape::ContinuousCorners;
 use anyhow::{Context as _, Result};
 use gpui::{Context, Div, div, prelude::*};
 pub(super) struct Editor {
@@ -97,41 +96,42 @@ impl Panel {
             (1, "行数", editor.rows),
             (2, "显示方向", editor.orientation),
         ] {
-            let mut row = div().flex().flex_wrap().gap_2().child(label);
             let values: &[i32] = if axis == 2 {
                 &[0, 90, 180, 270]
             } else {
                 &[1, 2, 3, 4, 5, 6]
             };
-            for &v in values {
-                row = row.child(
-                    div()
-                        .id(("eye-axis", axis * 360 + v as usize))
-                        .px_2()
-                        .cursor_pointer()
-                        .smooth_background(if v == current {
-                            self.palette.selected
-                        } else {
-                            self.palette.control
-                        })
-                        .child(if axis == 2 {
-                            format!("{v}°")
-                        } else {
-                            v.to_string()
-                        })
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            if let Some(e) = p.display.eyefinity.as_mut() {
+            view = view.child(
+                self.setting_row(
+                    label,
+                    self.select(
+                        ("eye-axis", axis),
+                        values
+                            .iter()
+                            .map(|v| {
+                                if axis == 2 {
+                                    format!("{v}°")
+                                } else {
+                                    v.to_string()
+                                }
+                            })
+                            .collect(),
+                        values.iter().position(|&v| v == current),
+                        label,
+                        160.,
+                        move |p, i, _| {
+                            if let Some(e) = &mut p.display.eyefinity {
                                 match axis {
-                                    0 => e.columns = v,
-                                    1 => e.rows = v,
-                                    _ => e.orientation = v,
+                                    0 => e.columns = values[i],
+                                    1 => e.rows = values[i],
+                                    _ => e.orientation = values[i],
                                 }
                             }
-                            cx.notify();
-                        })),
-                );
-            }
-            view = view.child(row);
+                        },
+                        cx,
+                    ),
+                ),
+            );
         }
         view = view.child("显示器顺序（每列从上到下）");
         for (i, d) in editor.displays.iter().enumerate() {
@@ -167,7 +167,6 @@ impl Panel {
             .into_iter()
             .enumerate()
         {
-            let button = div().id(("eye-action", i)).px_2().child(label);
             let available = match i {
                 0 => {
                     editor.columns * editor.rows >= 2
@@ -178,6 +177,10 @@ impl Panel {
                 2 => !editor.automatic && editor.state == Some(true),
                 _ => true,
             };
+            let button = self
+                .button_style(available)
+                .id(("eye-action", i))
+                .child(label);
             row = row.child(if available {
                 button
                     .cursor_pointer()
@@ -202,7 +205,7 @@ impl Panel {
                         cx.notify();
                     }))
             } else {
-                button.opacity(0.45)
+                button
             });
         }
         view.child(row).child(editor.status.clone()).child(

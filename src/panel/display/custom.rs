@@ -1,6 +1,5 @@
 use super::{Panel, Preview};
 use crate::adl::display::custom::{STANDARDS, Timing};
-use crate::panel::shape::ContinuousCorners;
 use anyhow::{Context as _, Result, ensure};
 use gpui::{Context, Div, div, prelude::*};
 
@@ -113,29 +112,40 @@ impl Panel {
             .flex_col()
             .gap_2()
             .child(div().text_xl().child("自定义分辨率"));
-        let mut standards = div().flex().flex_wrap().gap_2().child("时序标准");
-        for (i, (label, _)) in STANDARDS.iter().enumerate() {
-            standards = standards.child(
-                div()
-                    .id(("timing-standard", i))
-                    .px_2()
-                    .cursor_pointer()
-                    .smooth_background(if editor.standard == i {
-                        self.palette.selected
-                    } else {
-                        self.palette.control
-                    })
-                    .child(*label)
-                    .on_click(cx.listener(move |p, _, _, cx| {
-                        if let Some(e) = &mut p.display.custom {
-                            e.standard = i;
-                            p.calculate_custom();
-                        }
-                        cx.notify();
-                    })),
-            );
-        }
-        section = section.child(standards);
+        section = section.child(self.setting_row(
+            "时序标准",
+            self.select(
+                "timing-standard",
+                STANDARDS.iter().map(|(name, _)| name.to_string()).collect(),
+                Some(editor.standard),
+                "时序标准",
+                160.,
+                |p, i, _| {
+                    if let Some(e) = &mut p.display.custom {
+                        e.standard = i;
+                        p.calculate_custom();
+                    }
+                },
+                cx,
+            ),
+        ));
+        section = section.child(self.setting_row(
+            "扫描方式",
+            self.select(
+                "scan-type",
+                ["逐行", "隔行"].map(str::to_owned).into(),
+                Some(usize::from(editor.interlaced)),
+                "扫描方式",
+                160.,
+                |p, i, _| {
+                    if let Some(e) = &mut p.display.custom {
+                        e.interlaced = i == 1;
+                        p.calculate_custom();
+                    }
+                },
+                cx,
+            ),
+        ));
         let mut fields = Vec::from(editor.basic);
         if let Some(t) = editor.timing {
             let d = t.detail;
@@ -184,49 +194,30 @@ impl Panel {
                     )),
             );
         }
-        section = section.child(
-            div()
-                .id("scan-type")
-                .cursor_pointer()
-                .child(if editor.interlaced {
-                    "扫描方式：隔行"
-                } else {
-                    "扫描方式：逐行"
-                })
-                .on_click(cx.listener(|p, _, _, cx| {
-                    if let Some(e) = &mut p.display.custom {
-                        e.interlaced = !e.interlaced;
-                        p.calculate_custom();
-                    }
-                    cx.notify();
-                })),
-        );
         if let Some(t) = editor.timing {
             for (i, (label, bit)) in [("水平同步极性", 4), ("垂直同步极性", 8)]
                 .into_iter()
                 .enumerate()
             {
-                section = section.child(
-                    div()
-                        .id(("timing-polarity", i))
-                        .cursor_pointer()
-                        .child(format!(
-                            "{label}：{}",
-                            if t.detail.flags & bit == 0 {
-                                "正"
-                            } else {
-                                "负"
-                            }
-                        ))
-                        .on_click(cx.listener(move |p, _, _, cx| {
+                section = section.child(self.setting_row(
+                    label,
+                    self.select(
+                        ("sync-polarity", i),
+                        ["正极性", "负极性"].map(str::to_owned).into(),
+                        Some(usize::from(t.detail.flags & bit != 0)),
+                        label,
+                        160.,
+                        move |p, value, _| {
                             if let Some(t) =
                                 p.display.custom.as_mut().and_then(|e| e.timing.as_mut())
                             {
-                                t.detail.flags ^= bit;
+                                t.detail.flags =
+                                    (t.detail.flags & !bit) | if value == 1 { bit } else { 0 };
                             }
-                            cx.notify();
-                        })),
-                );
+                        },
+                        cx,
+                    ),
+                ));
             }
             if let Err(e) = t.validate() {
                 section = section.child(e.to_string());

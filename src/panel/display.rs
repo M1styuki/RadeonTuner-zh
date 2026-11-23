@@ -1,4 +1,3 @@
-use crate::panel::shape::ContinuousCorners;
 mod custom;
 mod eyefinity;
 use super::Panel;
@@ -563,46 +562,11 @@ impl Panel {
         if let Some(editor) = &page.custom {
             return self.render_custom(editor, cx);
         }
-        if page.app == "Global" && !page.displays.is_empty() {
-            section = section.child(
-                div()
-                    .id("manage-eye")
-                    .cursor_pointer()
-                    .child("管理 Eyefinity 多屏拼接")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        if let Err(e) = p.open_eyefinity() {
-                            p.display.status = e.to_string();
-                        }
-                        cx.notify();
-                    })),
-            );
-        } else if page.key.is_some() && page.app != "Global" {
-            section = section.child(self.toggle_row(
-                "auto-eye",
-                "自动 Eyefinity",
-                page.auto_eye,
-                true,
-                |p, _| p.display.auto_eye = !p.display.auto_eye,
-                cx,
-            ));
-        }
         if let (Some(mode), Some(current), true) = (
             page.modes.get(page.choice),
             page.current,
             page.app == "Global",
         ) {
-            section = section.child(
-                div()
-                    .id("custom-editor")
-                    .cursor_pointer()
-                    .child("管理自定义分辨率…")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        if let Err(err) = p.open_custom() {
-                            p.display.status = err.to_string();
-                        }
-                        cx.notify();
-                    })),
-            );
             let mut sizes = Vec::new();
             let mut same = Vec::new();
             for (i, m) in page.modes.iter().enumerate() {
@@ -718,7 +682,78 @@ impl Panel {
             .iter()
             .find(|s| s.feature == Feature::VariBright)
             .is_some_and(|s| s.draft != 0);
-        for (i, setting) in page.settings.iter().enumerate() {
+        let order = [
+            Some(Feature::Hdr),
+            Some(Feature::FreeSync),
+            Some(Feature::Vsr),
+            Some(Feature::GpuScaling),
+            Some(Feature::IntegerScaling),
+            Some(Feature::Scaling),
+            Some(Feature::VariBright),
+            Some(Feature::VariBrightLevel),
+            Some(Feature::Depth),
+            Some(Feature::Pixel),
+            None,
+            Some(Feature::Color(1)),
+            Some(Feature::Color(2)),
+            Some(Feature::Color(4)),
+            Some(Feature::Color(8)),
+            Some(Feature::Enhancement),
+            Some(Feature::TemperatureSource),
+            Some(Feature::Color(16)),
+            Some(Feature::Correction(0)),
+            Some(Feature::Correction(1)),
+            Some(Feature::Correction(2)),
+            Some(Feature::Correction(3)),
+            Some(Feature::Hdcp),
+        ];
+        for feature in order {
+            let Some(feature) = feature else {
+                if page.gamma_supported {
+                    section = section.child(self.toggle_row(
+                        "gamma-control",
+                        "显示伽马控制",
+                        page.gamma.enabled,
+                        true,
+                        |p, _| p.display.gamma.enabled = !p.display.gamma.enabled,
+                        cx,
+                    ));
+                    if page.gamma.enabled {
+                        for (i, label) in [
+                            "显示伽马基准",
+                            "显示伽马红色",
+                            "显示伽马绿色",
+                            "显示伽马蓝色",
+                        ]
+                        .into_iter()
+                        .enumerate()
+                        {
+                            section = section.child(self.setting_row(
+                                label,
+                                self.number(
+                                    super::numeric::Field::Gamma(i),
+                                    page.gamma.values[i],
+                                    50,
+                                    300,
+                                    1,
+                                    "",
+                                    cx,
+                                ),
+                            ));
+                        }
+                    }
+                }
+                continue;
+            };
+            let Some((i, setting)) = page
+                .settings
+                .iter()
+                .enumerate()
+                .find(|(_, s)| s.feature == feature)
+            else {
+                continue;
+            };
+
             if page.app != "Global" && !setting.feature.per_app() {
                 continue;
             }
@@ -783,39 +818,52 @@ impl Panel {
                 ));
             }
         }
-        if page.gamma_supported {
+        if page.app == "Global" && page.current.is_some() {
+            section = section.child(
+                self.setting_row(
+                    "自定义分辨率",
+                    div().child(
+                        self.button_style(true)
+                            .id("custom-editor")
+                            .cursor_pointer()
+                            .child("管理自定义分辨率…")
+                            .on_click(cx.listener(|p, _, _, cx| {
+                                if let Err(err) = p.open_custom() {
+                                    p.display.status = err.to_string();
+                                }
+                                cx.notify();
+                            })),
+                    ),
+                ),
+            );
+        }
+        if page.app == "Global" && !page.displays.is_empty() {
+            section = section.child(
+                self.setting_row(
+                    "Eyefinity 操作",
+                    div().child(
+                        self.button_style(true)
+                            .id("manage-eye")
+                            .cursor_pointer()
+                            .child("管理 Eyefinity")
+                            .on_click(cx.listener(|p, _, _, cx| {
+                                if let Err(e) = p.open_eyefinity() {
+                                    p.display.status = e.to_string();
+                                }
+                                cx.notify();
+                            })),
+                    ),
+                ),
+            );
+        } else if page.key.is_some() && page.app != "Global" {
             section = section.child(self.toggle_row(
-                "gamma-control",
-                "显示伽马控制",
-                page.gamma.enabled,
+                "auto-eye",
+                "自动 Eyefinity",
+                page.auto_eye,
                 true,
-                |p, _| p.display.gamma.enabled = !p.display.gamma.enabled,
+                |p, _| p.display.auto_eye = !p.display.auto_eye,
                 cx,
             ));
-            if page.gamma.enabled {
-                for (i, label) in [
-                    "显示伽马基准",
-                    "显示伽马红色",
-                    "显示伽马绿色",
-                    "显示伽马蓝色",
-                ]
-                .into_iter()
-                .enumerate()
-                {
-                    section = section.child(self.setting_row(
-                        label,
-                        self.number(
-                            super::numeric::Field::Gamma(i),
-                            page.gamma.values[i],
-                            50,
-                            300,
-                            1,
-                            "",
-                            cx,
-                        ),
-                    ));
-                }
-            }
         }
         if page.displays.is_empty() && page.status.is_empty() {
             section = section.child("未检测到可用的 AMD 显示器");
