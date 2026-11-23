@@ -644,17 +644,7 @@ impl Panel {
                     .gap_3()
                     .cursor_pointer()
                     .child(self.tuning_label(control))
-                    .child(
-                        div()
-                            .px_3()
-                            .py_1()
-                            .smooth_background(if on {
-                                self.palette.selected
-                            } else {
-                                self.palette.control
-                            })
-                            .child(if on { "开" } else { "关" }),
-                    )
+                    .child(self.toggle_switch(on))
                     .on_click(cx.listener(move |p, _, _, cx| {
                         p.controls[i].draft = i32::from(!on);
                         cx.notify();

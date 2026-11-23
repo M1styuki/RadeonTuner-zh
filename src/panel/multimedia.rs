@@ -236,12 +236,9 @@ impl Panel {
                 .child(div().flex_1().child(control.feature.label()));
             if control.feature == Feature::Upscale {
                 row = row.child(
-                    div()
+                    self.toggle_switch(control.draft != 0)
                         .id("video-upscale")
                         .cursor_pointer()
-                        .px_3()
-                        .smooth_background(self.palette.control)
-                        .child(if control.draft == 0 { "关" } else { "开" })
                         .on_click(cx.listener(move |panel, _, _, cx| {
                             panel.video[i].draft = i32::from(panel.video[i].draft == 0);
                             cx.notify();

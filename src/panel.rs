@@ -93,6 +93,29 @@ impl Panel {
             }
         }
     }
+    pub(super) fn toggle_switch(&self, on: bool) -> Div {
+        let palette = self.palette;
+        div()
+            .relative()
+            .w(px(44.))
+            .h(px(32.))
+            .flex_shrink_0()
+            .smooth_background(if on {
+                palette.selected
+            } else {
+                palette.control
+            })
+            .child(
+                div()
+                    .absolute()
+                    .top(px(4.))
+                    .left(px(if on { 24. } else { 4. }))
+                    .w(px(16.))
+                    .h(px(24.))
+                    .smooth_background(palette.text),
+            )
+    }
+
     fn refresh(&mut self) {
         self.expire_preview();
         if self.page == 2 {
@@ -217,7 +240,7 @@ impl Render for Panel {
                 .flex()
                 .justify_between()
                 .child("禁用多平面叠加（MPO）")
-                .child(if self.mpo { "开" } else { "关" });
+                .child(self.toggle_switch(self.mpo));
             content = content
                 .child(if self.admin {
                     mpo.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
@@ -244,7 +267,7 @@ impl Render for Panel {
                 .flex()
                 .justify_between()
                 .child("Windows 更新排除驱动程序")
-                .child(if self.excludes_drivers { "开" } else { "关" });
+                .child(self.toggle_switch(self.excludes_drivers));
             content = content.child(if self.admin {
                 update.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
                     match crate::integration::set_excludes_drivers(!p.excludes_drivers) {
@@ -312,7 +335,7 @@ impl Render for Panel {
                         .flex()
                         .justify_between()
                         .child(label)
-                        .child(if on { "开" } else { "关" })
+                        .child(self.toggle_switch(on))
                         .on_click(cx.listener(move |panel, _, _, cx| {
                             match panel.settings.set_flag(key, !on) {
                                 Ok(()) if key == "SetTopMost" => {
@@ -365,7 +388,7 @@ impl Render for Panel {
                         .justify_between()
                         .cursor_pointer()
                         .child(label)
-                        .child(if on { "开" } else { "关" })
+                        .child(self.toggle_switch(on))
                         .on_click(cx.listener(move |p, _, _, cx| {
                             match link.set(!on) {
                                 Ok(()) => p.links[i] = link.enabled(),

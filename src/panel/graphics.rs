@@ -319,6 +319,20 @@ impl Panel {
                 .items_center()
                 .gap_2()
                 .child(div().flex_1().child(control.field.label()));
+            if control.min == 0 && control.max == 1 && control.step == 1 {
+                let on = control.draft != 0;
+                row = row.child(
+                    self.toggle_switch(on)
+                        .id(("frame-toggle", i))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |p, _, _, cx| {
+                            p.change_frame(i, i32::from(!on));
+                            cx.notify();
+                        })),
+                );
+                section = section.child(row);
+                continue;
+            }
             let entries = control.field.entries();
             if entries.is_empty() {
                 row = row.child(self.number(

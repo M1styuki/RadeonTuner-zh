@@ -581,11 +581,11 @@ impl Panel {
                 div()
                     .id("auto-eye")
                     .cursor_pointer()
-                    .child(if page.auto_eye {
-                        "自动 Eyefinity　已开启"
-                    } else {
-                        "自动 Eyefinity　已关闭"
-                    })
+                    .flex()
+                    .items_center()
+                    .gap_3()
+                    .child(div().flex_1().child("自动 Eyefinity"))
+                    .child(self.toggle_switch(page.auto_eye))
                     .on_click(cx.listener(|p, _, _, cx| {
                         p.display.auto_eye = !p.display.auto_eye;
                         cx.notify();
@@ -725,15 +725,16 @@ impl Panel {
             }
         }
         if page.gamma_supported {
+            let gamma_on = page.gamma.enabled;
             section = section.child(
                 div()
                     .id("gamma-control")
                     .cursor_pointer()
-                    .child(if page.gamma.enabled {
-                        "伽马调整　已开启"
-                    } else {
-                        "伽马调整　已关闭"
-                    })
+                    .flex()
+                    .items_center()
+                    .gap_3()
+                    .child(div().flex_1().child("伽马调整"))
+                    .child(self.toggle_switch(gamma_on))
                     .on_click(cx.listener(|p, _, _, cx| {
                         p.display.gamma.enabled = !p.display.gamma.enabled;
                         cx.notify();
@@ -784,6 +785,20 @@ impl Panel {
                 .gap_3()
                 .items_center()
                 .child(div().flex_1().child(setting.label));
+            if setting.min == 0 && setting.max == 1 && setting.step == 1 {
+                let on = setting.draft != 0;
+                row = row.child(
+                    self.toggle_switch(on)
+                        .id(("display-toggle", i))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |p, _, _, cx| {
+                            p.display.settings[i].draft = i32::from(!on);
+                            cx.notify();
+                        })),
+                );
+                section = section.child(row);
+                continue;
+            }
             if matches!(
                 setting.feature,
                 crate::adl::display::settings::Feature::Color(_)
