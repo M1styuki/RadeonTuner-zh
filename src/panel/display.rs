@@ -508,11 +508,7 @@ impl Panel {
 
     pub(super) fn render_displays(&self, cx: &mut Context<Self>) -> Div {
         let page = &self.display;
-        let mut section = div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(div().text_xl().child("显示器"));
+        let mut section = div().flex().flex_col().gap_2();
         if let Some(preview) = &page.preview {
             section = section.child(format!(
                 "将在 {} 秒后{}",

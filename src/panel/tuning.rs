@@ -509,28 +509,44 @@ impl Panel {
             }
             page = page.child(self.render_curve(cx));
             if self.tuning.mode == 3 {
+                page = page.child(div().text_lg().child("风扇曲线"));
+                let mut curves = div().flex().flex_wrap().gap_3();
                 for point in 0..5 {
-                    let mut pair = div()
+                    let mut card = div()
+                        .w(px(300.))
+                        .flex_shrink_0()
                         .flex()
                         .flex_col()
-                        .gap_1()
-                        .child(div().text_lg().child(format!("曲线点 {}", point + 1)));
-                    let mut found = false;
-                    for (i, control) in self.controls.iter().enumerate() {
-                        if [19 + 2 * point, 20 + 2 * point].contains(&control.id) {
-                            pair = pair.child(self.tuning_field(i, cx));
-                            found = true;
+                        .gap_2()
+                        .px_3()
+                        .py_2()
+                        .smooth_background(self.palette.sidebar)
+                        .child(div().text_lg().child(format!("风扇曲线 {}", point + 1)));
+                    for id in [19 + 2 * point, 20 + 2 * point] {
+                        if let Some((i, _)) = self
+                            .controls
+                            .iter()
+                            .enumerate()
+                            .find(|(_, c)| c.id == id)
+                        {
+                            card = card.child(self.tuning_control(i, cx));
                         }
                     }
-                    if found {
-                        page = page.child(pair);
+                    curves = curves.child(card);
+                }
+                page = page.child(curves);
+            } else if self.tuning.mode == 2 {
+                page = page.child(div().text_lg().child("风扇转速范围"));
+                let mut range = div().flex().flex_wrap().gap_3();
+                let mut found = false;
+                for (i, control) in self.controls.iter().enumerate() {
+                    if matches!(control.id, 20 | 28) && self.show_control(control.id) {
+                        range = range.child(self.tuning_field(i, cx));
+                        found = true;
                     }
                 }
-            } else {
-                for (i, control) in self.controls.iter().enumerate() {
-                    if (19..=28).contains(&control.id) && self.show_control(control.id) {
-                        page = page.child(self.tuning_field(i, cx));
-                    }
+                if found {
+                    page = page.child(range);
                 }
             }
             return page;
@@ -559,49 +575,18 @@ impl Panel {
         page
     }
 
-    fn tuning_field(&self, i: usize, cx: &mut Context<Self>) -> Div {
-        let control = &self.controls[i];
-        let label = match (self.tuning.mode, control.id) {
+    fn tuning_label(&self, control: &crate::adl::overdrive::Control) -> &'static str {
+        match (self.tuning.mode, control.id) {
             (2, 20) => "最低风扇转速",
             (2, 28) => "最高风扇转速",
             (3, 19..=28) if control.id % 2 == 1 => "温度",
             (3, 19..=28) => "转速",
             _ => control.label,
-        };
-        let card = div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .px_3()
-            .py_2()
-            .smooth_background(self.palette.sidebar);
-        if control.id == 15 && control.min == 0 && control.max == 1 {
-            let on = control.draft == 1;
-            return card.child(
-                div()
-                    .id("fan-zero-rpm")
-                    .flex()
-                    .items_center()
-                    .gap_3()
-                    .cursor_pointer()
-                    .child(label)
-                    .child(
-                        div()
-                            .px_3()
-                            .py_1()
-                            .smooth_background(if on {
-                                self.palette.selected
-                            } else {
-                                self.palette.control
-                            })
-                            .child(if on { "开" } else { "关" }),
-                    )
-                    .on_click(cx.listener(move |p, _, _, cx| {
-                        p.controls[i].draft = i32::from(!on);
-                        cx.notify();
-                    })),
-            );
         }
+    }
+
+    fn tuning_control(&self, i: usize, cx: &mut Context<Self>) -> Div {
+        let control = &self.controls[i];
         let mut input = div().flex().items_center().gap_2().child(self.number(
             super::numeric::Field::Tuning(i),
             control.draft,
@@ -631,7 +616,51 @@ impl Panel {
                     })),
             );
         }
-        card.child(label).child(input)
+        div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .child(self.tuning_label(control))
+            .child(input)
+    }
+
+    fn tuning_field(&self, i: usize, cx: &mut Context<Self>) -> Div {
+        let control = &self.controls[i];
+        let card = div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .px_3()
+            .py_2()
+            .smooth_background(self.palette.sidebar);
+        if control.id == 15 && control.min == 0 && control.max == 1 {
+            let on = control.draft == 1;
+            return card.child(
+                div()
+                    .id("fan-zero-rpm")
+                    .flex()
+                    .items_center()
+                    .gap_3()
+                    .cursor_pointer()
+                    .child(self.tuning_label(control))
+                    .child(
+                        div()
+                            .px_3()
+                            .py_1()
+                            .smooth_background(if on {
+                                self.palette.selected
+                            } else {
+                                self.palette.control
+                            })
+                            .child(if on { "开" } else { "关" }),
+                    )
+                    .on_click(cx.listener(move |p, _, _, cx| {
+                        p.controls[i].draft = i32::from(!on);
+                        cx.notify();
+                    })),
+            );
+        }
+        card.child(self.tuning_control(i, cx))
     }
 
     pub(super) fn tuning_changed(&self) -> bool {

@@ -56,7 +56,7 @@ impl Panel {
             heading = heading.child(devices);
         }
         let mut header = div().flex_shrink_0().flex().flex_col().gap_2().p_4().child(heading);
-        if matches!(self.page, 0 | 1 | 2 | 6) && !self.metrics.is_empty() {
+        if self.page != 5 && !self.metrics.is_empty() {
             let mut stats = div()
                 .flex()
                 .flex_wrap()
@@ -69,7 +69,9 @@ impl Panel {
             for item in &self.metrics {
                 if let Some(value) = item.value {
                     stats = stats.child(
-                        div().flex_shrink_0().child(format!("{} {value} {}", item.label, item.unit)),
+                        div()
+                            .flex_shrink_0()
+                            .child(format!("{} {value} {}", item.label, item.unit)),
                     );
                 }
             }
