@@ -18,33 +18,30 @@ impl Panel {
     pub(super) fn modal(&self, content: Div) -> impl IntoElement {
         let mut veil = rgb(self.palette.sidebar);
         veil.a = 0.9;
-        deferred(
-            div()
-                .id("dialog-veil")
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-                .occlude()
-                .p_5()
-                .flex()
-                .items_center()
-                .justify_center()
-                .bg(veil)
-                .child(
-                    div()
-                        .id("dialog-body")
-                        .w_full()
-                        .max_w(px(720.))
-                        .max_h(gpui::relative(1.))
-                        .p_4()
-                        .overflow_y_scroll()
-                        .smooth_background(self.palette.canvas)
-                        .child(shape::outline(self.palette.border))
-                        .child(content),
-                ),
-        )
-        .with_priority(2)
+        div()
+            .id("dialog-veil")
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+            .occlude()
+            .p_5()
+            .flex()
+            .items_center()
+            .justify_center()
+            .bg(veil)
+            .child(
+                div()
+                    .id("dialog-body")
+                    .w_full()
+                    .max_w(px(720.))
+                    .max_h(gpui::relative(1.))
+                    .p_4()
+                    .overflow_y_scroll()
+                    .smooth_background(self.palette.canvas)
+                    .child(shape::outline(self.palette.border))
+                    .child(content),
+            )
     }
 
     pub(super) fn toggle_switch(&self, on: bool) -> Div {
