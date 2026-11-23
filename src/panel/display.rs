@@ -53,20 +53,43 @@ impl Panel {
         }
     }
     pub(super) fn read_displays(&mut self) {
+        let old = self
+            .display
+            .displays
+            .get(self.display.display_index)
+            .map(|d| {
+                (
+                    d.adapter,
+                    d.logical,
+                    d.name.clone(),
+                    self.display.app.clone(),
+                )
+            });
         self.display = DisplayPage::default();
-        if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
-            match driver.displays(device.index) {
-                Ok(displays) => {
-                    self.display.displays = displays;
-                    self.read_modes();
+        if let Some(driver) = &self.driver {
+            for device in &self.devices {
+                match driver.displays(device.index) {
+                    Ok(mut displays) => self.display.displays.append(&mut displays),
+                    Err(err) => self.display.status = err.to_string(),
                 }
-                Err(err) => self.display.status = err.to_string(),
             }
+            if let Some((adapter, logical, name, app)) = old {
+                if let Some(i) =
+                    self.display.displays.iter().position(|d| {
+                        d.adapter == adapter && d.logical == logical && d.name == name
+                    })
+                {
+                    self.display.display_index = i;
+                    self.display.app = app;
+                }
+            }
+            self.read_modes();
         }
     }
     fn read_modes(&mut self) {
         let page = &mut self.display;
         page.current = None;
+        page.key = None;
         page.custom = None;
         page.confirm_reset = false;
         page.eyefinity = None;
@@ -523,29 +546,74 @@ impl Panel {
                         cx.notify();
                     })),
             );
-            let mut row = div().flex().gap_3().items_center().child(format!(
-                "{} × {} · {:.2} Hz",
-                mode.width, mode.height, mode.refresh
-            ));
-            for (id, label, dir) in [("mode-prev", "上一项", -1isize), ("mode-next", "下一项", 1)]
-            {
-                let next = page
-                    .choice
-                    .checked_add_signed(dir)
-                    .filter(|i| *i < page.modes.len());
-                let button = div().id(id).px_2().child(label);
-                row = row.child(if let Some(index) = next {
-                    button
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |panel, _, _, cx| {
-                            panel.display.choice = index;
-                            cx.notify();
-                        }))
-                } else {
-                    button.opacity(0.45)
-                });
+            let mut sizes = Vec::new();
+            let mut same = Vec::new();
+            for (i, m) in page.modes.iter().enumerate() {
+                if !sizes
+                    .iter()
+                    .any(|(_, width, height)| (*width, *height) == (m.width, m.height))
+                {
+                    sizes.push((i, m.width, m.height));
+                }
+                if (m.width, m.height) == (mode.width, mode.height) {
+                    same.push(i);
+                }
             }
-            section = section.child(row);
+            let size_pos = sizes
+                .iter()
+                .position(|(_, w, h)| (*w, *h) == (mode.width, mode.height))
+                .unwrap_or(0);
+            let refresh_pos = same.iter().position(|i| *i == page.choice).unwrap_or(0);
+            for (setting, label, selected, choices) in [
+                (
+                    "resolution",
+                    format!("分辨率　{} × {}", mode.width, mode.height),
+                    size_pos,
+                    sizes
+                        .iter()
+                        .map(|(i, w, h)| {
+                            page.modes
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, m)| m.width == *w && m.height == *h)
+                                .min_by(|(_, a), (_, b)| {
+                                    (a.refresh - mode.refresh)
+                                        .abs()
+                                        .total_cmp(&(b.refresh - mode.refresh).abs())
+                                })
+                                .map(|(at, _)| at)
+                                .unwrap_or(*i)
+                        })
+                        .collect::<Vec<_>>(),
+                ),
+                (
+                    "refresh",
+                    format!("刷新率　{:.2} Hz", mode.refresh),
+                    refresh_pos,
+                    same,
+                ),
+            ] {
+                let mut row = div().flex().gap_3().items_center().child(label);
+                for (button, label, dir) in [("prev", "上一项", -1isize), ("next", "下一项", 1)]
+                {
+                    let transition = selected
+                        .checked_add_signed(dir)
+                        .and_then(|n| choices.get(n))
+                        .copied();
+                    let control = div().id(format!("{setting}-{button}")).px_2().child(label);
+                    row = row.child(if let Some(index) = transition {
+                        control
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |p, _, _, cx| {
+                                p.display.choice = index;
+                                cx.notify();
+                            }))
+                    } else {
+                        control.opacity(0.45)
+                    });
+                }
+                section = section.child(row);
+            }
             let mut row = div().flex().gap_3().child("显示方向");
             for (i, angle) in [0, 90, 180, 270].into_iter().enumerate() {
                 row = row.child(

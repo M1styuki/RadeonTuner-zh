@@ -301,7 +301,14 @@ impl Background {
                 let mut eyefinity = None;
                 let mut gamma = None;
                 let mut gamma_valid = true;
-                for display in driver.displays(device.index)? {
+                let displays = match driver.displays(device.index) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        display_error = Some(e);
+                        continue;
+                    }
+                };
+                for display in displays {
                     let Some(key) = driver.display_profile_key(&display) else {
                         continue;
                     };
@@ -335,9 +342,14 @@ impl Background {
                         continue;
                     }
                     let mut settings = driver.display_settings(&display);
-                    display_draft(&mut settings, profile, true)?;
-                    driver.apply_display(&display, &settings)?;
-                    self.applied_display.insert(target, profile.clone());
+                    match display_draft(&mut settings, profile, true)
+                        .and_then(|()| driver.apply_display(&display, &settings))
+                    {
+                        Ok(()) => {
+                            self.applied_display.insert(target, profile.clone());
+                        }
+                        Err(e) => display_error = Some(e),
+                    }
                 }
                 if let Some((_, g)) = gamma {
                     if let Err(e) = driver.sync_gamma(device, g, &mut self.gamma_owned) {
@@ -361,7 +373,7 @@ impl Background {
         }
         for Device {
             index, profile_key, ..
-        } in devices
+        } in driver.enumerate_devices(false)?
         {
             if profile_key.is_empty() {
                 continue;
@@ -369,17 +381,30 @@ impl Background {
             let Some(profile) = select_profile(&self.profiles, &profile_key, &running) else {
                 continue;
             };
-            if self.applied.get(&index) == Some(profile)
-                && number(profile, "KeepActive")?.unwrap_or(0) == 0
-            {
+            let keep = match number(profile, "KeepActive") {
+                Ok(n) => n.unwrap_or(0) != 0,
+                Err(e) => {
+                    display_error = Some(e);
+                    continue;
+                }
+            };
+            if self.applied.get(&index) == Some(profile) && !keep {
                 continue;
             }
-            let mut controls = driver.controls(index)?;
-            tuning_draft(&mut controls, profile)?;
-            if controls.iter().any(|c| c.current != c.draft || c.reset) {
-                driver.apply(index, &controls)?;
+            let apply = (|| {
+                let mut controls = driver.controls(index)?;
+                tuning_draft(&mut controls, profile)?;
+                if controls.iter().any(|c| c.current != c.draft || c.reset) {
+                    driver.apply(index, &controls)?;
+                }
+                Ok(())
+            })();
+            match apply {
+                Ok(()) => {
+                    self.applied.insert(index, profile.clone());
+                }
+                Err(e) => display_error = Some(e),
             }
-            self.applied.insert(index, profile.clone());
         }
         if let Some(e) = display_error {
             return Err(e);

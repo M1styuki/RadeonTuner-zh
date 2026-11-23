@@ -92,7 +92,7 @@ impl Driver {
     pub fn devices(&self) -> Result<Vec<Device>> {
         self.enumerate_devices(true)
     }
-    fn enumerate_devices(&self, unique: bool) -> Result<Vec<Device>> {
+    pub(crate) fn enumerate_devices(&self, unique: bool) -> Result<Vec<Device>> {
         unsafe {
             let enumerate = self
                 .library

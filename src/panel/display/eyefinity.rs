@@ -15,7 +15,12 @@ pub(super) struct Editor {
 impl Panel {
     pub(super) fn open_eyefinity(&mut self) -> Result<()> {
         let driver = self.driver.as_ref().context("AMD 驱动不可用")?;
-        let adapter = self.devices.get(self.selected).context("未选择显卡")?.index;
+        let adapter = self
+            .display
+            .displays
+            .get(self.display.display_index)
+            .context("未选择显示器")?
+            .adapter;
         let displays = driver.display_connections(adapter)?;
         let columns = (displays.len() as i32).clamp(1, 6);
         let state = driver.eyefinity_state(adapter).ok().map(|(_, s)| s);
