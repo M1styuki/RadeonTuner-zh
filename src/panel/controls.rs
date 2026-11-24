@@ -92,7 +92,6 @@ impl Panel {
         const TRACK_WIDTH: f32 = 34. * SCALE;
         const TRACK_HEIGHT: f32 = 20. * SCALE;
         const THUMB_DIAMETER: f32 = 12. * SCALE;
-        const OUTLINE_WIDTH: f32 = 1.5;
         let palette = self.palette;
         div()
             .w(px(42.))
@@ -138,7 +137,7 @@ impl Panel {
                                         bounds,
                                         bounds.size.height * 0.5,
                                         window.text_style().color,
-                                        px(OUTLINE_WIDTH),
+                                        px(shape::OUTLINE_WIDTH),
                                         rgb(palette.border),
                                         gpui::BorderStyle::Solid,
                                     ));

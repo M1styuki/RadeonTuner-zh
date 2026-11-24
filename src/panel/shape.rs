@@ -3,6 +3,7 @@ use gpui::{
     rgb,
 };
 
+pub(super) const OUTLINE_WIDTH: f32 = 1.5;
 pub(super) const CONTROL_CORNER: f32 = 11.;
 pub(super) const PANEL_CORNER: f32 = 15.;
 pub(super) const NAV_CORNER: f32 = 18.;
@@ -91,10 +92,11 @@ pub(super) fn outline_radius(color: u32, radius: f32) -> impl gpui::IntoElement 
     canvas(
         |_, _, _| (),
         move |bounds, _, window, _| {
+            let inset = OUTLINE_WIDTH / 2.;
             if let Ok(path) = draw(
-                bounds.dilate(px(-0.5)),
-                radius - 0.5,
-                PathBuilder::stroke(px(1.)),
+                bounds.dilate(px(-inset)),
+                radius - inset,
+                PathBuilder::stroke(px(OUTLINE_WIDTH)),
             )
             .build()
             {
