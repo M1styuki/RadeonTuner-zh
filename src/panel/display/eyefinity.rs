@@ -147,9 +147,8 @@ impl Panel {
                     .filter(|n| *n < editor.displays.len())
                 {
                     row = row.child(
-                        div()
+                        self.inline_action()
                             .id((id, i))
-                            .cursor_pointer()
                             .px_2()
                             .child(label)
                             .on_click(cx.listener(move |p, _, _, cx| {
@@ -210,9 +209,8 @@ impl Panel {
             });
         }
         view.child(row).child(editor.status.clone()).child(
-            div()
+            self.inline_action()
                 .id("eye-close")
-                .cursor_pointer()
                 .child("返回显示设置")
                 .on_click(cx.listener(|p, _, _, cx| {
                     p.display.eyefinity = None;

@@ -3,25 +3,33 @@ use gpui::{
     rgb,
 };
 
+pub(super) const CONTROL_CORNER: f32 = 11.;
+pub(super) const PANEL_CORNER: f32 = 15.;
+pub(super) const NAV_CORNER: f32 = 18.;
+
 pub(super) trait ContinuousCorners: Styled + ParentElement + Sized {
     fn smooth_background(self, color: u32) -> Self {
-        self.relative().child(surface_radius(color, 8.))
+        self.relative().child(surface_radius(color, PANEL_CORNER))
     }
 
-    fn smooth_hover_background(self, color: u32) -> Self
+    fn smooth_hover_background(self, normal: Option<u32>, hover: u32, radius: f32) -> Self
     where
         Self: InteractiveElement,
     {
-        self.relative().group("continuous-hover").child(
-            div()
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-                .opacity(0.)
-                .group_hover("continuous-hover", |layer| layer.opacity(1.))
-                .child(surface(color)),
-        )
+        let layer = || div().absolute().top_0().left_0().size_full();
+        self.relative()
+            .group("continuous-hover")
+            .children(normal.map(|color| {
+                layer()
+                    .group_hover("continuous-hover", |style| style.opacity(0.))
+                    .child(surface_radius(color, radius))
+            }))
+            .child(
+                layer()
+                    .opacity(0.)
+                    .group_hover("continuous-hover", |layer| layer.opacity(1.))
+                    .child(surface_radius(hover, radius)),
+            )
     }
 }
 
@@ -40,17 +48,17 @@ fn draw(bounds: Bounds<Pixels>, radius: f32, mut path: PathBuilder) -> PathBuild
     .into_iter()
     .reduce(|a, b| if a < b { a } else { b })
     .unwrap_or_default();
-    // Each pair of cubics is mirrored at the diagonal. The first two
-    // control points lie on the incoming edge and the last two on the
-    // outgoing edge, so curvature reaches zero at both straight joins.
+    // The first two handles sit on the incoming edge, giving it zero
+    // curvature at the join. Reflection gives the other edge the same
+    // join and matches tangent and curvature at the corner's diagonal.
     path.move_to(point(left + radius, top));
     let mut corner = |x, y, dx, dy| {
         let at = |along: f32, across: f32| {
             point(x + dx * along - dy * across, y + dy * along + dx * across)
         };
         path.line_to(at(0., 0.));
-        path.cubic_bezier_to(at(0.72, 0.28), at(0.22, 0.), at(0.44, 0.));
-        path.cubic_bezier_to(at(1., 1.), at(1., 0.56), at(1., 0.78));
+        path.cubic_bezier_to(at(0.8, 0.2), at(0.275, 0.), at(0.6, 0.));
+        path.cubic_bezier_to(at(1., 1.), at(1., 0.4), at(1., 0.725));
     };
     corner(right - radius, top, radius, px(0.));
     corner(right, bottom - radius, px(0.), radius);
@@ -58,10 +66,6 @@ fn draw(bounds: Bounds<Pixels>, radius: f32, mut path: PathBuilder) -> PathBuild
     corner(left, top + radius, px(0.), -radius);
     path.close();
     path
-}
-
-pub(super) fn surface(color: u32) -> impl gpui::IntoElement {
-    surface_radius(color, 8.)
 }
 
 pub(super) fn surface_radius(color: u32, radius: f32) -> impl gpui::IntoElement {
@@ -80,7 +84,7 @@ pub(super) fn surface_radius(color: u32, radius: f32) -> impl gpui::IntoElement 
 }
 
 pub(super) fn outline(color: u32) -> impl gpui::IntoElement {
-    outline_radius(color, 8.)
+    outline_radius(color, PANEL_CORNER)
 }
 
 pub(super) fn outline_radius(color: u32, radius: f32) -> impl gpui::IntoElement {

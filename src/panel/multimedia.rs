@@ -292,10 +292,8 @@ impl Panel {
                     .gap_2()
                     .child("将这张显卡的多媒体设置恢复为默认值？")
                     .child(
-                        div()
+                        self.inline_action()
                             .id("video-reset-confirm")
-                            .px_2()
-                            .cursor_pointer()
                             .child("重置")
                             .on_click(cx.listener(|p, _, _, cx| {
                                 p.confirm_video_reset = false;
@@ -306,10 +304,8 @@ impl Panel {
                             })),
                     )
                     .child(
-                        div()
+                        self.inline_action()
                             .id("video-reset-cancel")
-                            .px_2()
-                            .cursor_pointer()
                             .child("取消")
                             .on_click(cx.listener(|p, _, _, cx| {
                                 p.confirm_video_reset = false;

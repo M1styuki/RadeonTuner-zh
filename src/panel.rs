@@ -1,6 +1,7 @@
 use crate::panel::shape::ContinuousCorners;
 use crate::{
     adl::{Device, Driver, Metric},
+    integration::services,
     settings::Settings,
 };
 use anyhow::Result;
@@ -8,6 +9,7 @@ use gpui::{
     App, Application, Bounds, Context, Div, Timer, Window, WindowBounds, WindowOptions, div,
     prelude::*, px, rgb, size,
 };
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::time::Duration;
 
 pub const TITLE: &str = "RadeonTuner · Rust";
@@ -38,6 +40,7 @@ struct Panel {
     mpo: bool,
     excludes_drivers: bool,
     admin: bool,
+    radeon_services: Option<services::State>,
     edit: Option<numeric::Edit>,
     slider: Option<numeric::Field>,
     curve_drag: Option<usize>,
@@ -107,8 +110,11 @@ impl Panel {
             .justify_center()
             .h(px(58.))
             .gap_1()
-            .when(selected, |row| row.smooth_background(palette.selected))
-            .smooth_hover_background(palette.hover)
+            .smooth_hover_background(
+                selected.then_some(palette.selected),
+                palette.hover,
+                shape::NAV_CORNER,
+            )
             .when(selected, |row| {
                 row.child(
                     div()
@@ -234,6 +240,9 @@ impl Render for Panel {
                         if i == 2 {
                             p.fsr_activity = crate::adl::graphics::activity::active_games();
                         }
+                        if i == 5 {
+                            p.radeon_services = services::state().ok();
+                        }
                         if let Err(err) = p.settings.set("MenuIndex", serde_json::json!(i)) {
                             p.message = err.to_string();
                         }
@@ -288,6 +297,29 @@ impl Render for Panel {
     }
 }
 
+fn set_window_icon(window: &Window) {
+    use windows_sys::Win32::{
+        System::LibraryLoader::GetModuleHandleW,
+        UI::WindowsAndMessaging::{ICON_BIG, ICON_SMALL, LoadIconW, SendMessageW, WM_SETICON},
+    };
+
+    let Ok(handle) = window.window_handle() else {
+        return;
+    };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+        return;
+    };
+    // Resource ID 1 is the application icon in app-icon.rc.
+    unsafe {
+        let icon = LoadIconW(GetModuleHandleW(std::ptr::null()), 1 as *const u16);
+        if !icon.is_null() {
+            let hwnd = handle.hwnd.get() as _;
+            SendMessageW(hwnd, WM_SETICON, ICON_BIG as usize, icon as isize);
+            SendMessageW(hwnd, WM_SETICON, ICON_SMALL as usize, icon as isize);
+        }
+    }
+}
+
 pub fn run() -> Result<()> {
     let settings = Settings::open()?;
     let start_visible = settings.flag("StartWindowVisible", false)?;
@@ -303,6 +335,7 @@ pub fn run() -> Result<()> {
         style,
         palette: theme::Palette::resolve(style, false),
         admin: unsafe { windows_sys::Win32::UI::Shell::IsUserAnAdmin() != 0 },
+        radeon_services: services::state().ok(),
         mpo: crate::integration::mpo_disabled(),
         excludes_drivers: crate::integration::excludes_drivers(),
         edit: None,
@@ -377,6 +410,7 @@ pub fn run() -> Result<()> {
             },
             |window, cx| {
                 window.set_window_title(TITLE);
+                set_window_icon(window);
                 if panel.topmost {
                     if let Err(err) = crate::tray::topmost(true) {
                         panel.message = err.to_string();

@@ -47,12 +47,12 @@ impl Panel {
         let mut row = div().flex().flex_col().gap_2();
         if let Some(update) = &self.updates.found {
             let release = update.clone();
-            let action = div()
+            let action = self
+                .button_style(!self.updates.busy)
                 .id("install-update")
-                .px_2()
                 .child(format!("更新至 {} 并重新启动", release.version));
             row = row.child(if self.updates.busy {
-                action.opacity(0.5)
+                action
             } else {
                 action
                     .cursor_pointer()
@@ -85,9 +85,12 @@ impl Panel {
             });
         }
         if self.page == 6 {
-            let check = div().id("check-update").px_2().child("检查 Rust 版更新");
+            let check = self
+                .button_style(!self.updates.busy)
+                .id("check-update")
+                .child("检查 Rust 版更新");
             row = row.child(if self.updates.busy {
-                check.opacity(0.5)
+                check
             } else {
                 check.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
                     p.check_updates(true, cx);
@@ -95,10 +98,9 @@ impl Panel {
                 }))
             });
             row = row.child(
-                div()
+                self.button_style(true)
                     .id("update-page")
                     .cursor_pointer()
-                    .px_2()
                     .child("打开 GitHub 下载页")
                     .on_click(cx.listener(|p, _, _, cx| {
                         if let Err(e) = crate::integration::open(update::RELEASES) {

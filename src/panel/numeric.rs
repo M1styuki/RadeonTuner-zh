@@ -182,6 +182,7 @@ impl Panel {
             div()
                 .w(px(120.))
                 .h(px(20.))
+                .smooth_hover_background(None, palette.hover, super::shape::CONTROL_CORNER)
                 .cursor_pointer()
                 .on_mouse_down(
                     gpui::MouseButton::Left,
@@ -219,6 +220,8 @@ impl Panel {
             Field::Gamma(i) => ("gamma-number", i),
             Field::Frame(i) => ("frame-number", i),
         };
+        let palette = self.palette;
+        let edit = self.edit.as_ref().filter(|e| e.field == field);
         let base = div()
             .id(id)
             .w(px(160.))
@@ -227,9 +230,29 @@ impl Panel {
             .flex()
             .justify_center()
             .items_center()
-            .smooth_background(self.palette.control)
-            .child(super::shape::outline(self.palette.border));
-        if let Some(edit) = self.edit.as_ref().filter(|e| e.field == field) {
+            .relative()
+            .when(edit.is_none(), |input| {
+                input.smooth_hover_background(
+                    Some(palette.control),
+                    palette.hover,
+                    super::shape::CONTROL_CORNER,
+                )
+            })
+            .when(edit.is_some(), |input| {
+                input.child(super::shape::surface_radius(
+                    palette.control,
+                    super::shape::CONTROL_CORNER,
+                ))
+            })
+            .child(super::shape::outline_radius(
+                if edit.is_some() {
+                    palette.accent
+                } else {
+                    palette.border
+                },
+                super::shape::CONTROL_CORNER,
+            ));
+        if let Some(edit) = edit {
             let (l, r) = (edit.anchor.min(edit.cursor), edit.anchor.max(edit.cursor));
             return base
                 .track_focus(&edit.focus)

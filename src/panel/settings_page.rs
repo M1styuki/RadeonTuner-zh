@@ -1,6 +1,6 @@
 use super::Panel;
-use crate::integration::{self, Link};
-use gpui::{Context, Div, div, prelude::*};
+use crate::integration::{self, Link, services::State};
+use gpui::{Context, Div, div, prelude::*, px, rgb};
 
 impl Panel {
     pub(super) fn render_settings(&self, cx: &mut Context<Self>) -> Div {
@@ -61,69 +61,87 @@ impl Panel {
         ] {
             page = page.child(self.preference(key, label, on, cx));
         }
-        let mut services = div().flex().gap_2();
-        for (enable, label) in [(false, "禁用 Radeon 服务"), (true, "启用 Radeon 服务")] {
-            let button = self
-                .button_style(self.admin)
-                .id(("services", usize::from(enable)))
-                .child(label);
-            services = services.child(if self.admin {
-                button
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |p, _, _, cx| {
-                        p.settings_message = integration::services::set_enabled(enable)
-                            .map(|()| {
-                                if enable {
-                                    "已启用 Radeon 服务".into()
-                                } else {
-                                    "已禁用 Radeon 服务".into()
-                                }
-                            })
-                            .unwrap_or_else(|e| e.to_string());
-                        cx.notify();
-                    }))
-            } else {
-                button
-            });
-        }
-        page.child(self.setting_row("Radeon 服务", services))
-            .child(self.preference(
-                "StartCheckUpdate",
-                "启动时检查更新",
-                self.start_check_update,
-                cx,
-            ))
-            .child(self.toggle_row(
-                "mpo",
-                "禁用多平面叠加（MPO）",
-                self.mpo,
-                self.admin,
-                |p, _| match integration::set_mpo_disabled(!p.mpo) {
-                    Ok(()) => {
-                        p.mpo = !p.mpo;
-                        p.settings_message = "MPO 设置已保存，重启电脑后生效".into();
-                    }
-                    Err(e) => p.settings_message = e.to_string(),
-                },
-                cx,
-            ))
-            .child(self.toggle_row(
-                "exclude-drivers",
-                "从 Windows 更新中排除驱动程序",
-                self.excludes_drivers,
-                self.admin,
-                |p, _| match integration::set_excludes_drivers(!p.excludes_drivers) {
-                    Ok(()) => {
-                        p.excludes_drivers = integration::excludes_drivers();
-                        p.settings_message = "Windows 更新设置已保存".into();
-                    }
-                    Err(e) => p.settings_message = e.to_string(),
-                },
-                cx,
-            ))
-            .when(!self.settings_message.is_empty(), |page| {
-                page.child(self.settings_message.clone())
-            })
+        let service_on = self.radeon_services == Some(State::Enabled);
+        let service_available = matches!(
+            self.radeon_services,
+            Some(State::Enabled | State::Disabled | State::Mixed)
+        );
+        let service_hint = match self.radeon_services {
+            None => Some("无法读取状态"),
+            Some(State::Missing) => Some("未安装"),
+            Some(State::Mixed) if !self.admin => Some("部分启用 · 需要管理员权限"),
+            Some(State::Mixed) => Some("部分启用"),
+            _ if !self.admin => Some("需要管理员权限"),
+            _ => None,
+        };
+        let service_label = div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .child("Radeon 服务")
+            .children(service_hint.map(|hint| {
+                div()
+                    .text_size(px(12.))
+                    .text_color(rgb(self.palette.muted_text))
+                    .child(hint)
+            }));
+        page.child(self.toggle_row(
+            "services",
+            service_label,
+            service_on,
+            service_available && self.admin,
+            move |p, _| {
+                let result = integration::services::set_enabled(!service_on);
+                p.radeon_services = integration::services::state().ok();
+                p.settings_message = result
+                    .map(|()| {
+                        if service_on {
+                            "已禁用 Radeon 服务".into()
+                        } else {
+                            "已启用 Radeon 服务".into()
+                        }
+                    })
+                    .unwrap_or_else(|e| e.to_string());
+            },
+            cx,
+        ))
+        .child(self.preference(
+            "StartCheckUpdate",
+            "启动时检查更新",
+            self.start_check_update,
+            cx,
+        ))
+        .child(self.toggle_row(
+            "mpo",
+            "禁用多平面叠加（MPO）",
+            self.mpo,
+            self.admin,
+            |p, _| match integration::set_mpo_disabled(!p.mpo) {
+                Ok(()) => {
+                    p.mpo = !p.mpo;
+                    p.settings_message = "MPO 设置已保存，重启电脑后生效".into();
+                }
+                Err(e) => p.settings_message = e.to_string(),
+            },
+            cx,
+        ))
+        .child(self.toggle_row(
+            "exclude-drivers",
+            "从 Windows 更新中排除驱动程序",
+            self.excludes_drivers,
+            self.admin,
+            |p, _| match integration::set_excludes_drivers(!p.excludes_drivers) {
+                Ok(()) => {
+                    p.excludes_drivers = integration::excludes_drivers();
+                    p.settings_message = "Windows 更新设置已保存".into();
+                }
+                Err(e) => p.settings_message = e.to_string(),
+            },
+            cx,
+        ))
+        .when(!self.settings_message.is_empty(), |page| {
+            page.child(self.settings_message.clone())
+        })
     }
 
     fn preference(

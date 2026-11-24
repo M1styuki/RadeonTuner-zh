@@ -1,6 +1,6 @@
 [package]
 name = "radeon-tuner"
-version = "0.75.3"
+version = "0.75.4"
 edition = "2024"
 publish = false
 
@@ -9,6 +9,7 @@ anyhow = "1"
 gpui = "=0.2.2"
 libc = "0.2"
 libloading = "0.8"
+raw-window-handle = "0.6"
 serde = {version="1",features=["derive"]}
 serde_json = "1"
 tempfile = "3"
@@ -18,6 +19,9 @@ windows-sys = { version = "0.59", features = ["Win32_Foundation","Win32_UI_Windo
 self-replace = "1.5.1"
 sha2 = "0.10.9"
 semver = "1.0.28"
+
+[build-dependencies]
+embed-resource = "3.0"
 
 [profile.release]
 strip = "symbols"

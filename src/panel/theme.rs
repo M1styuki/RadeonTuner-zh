@@ -4,6 +4,7 @@ pub(super) struct Palette {
     pub hover: u32,
     pub canvas: u32,
     pub text: u32,
+    pub muted_text: u32,
     pub sidebar: u32,
     pub control: u32,
     pub selected: u32,
@@ -11,6 +12,7 @@ pub(super) struct Palette {
     pub border: u32,
     pub grid: u32,
     pub accent: u32,
+    pub accent_hover: u32,
 }
 impl Palette {
     pub fn resolve(style: i64, system_light: bool) -> Self {
@@ -20,6 +22,7 @@ impl Palette {
                 hover: 0xe9edf3,
                 canvas: 0xffffff,
                 text: 0x1b2028,
+                muted_text: 0x626c7b,
                 sidebar: 0xeef1f5,
                 control: 0xffffff,
                 selected: 0xe6ebf2,
@@ -27,6 +30,7 @@ impl Palette {
                 border: 0xd3d9e2,
                 grid: 0xd5d8dc,
                 accent: 0xb84b52,
+                accent_hover: 0xa24049,
             }
         } else {
             Self {
@@ -34,6 +38,7 @@ impl Palette {
                 hover: 0x2b323d,
                 canvas: if style == 1 { 0 } else { 0x15181d },
                 text: 0xe6ebf2,
+                muted_text: 0xa3adba,
                 sidebar: 0x121418,
                 control: 0x20252d,
                 selected: 0x262c35,
@@ -41,6 +46,7 @@ impl Palette {
                 border: 0x3a424e,
                 grid: 0x3c424a,
                 accent: 0xc85c63,
+                accent_hover: 0xe47780,
             }
         }
     }

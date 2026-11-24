@@ -511,9 +511,8 @@ impl Panel {
                             "恢复这张显卡的全局图形默认设置？"
                         })
                         .child(
-                            div()
+                            self.inline_action()
                                 .id("confirm-graphics-reset")
-                                .cursor_pointer()
                                 .child("重置")
                                 .on_click(cx.listener(|p, _, _, cx| {
                                     p.graphics_status = match p.reset_graphics() {
@@ -524,9 +523,8 @@ impl Panel {
                                 })),
                         )
                         .child(
-                            div()
+                            self.inline_action()
                                 .id("cancel-graphics-reset")
-                                .cursor_pointer()
                                 .child("取消")
                                 .on_click(cx.listener(|p, _, _, cx| {
                                     p.confirm_graphics_reset = false;
@@ -572,9 +570,8 @@ impl Panel {
             );
             if self.confirm_cache {
                 actions = actions.child(
-                    div()
+                    self.inline_action()
                         .id("cancel-clear-shaders")
-                        .cursor_pointer()
                         .child("取消")
                         .on_click(cx.listener(|p, _, _, cx| {
                             p.confirm_cache = false;

@@ -226,9 +226,8 @@ impl Panel {
                 section = section
                     .child(format!("实际刷新率：{:.3} Hz", t.rate()))
                     .child(
-                        div()
+                        self.inline_action()
                             .id("create-custom-mode")
-                            .cursor_pointer()
                             .child("创建并预览")
                             .on_click(cx.listener(move |p, _, _, cx| {
                                 if let Some(d) = p.display.displays.get(p.display.display_index) {
@@ -254,9 +253,8 @@ impl Panel {
             if editor.remove == Some(i) {
                 row = row
                     .child(
-                        div()
+                        self.inline_action()
                             .id(("confirm-timing-remove", i))
-                            .cursor_pointer()
                             .child("确认删除")
                             .on_click(cx.listener(move |p, _, _, cx| {
                                 if let Err(e) = p.remove_custom(i) {
@@ -268,9 +266,8 @@ impl Panel {
                             })),
                     )
                     .child(
-                        div()
+                        self.inline_action()
                             .id("cancel-timing-remove")
-                            .cursor_pointer()
                             .child("取消")
                             .on_click(cx.listener(|p, _, _, cx| {
                                 if let Some(e) = &mut p.display.custom {
@@ -281,9 +278,8 @@ impl Panel {
                     );
             } else {
                 row = row.child(
-                    div()
+                    self.inline_action()
                         .id(("remove-timing", i))
-                        .cursor_pointer()
                         .child("删除")
                         .on_click(cx.listener(move |p, _, _, cx| {
                             if let Some(e) = &mut p.display.custom {
@@ -296,9 +292,8 @@ impl Panel {
             section = section.child(row);
         }
         section.child(editor.status.clone()).child(
-            div()
+            self.inline_action()
                 .id("close-timing")
-                .cursor_pointer()
                 .child("关闭")
                 .on_click(cx.listener(|p, _, _, cx| {
                     p.read_modes();

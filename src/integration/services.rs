@@ -1,10 +1,23 @@
 use super::wide;
-use anyhow::{Result, ensure};
-use std::{io, ptr};
+use anyhow::{Context, Result, ensure};
+use std::{io, mem::size_of, ptr};
 use windows_sys::Win32::{
-    Foundation::{ERROR_SERVICE_ALREADY_RUNNING, ERROR_SERVICE_NOT_ACTIVE, GetLastError},
+    Foundation::{
+        ERROR_SERVICE_ALREADY_RUNNING, ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SERVICE_NOT_ACTIVE,
+        GetLastError,
+    },
     System::Services::*,
 };
+
+const NAMES: [&str; 2] = ["AMD External Events Utility", "AMD Crash Defender Service"];
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum State {
+    Missing,
+    Disabled,
+    Enabled,
+    Mixed,
+}
 
 struct Handle(SC_HANDLE);
 impl Handle {
@@ -21,11 +34,68 @@ impl Drop for Handle {
         unsafe { CloseServiceHandle(self.0) };
     }
 }
-fn change(manager: &Handle, name: &str, enable: bool) -> Result<()> {
+fn open_service(manager: &Handle, name: &str, access: u32) -> io::Result<Option<Handle>> {
+    let name = wide(name);
+    let missing = |err: &io::Error| err.raw_os_error() == Some(ERROR_SERVICE_DOES_NOT_EXIST as i32);
+    match Handle::new(unsafe { OpenServiceW(manager.0, name.as_ptr(), access) }) {
+        Ok(handle) => return Ok(Some(handle)),
+        Err(err) if missing(&err) => (),
+        Err(err) => return Err(err),
+    }
+    let mut key = [0u16; 257];
+    let mut capacity = key.len() as u32;
+    if unsafe { GetServiceKeyNameW(manager.0, name.as_ptr(), key.as_mut_ptr(), &mut capacity) } == 0
+    {
+        let err = io::Error::last_os_error();
+        return if missing(&err) { Ok(None) } else { Err(err) };
+    }
+    match Handle::new(unsafe { OpenServiceW(manager.0, key.as_ptr(), access) }) {
+        Ok(handle) => Ok(Some(handle)),
+        Err(err) if missing(&err) => Ok(None),
+        Err(err) => Err(err),
+    }
+}
+
+fn is_enabled(service: &Handle) -> io::Result<bool> {
+    // QueryServiceConfigW accepts at most 8 KiB. Use pointer-aligned storage.
+    let mut buffer = [0usize; 8192 / size_of::<usize>()];
+    let config = buffer.as_mut_ptr().cast::<QUERY_SERVICE_CONFIGW>();
+    let mut needed = 0;
+    if unsafe { QueryServiceConfigW(service.0, config, 8192, &mut needed) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(unsafe { (*config).dwStartType } != SERVICE_DISABLED)
+}
+
+pub fn state() -> Result<State> {
+    let manager =
+        Handle::new(unsafe { OpenSCManagerW(ptr::null(), ptr::null(), SC_MANAGER_CONNECT) })?;
+    let mut enabled = false;
+    let mut disabled = false;
+    for name in NAMES {
+        if let Some(service) = open_service(&manager, name, SERVICE_QUERY_CONFIG).context(name)? {
+            if is_enabled(&service).context(name)? {
+                enabled = true;
+            } else {
+                disabled = true;
+            }
+        }
+    }
+    Ok(match (enabled, disabled) {
+        (false, false) => State::Missing,
+        (false, true) => State::Disabled,
+        (true, false) => State::Enabled,
+        (true, true) => State::Mixed,
+    })
+}
+
+fn change(manager: &Handle, name: &str, enable: bool) -> Result<bool> {
     let access = SERVICE_CHANGE_CONFIG
         | SERVICE_QUERY_STATUS
         | if enable { SERVICE_START } else { SERVICE_STOP };
-    let service = Handle::new(unsafe { OpenServiceW(manager.0, wide(name).as_ptr(), access) })?;
+    let Some(service) = open_service(manager, name, access)? else {
+        return Ok(false);
+    };
     let start = if enable {
         SERVICE_DEMAND_START
     } else {
@@ -63,15 +133,17 @@ fn change(manager: &Handle, name: &str, enable: bool) -> Result<()> {
             return Err(io::Error::from_raw_os_error(error as i32).into());
         }
     }
-    Ok(())
+    Ok(true)
 }
 pub fn set_enabled(enable: bool) -> Result<()> {
     let manager =
         Handle::new(unsafe { OpenSCManagerW(ptr::null(), ptr::null(), SC_MANAGER_CONNECT) })?;
     let mut failures = Vec::new();
-    for name in ["AMD External Events Utility", "AMD Crash Defender Service"] {
-        if let Err(err) = change(&manager, name, enable) {
-            failures.push(format!("{name}（{err}）"));
+    let mut changed = false;
+    for name in NAMES {
+        match change(&manager, name, enable) {
+            Ok(installed) => changed |= installed,
+            Err(err) => failures.push(format!("{name}（{err}）")),
         }
     }
     ensure!(
@@ -79,5 +151,6 @@ pub fn set_enabled(enable: bool) -> Result<()> {
         "服务操作未完全成功：{}",
         failures.join("；")
     );
+    ensure!(changed, "未检测到 Radeon 服务");
     Ok(())
 }

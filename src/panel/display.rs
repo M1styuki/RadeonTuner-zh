@@ -657,9 +657,8 @@ impl Panel {
                 || current.orientation != page.angle
             {
                 section = section.child(
-                    div()
+                    self.inline_action()
                         .id("preview-mode")
-                        .cursor_pointer()
                         .child("应用显示模式")
                         .on_click(cx.listener(|panel, _, _, cx| {
                             let page = &mut panel.display;

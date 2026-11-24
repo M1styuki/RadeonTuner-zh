@@ -3,8 +3,8 @@ use super::{
     shape::{self, ContinuousCorners},
 };
 use gpui::{
-    Context, Div, ElementId, FocusHandle, IntoElement, KeyDownEvent, Window, anchored, deferred,
-    div, point, prelude::*, px, rgb,
+    Context, Div, ElementId, FocusHandle, IntoElement, KeyDownEvent, PathBuilder, Window, anchored,
+    canvas, deferred, div, point, prelude::*, px, rgb,
 };
 use std::rc::Rc;
 
@@ -44,8 +44,24 @@ impl Panel {
             )
     }
 
-    pub(super) fn toggle_switch(&self, on: bool) -> Div {
+    fn toggle_switch(&self, on: bool, enabled: bool) -> Div {
         let palette = self.palette;
+        let fill = if on { palette.accent } else { palette.control };
+        let hover = if on {
+            palette.accent_hover
+        } else {
+            palette.hover
+        };
+        let track = div()
+            .size_full()
+            .relative()
+            .when(enabled, |track| {
+                track.smooth_hover_background(Some(fill), hover, 10.)
+            })
+            .when(!enabled, |track| {
+                track.child(shape::surface_radius(fill, 10.))
+            })
+            .child(shape::outline_radius(palette.border, 10.));
         div()
             .relative()
             .w(px(44.))
@@ -57,19 +73,7 @@ impl Panel {
                     .top(px(6.))
                     .w_full()
                     .h(px(20.))
-                    .child(shape::surface_radius(palette.border, 10.))
-                    .child(
-                        div()
-                            .absolute()
-                            .top(px(1.))
-                            .bottom(px(1.))
-                            .left(px(1.))
-                            .right(px(1.))
-                            .child(shape::surface_radius(
-                                if on { palette.accent } else { palette.control },
-                                9.,
-                            )),
-                    ),
+                    .child(track),
             )
             .child(
                 div()
@@ -94,9 +98,28 @@ impl Panel {
             .items_center()
             .justify_center()
             .relative()
-            .child(shape::surface_radius(palette.control, 6.))
-            .child(shape::outline_radius(palette.border, 6.))
-            .when(!enabled, |button| button.opacity(0.45))
+            .when(enabled, |button| {
+                button.smooth_hover_background(
+                    Some(palette.control),
+                    palette.hover,
+                    shape::CONTROL_CORNER,
+                )
+            })
+            .when(!enabled, |button| {
+                button.opacity(0.45).child(shape::surface_radius(
+                    palette.control,
+                    shape::CONTROL_CORNER,
+                ))
+            })
+            .child(shape::outline_radius(palette.border, shape::CONTROL_CORNER))
+    }
+
+    pub(super) fn inline_action(&self) -> Div {
+        div()
+            .px_2()
+            .py_1()
+            .smooth_hover_background(None, self.palette.hover, shape::CONTROL_CORNER)
+            .cursor_pointer()
     }
 
     pub(super) fn setting_row<L: IntoElement>(&self, label: L, controls: Div) -> Div {
@@ -120,7 +143,7 @@ impl Panel {
         change: impl Fn(&mut Self, &mut Context<Self>) + 'static,
         cx: &mut Context<Self>,
     ) -> Div {
-        let switch = self.toggle_switch(on).id(id);
+        let switch = self.toggle_switch(on, enabled).id(id);
         let switch = if enabled {
             let change = Rc::new(change);
             let key_change = change.clone();
@@ -169,7 +192,7 @@ impl Panel {
             .justify_between()
             .gap_2()
             .child(div().flex_1().min_w_0().truncate().child(selected))
-            .child("⌄");
+            .child(select_chevron(palette.text));
         let mut wrapper = div().relative().w(px(width)).flex_shrink_0();
         let open = self
             .dropdown
@@ -208,7 +231,7 @@ impl Panel {
             let key_change = change.clone();
             let mut list = div()
                 .id("select-options")
-                .w(px(width.max(184.)))
+                .w(px(width))
                 .max_h(px(300.))
                 .p_1()
                 .occlude()
@@ -246,10 +269,11 @@ impl Panel {
                         .px_2()
                         .py_1()
                         .cursor_pointer()
-                        .when(i == menu.highlighted, |row| {
-                            row.smooth_background(palette.selected)
-                        })
-                        .smooth_hover_background(palette.hover)
+                        .smooth_hover_background(
+                            (i == menu.highlighted).then_some(palette.selected),
+                            palette.hover,
+                            shape::CONTROL_CORNER,
+                        )
                         .child(label)
                         .on_click(cx.listener(move |p, _, _, cx| {
                             p.dropdown = None;
@@ -270,4 +294,23 @@ impl Panel {
         }
         wrapper
     }
+}
+
+fn select_chevron(color: u32) -> impl IntoElement {
+    canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            let x = bounds.origin.x + bounds.size.width * 0.5;
+            let y = bounds.origin.y + bounds.size.height * 0.5;
+            let mut path = PathBuilder::stroke(px(1.25));
+            path.move_to(point(x - px(3.5), y - px(1.75)));
+            path.line_to(point(x, y + px(1.75)));
+            path.line_to(point(x + px(3.5), y - px(1.75)));
+            if let Ok(path) = path.build() {
+                window.paint_path(path, rgb(color));
+            }
+        },
+    )
+    .size(px(14.))
+    .flex_shrink_0()
 }

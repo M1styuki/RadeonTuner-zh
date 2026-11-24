@@ -259,11 +259,14 @@ impl Panel {
                     .id(("picker-choice", i))
                     .cursor_pointer()
                     .p_1()
-                    .smooth_background(if picker.selected.contains(&i) {
-                        self.palette.selected
-                    } else {
-                        self.palette.canvas
-                    })
+                    .smooth_hover_background(
+                        picker
+                            .selected
+                            .contains(&i)
+                            .then_some(self.palette.selected),
+                        self.palette.hover,
+                        super::shape::CONTROL_CORNER,
+                    )
                     .child(label)
                     .on_click(cx.listener(move |p, _, _, cx| {
                         if let Some(v) = &mut p.picker {
