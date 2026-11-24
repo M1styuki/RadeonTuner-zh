@@ -389,7 +389,7 @@ impl Panel {
                 .relative()
                 .child(shape::surface_radius(palette.control, MENU_CORNER))
                 .child(shape::outline_radius(palette.border, MENU_CORNER))
-                .on_mouse_down_out(cx.listener(move |p, event, _, cx| {
+                .on_mouse_down_out(cx.listener(move |p, event: &gpui::MouseDownEvent, _, cx| {
                     if !trigger.contains(&event.position)
                         && p.dropdown
                             .as_ref()

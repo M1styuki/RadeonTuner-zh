@@ -856,7 +856,8 @@ impl Panel {
         let mut extras = div().flex().flex_col();
         let mut has_extras = false;
         if page.app == "Global" && page.current.is_some() {
-            section = section.child(
+            has_extras = true;
+            extras = extras.child(
                 self.setting_row(
                     self.hint_label("自定义分辨率"),
                     div().child(
@@ -875,7 +876,8 @@ impl Panel {
             );
         }
         if page.app == "Global" && !page.displays.is_empty() {
-            section = section.child(
+            has_extras = true;
+            extras = extras.child(
                 self.setting_row(
                     self.hint_label("Eyefinity 操作"),
                     div().child(
