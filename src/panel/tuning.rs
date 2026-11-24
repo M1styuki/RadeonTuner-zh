@@ -557,13 +557,16 @@ impl Panel {
     }
 
     fn fan_point_card(&self, cx: &mut Context<Self>) -> impl gpui::IntoElement {
+        const CARD_PADDING: f32 = 12.;
+        const SCROLL_EDGE_GUTTER: f32 = 2.;
         let palette = self.palette;
         let point_column = || div().w(px(40.)).flex_shrink_0();
         let value_column = || div().min_w_0().flex_1();
         let row = || div().flex().items_center().gap_4();
         let mut rows = div()
             .w_full()
-            .min_w(px(320.))
+            .min_w(px(320. + SCROLL_EDGE_GUTTER))
+            .pr(px(SCROLL_EDGE_GUTTER))
             .flex()
             .flex_col()
             .gap_2()
@@ -593,7 +596,10 @@ impl Panel {
         }
         div()
             .w_full()
-            .p_3()
+            .p(px(CARD_PADDING))
+            // Keep part of the right padding inside the scroll viewport so the
+            // last input outline never sits directly on the clipping edge.
+            .pr(px(CARD_PADDING - SCROLL_EDGE_GUTTER))
             .smooth_background(palette.sidebar)
             .child(super::shape::outline(palette.border))
             .child(

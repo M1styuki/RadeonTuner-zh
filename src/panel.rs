@@ -620,7 +620,6 @@ fn preview_fan_page() {
             ("核心温度", Some(61), "°C"),
             ("显存温度", Some(64), "°C"),
             ("热点温度", Some(72), "°C"),
-            ("进气温度", None, "°C"),
         ]
         .into_iter()
         .map(|(label, value, unit)| Metric { label, value, unit })

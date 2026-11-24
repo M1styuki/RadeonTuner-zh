@@ -208,7 +208,6 @@ impl Driver {
             ("核心温度", sensor(8).or(sensor(28)), "°C"),
             ("显存温度", sensor(9), "°C"),
             ("热点温度", sensor(27), "°C"),
-            ("进气温度", sensor(74), "°C"),
         ]
         .into_iter()
         .map(|(label, value, unit)| Metric { label, value, unit })
