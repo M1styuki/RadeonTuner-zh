@@ -260,7 +260,8 @@ impl Panel {
         let edit = self.edit.as_ref().filter(|e| e.field == field);
         let base = div()
             .id(id)
-            .size(input_size)
+            .w(input_size.width)
+            .h(input_size.height)
             .px_1()
             .flex_shrink_0()
             .flex()
