@@ -125,8 +125,14 @@ impl Panel {
                         self.control_text_width(reading.trim_end(), cx)
                     })
                     .fold(0., f32::max);
-                let floor = if compact { 56. } else { 48. };
-                (((widest + 12.) / 4.).ceil() * 4.).max(floor)
+                let minimum_width = match field {
+                    Field::Tuning(_) if self.page == 0 => 76.,
+                    Field::Tuning(_) => 56.,
+                    Field::Frame(_) => 64.,
+                    Field::Display(_) | Field::Gamma(_) => 52.,
+                    _ => 48.,
+                };
+                (((widest + 12.) / 4.).ceil() * 4.).max(minimum_width)
             }
         };
         let height = if has_slider { SLIDER_HEIGHT } else { 32. };
