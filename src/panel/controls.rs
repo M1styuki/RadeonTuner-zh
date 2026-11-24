@@ -90,7 +90,7 @@ impl Panel {
     fn toggle_switch(&self, on: bool, enabled: bool) -> Div {
         const TRACK_WIDTH: f32 = 34.;
         const TRACK_HEIGHT: f32 = 20.;
-        const THUMB_DIAMETER: f32 = 14.;
+        const THUMB_DIAMETER: f32 = 12.;
         const TRACK_RADIUS: f32 = TRACK_HEIGHT / 2.;
         const THUMB_RADIUS: f32 = THUMB_DIAMETER / 2.;
         let palette = self.palette;

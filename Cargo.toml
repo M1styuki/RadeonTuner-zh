@@ -1,6 +1,6 @@
 [package]
 name = "radeon-tuner"
-version = "0.75.10"
+version = "0.75.11"
 edition = "2024"
 publish = false
 

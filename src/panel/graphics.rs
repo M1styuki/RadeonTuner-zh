@@ -191,10 +191,6 @@ impl Panel {
         self.graphics_dirty = true;
     }
     pub(super) fn render_graphics(&self, cx: &mut Context<Self>) -> Div {
-        let mut section = div().flex().flex_col().gap_0();
-        for game in &self.fsr_activity {
-            section = section.child(game.clone());
-        }
         use crate::adl::graphics::frames::Field;
         const GROUPS: &[&[&str]] = &[
             &[
@@ -395,15 +391,24 @@ impl Panel {
                 categories.push(rows);
             }
         }
-        if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
-            section = section.child("当前显卡没有可读取的图形设置");
-        }
-        div()
+        let page = div()
             .flex()
             .flex_col()
             .gap_2()
-            .child(section)
-            .child(self.setting_sections(categories))
+            .when(!self.fsr_activity.is_empty(), |page| {
+                page.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .children(self.fsr_activity.iter().cloned()),
+                )
+            });
+        if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
+            return page.child("当前显卡没有可读取的图形设置");
+        }
+        page.when(!categories.is_empty(), |page| {
+            page.child(self.setting_sections(categories))
+        })
     }
 
     fn fsr_controls(&self, cx: &mut Context<Self>) -> Option<Div> {
