@@ -24,13 +24,17 @@ impl From<f32> for SelectWidth {
 
 pub(super) struct Dropdown {
     id: ElementId,
-    highlighted: usize,
+    keyboard_choice: Option<usize>,
     trigger: Bounds<Pixels>,
     above: bool,
     max_height: Pixels,
 }
 
-const ITEM_HEIGHT: f32 = 26.;
+const ITEM_HEIGHT: f32 = 30.;
+const ITEM_GAP: f32 = 3.;
+const MENU_PADDING: f32 = 6.;
+const MENU_OFFSET: f32 = 7.;
+const MENU_LABEL_INSET: f32 = 50.;
 const SELECT_CORNER: f32 = 15.;
 const MENU_CORNER: f32 = 17.;
 
@@ -39,9 +43,13 @@ fn popup_space(
     viewport_height: Pixels,
     num_options: usize,
 ) -> (bool, Pixels) {
-    let below = viewport_height - trigger.bottom() - px(8.);
-    let above = trigger.top() - px(8.);
-    let desired = px((num_options as f32 * ITEM_HEIGHT + 8.).min(300.));
+    let inset = px(MENU_OFFSET + 4.);
+    let below = viewport_height - trigger.bottom() - inset;
+    let above = trigger.top() - inset;
+    let content = num_options as f32 * ITEM_HEIGHT
+        + num_options.saturating_sub(1) as f32 * ITEM_GAP
+        + 2. * MENU_PADDING;
+    let desired = px(content.min(300.));
     let open_above = desired > below && above > below;
     let available = if open_above { above } else { below };
     (open_above, desired.min(available.max(px(1.))))
@@ -232,7 +240,28 @@ impl Panel {
     pub(super) fn select(
         &self,
         id: impl Into<ElementId>,
-        mut labels: Vec<String>,
+        labels: Vec<String>,
+        current: Option<usize>,
+        placeholder: &str,
+        width: impl Into<SelectWidth>,
+        change: impl Fn(&mut Self, usize, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        self.select_with_details(
+            id,
+            labels.into_iter().map(|label| (label, None)).collect(),
+            current,
+            placeholder,
+            width,
+            change,
+            cx,
+        )
+    }
+
+    pub(super) fn select_with_details(
+        &self,
+        id: impl Into<ElementId>,
+        mut options: Vec<(String, Option<String>)>,
         current: Option<usize>,
         placeholder: &str,
         width: impl Into<SelectWidth>,
@@ -240,17 +269,17 @@ impl Panel {
         cx: &mut Context<Self>,
     ) -> Div {
         let id = id.into();
-        for label in &mut labels {
+        for (label, _) in &mut options {
             if label.contains(['\r', '\n']) {
                 *label = label.split_whitespace().collect::<Vec<_>>().join(" ");
             }
         }
-        let selected = labels
-            .get(current.unwrap_or(usize::MAX))
-            .cloned()
-            .unwrap_or_else(|| placeholder.into());
+        let selected_option = current.and_then(|index| options.get(index));
+        let selected = selected_option
+            .map_or(placeholder, |(label, _)| label.as_str())
+            .to_string();
         let palette = self.palette;
-        let count = labels.len();
+        let count = options.len();
         let text_system = cx.text_system();
         let font = text_system.resolve_font(&gpui::font("Microsoft YaHei UI"));
         let mut advances = HashMap::new();
@@ -265,9 +294,9 @@ impl Panel {
                 })
                 .sum::<f32>()
         };
-        let option_widths = labels
+        let option_widths = options
             .iter()
-            .map(|label| measure(label))
+            .map(|(label, _)| measure(label))
             .collect::<Vec<_>>();
         let selected_width = measure(&selected);
         let width = match width.into() {
@@ -276,7 +305,11 @@ impl Panel {
             }
             SelectWidth::Fixed(width) => width,
         };
-        let clipped_selection = (selected_width + 46. > width).then(|| selected.clone());
+        let selected_tip = option_tip(
+            &selected,
+            selected_option.and_then(|(_, detail)| detail.as_deref()),
+            selected_width + 46. > width,
+        );
         let open = self
             .dropdown
             .as_ref()
@@ -306,11 +339,13 @@ impl Panel {
                 self.animations,
                 move |progress| select_chevron(palette.text, progress),
             ));
-        let trigger = trigger.when(self.dropdown.is_none(), |trigger| {
-            trigger.when_some(clipped_selection, |trigger, text| {
-                trigger.tooltip(self.tooltip_owned(text.into()))
-            })
-        });
+        let trigger = match (selected_tip, placeholder) {
+            (Some(text), _) => trigger.tooltip(self.tooltip_owned(text.into())),
+            (None, "选择显卡") => trigger.tooltip(self.tooltip("选择当前显卡")),
+            (None, "选择显示器") => trigger.tooltip(self.tooltip("选择当前显示器")),
+            (None, "选择应用程序") => trigger.tooltip(self.tooltip("选择当前应用程序")),
+            _ => trigger,
+        };
         let mut wrapper = div().relative().w(px(width)).flex_shrink_0();
         if count == 0 {
             return wrapper.child(trigger);
@@ -326,7 +361,7 @@ impl Panel {
                         popup_space(trigger, window.viewport_size().height, count);
                     p.dropdown = Some(Dropdown {
                         id: id.clone(),
-                        highlighted: initial,
+                        keyboard_choice: None,
                         trigger,
                         above,
                         max_height,
@@ -357,14 +392,14 @@ impl Panel {
                         }
                         return;
                     };
+                    let focused = menu.keyboard_choice.unwrap_or(initial);
                     match key {
-                        "up" => menu.highlighted = menu.highlighted.saturating_sub(1),
-                        "down" => menu.highlighted = (menu.highlighted + 1).min(count - 1),
+                        "up" => menu.keyboard_choice = Some(focused.saturating_sub(1)),
+                        "down" => menu.keyboard_choice = Some((focused + 1).min(count - 1)),
                         "escape" => p.dropdown = None,
                         "enter" | "space" => {
-                            let selected = menu.highlighted;
                             p.dropdown = None;
-                            key_change(p, selected, cx);
+                            key_change(p, focused, cx);
                         }
                         "tab" => {
                             p.dropdown = None;
@@ -387,7 +422,10 @@ impl Panel {
                 ))
                 .w(px(width))
                 .max_h(menu.max_height)
-                .p_1()
+                .p(px(MENU_PADDING))
+                .flex()
+                .flex_col()
+                .gap(px(ITEM_GAP))
                 .occlude()
                 .overflow_y_scroll()
                 .relative()
@@ -403,27 +441,50 @@ impl Panel {
                         cx.notify();
                     }
                 }));
-            for (i, (label, text_width)) in labels.into_iter().zip(option_widths).enumerate() {
+            for (i, ((label, detail), text_width)) in
+                options.into_iter().zip(option_widths).enumerate()
+            {
                 let choose = change.clone();
                 let choice_id = id.clone();
-                let full_text = (text_width + 24. > width).then(|| label.clone());
+                let tip = option_tip(
+                    &label,
+                    detail.as_deref(),
+                    text_width + MENU_LABEL_INSET > width,
+                );
                 list = list.child(
                     div()
                         .id(("option", i))
                         .h(px(ITEM_HEIGHT))
+                        .flex_shrink_0()
                         .px_2()
+                        .gap_2()
                         .flex()
                         .items_center()
                         .cursor_pointer()
                         .smooth_hover_background(
-                            (i == menu.highlighted).then_some(palette.selected),
+                            (Some(i) == menu.keyboard_choice).then_some(palette.hover),
                             palette.hover,
                             shape::CONTROL_CORNER,
                         )
-                        .when_some(full_text, |row, text| {
-                            row.tooltip(self.tooltip_owned(text.into()))
-                        })
-                        .child(div().flex_1().min_w_0().truncate().child(label))
+                        .child(
+                            div()
+                                .id(("option-label", i))
+                                .flex_1()
+                                .min_w_0()
+                                .truncate()
+                                .when_some(tip, |label, text| {
+                                    label.tooltip(self.tooltip_owned(text.into()))
+                                })
+                                .child(label),
+                        )
+                        .child(
+                            div()
+                                .size(px(14.))
+                                .flex_shrink_0()
+                                .when(current == Some(i), |indicator| {
+                                    indicator.child(select_check(palette.accent))
+                                }),
+                        )
                         .on_click(cx.listener(move |p, _, _, cx| {
                             cx.stop_propagation();
                             if p.dropdown.as_ref().is_some_and(|menu| menu.id == choice_id) {
@@ -435,9 +496,9 @@ impl Panel {
                 );
             }
             let (corner, y) = if menu.above {
-                (Corner::BottomLeft, trigger.top() - px(4.))
+                (Corner::BottomLeft, trigger.top() - px(MENU_OFFSET))
             } else {
-                (Corner::TopLeft, trigger.bottom() + px(4.))
+                (Corner::TopLeft, trigger.bottom() + px(MENU_OFFSET))
             };
             wrapper = wrapper.child(
                 deferred(
@@ -456,6 +517,32 @@ impl Panel {
         }
         wrapper
     }
+}
+
+fn option_tip(label: &str, detail: Option<&str>, clipped: bool) -> Option<String> {
+    match (detail, clipped) {
+        (Some(detail), true) => Some(format!("{label}\n{detail}")),
+        (Some(detail), false) => Some(detail.to_string()),
+        (None, true) => Some(label.to_string()),
+        (None, false) => None,
+    }
+}
+
+fn select_check(color: u32) -> impl IntoElement {
+    canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            let at = |x, y| bounds.origin + point(px(x), px(y));
+            let mut path = PathBuilder::stroke(px(1.5));
+            path.move_to(at(2.5, 7.));
+            path.line_to(at(5.5, 10.));
+            path.line_to(at(11.5, 4.));
+            if let Ok(path) = path.build() {
+                window.paint_path(path, rgb(color));
+            }
+        },
+    )
+    .size_full()
 }
 
 fn select_chevron(color: u32, progress: f32) -> impl IntoElement {
@@ -496,6 +583,6 @@ mod tests {
         let trigger = Bounds::new(point(px(100.), px(628.)), size(px(90.), px(32.)));
         let (above, height) = popup_space(trigger, px(720.), 6);
         assert!(above);
-        assert_eq!(height, px(164.));
+        assert_eq!(height, px(207.));
     }
 }

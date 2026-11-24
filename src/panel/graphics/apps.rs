@@ -175,17 +175,14 @@ impl Panel {
             .and_then(|app| apps.iter().position(|a| a == app))
             .map(|i| i as isize)
             .unwrap_or(-1);
-        let mut labels = vec!["全局".to_owned()];
-        labels.extend(apps.iter().map(|a| {
-            if a.path == r"*\*" {
-                a.file.clone()
-            } else {
-                format!("{} ({})", a.file, a.path)
-            }
+        let mut options = vec![("全局".to_owned(), None)];
+        options.extend(apps.iter().map(|app| {
+            let path = (app.path != r"*\*").then(|| app.path.clone());
+            (app.file.clone(), path)
         }));
-        row = row.child(self.select(
+        row = row.child(self.select_with_details(
             "game-app",
-            labels,
+            options,
             Some(selected as usize),
             "选择应用程序",
             crate::panel::controls::PROFILE_SELECT_WIDTH,

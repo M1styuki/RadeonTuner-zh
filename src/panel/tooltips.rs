@@ -61,9 +61,6 @@ impl Panel {
     }
 
     pub(super) fn with_native_hints(&self, label: Div, source: &'static str) -> Div {
-        if self.dropdown.is_some() {
-            return label;
-        }
         let hints = native_hints(source)
             .iter()
             .filter(|(kind, _)| match kind {
