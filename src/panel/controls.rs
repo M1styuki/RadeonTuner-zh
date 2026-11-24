@@ -19,6 +19,8 @@ pub(super) struct Dropdown {
 }
 
 const ITEM_HEIGHT: f32 = 26.;
+const SELECT_CORNER: f32 = 15.;
+const MENU_CORNER: f32 = 17.;
 
 fn popup_space(
     trigger: Bounds<Pixels>,
@@ -110,6 +112,10 @@ impl Panel {
     }
 
     pub(super) fn button_style(&self, enabled: bool) -> Div {
+        self.control_style(enabled, shape::CONTROL_CORNER)
+    }
+
+    fn control_style(&self, enabled: bool, corner: f32) -> Div {
         let palette = self.palette;
         div()
             .h(px(32.))
@@ -120,19 +126,14 @@ impl Panel {
             .justify_center()
             .relative()
             .when(enabled, |button| {
-                button.smooth_hover_background(
-                    Some(palette.control),
-                    palette.hover,
-                    shape::CONTROL_CORNER,
-                )
+                button.smooth_hover_background(Some(palette.control), palette.hover, corner)
             })
             .when(!enabled, |button| {
-                button.opacity(0.45).child(shape::surface_radius(
-                    palette.control,
-                    shape::CONTROL_CORNER,
-                ))
+                button
+                    .opacity(0.45)
+                    .child(shape::surface_radius(palette.control, corner))
             })
-            .child(shape::outline_radius(palette.border, shape::CONTROL_CORNER))
+            .child(shape::outline_radius(palette.border, corner))
     }
 
     pub(super) fn inline_action(&self) -> Div {
@@ -169,9 +170,8 @@ impl Panel {
         sections: impl IntoIterator<Item = (&'static str, Div)>,
     ) -> Div {
         div()
-            .grid()
-            .grid_cols(if self.two_columns { 2 } else { 1 })
-            .items_start()
+            .flex()
+            .flex_col()
             .gap_3()
             .children(sections.into_iter().map(|(title, content)| {
                 div()
@@ -278,7 +278,7 @@ impl Panel {
         let trigger_box = Rc::new(Cell::new(None::<Bounds<Pixels>>));
         let measure_trigger = trigger_box.clone();
         let trigger = self
-            .button_style(count > 0)
+            .control_style(count > 0, SELECT_CORNER)
             .id(id.clone())
             .w(px(width))
             .justify_between()
@@ -386,8 +386,9 @@ impl Panel {
                 .p_1()
                 .occlude()
                 .overflow_y_scroll()
-                .smooth_background(palette.control)
-                .child(shape::outline(palette.border))
+                .relative()
+                .child(shape::surface_radius(palette.control, MENU_CORNER))
+                .child(shape::outline_radius(palette.border, MENU_CORNER))
                 .on_mouse_down_out(cx.listener(move |p, event, _, cx| {
                     if !trigger.contains(&event.position)
                         && p.dropdown

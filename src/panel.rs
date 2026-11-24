@@ -34,7 +34,6 @@ struct Panel {
     picker: Option<picker::Picker>,
     dropdown: Option<controls::Dropdown>,
     animations: bool,
-    two_columns: bool,
     updates: updates::Updates,
     start_check_update: bool,
     picker_generation: u64,
@@ -159,7 +158,6 @@ impl Panel {
 
 impl Render for Panel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.two_columns = window.viewport_size().width >= px(752.);
         self.palette = theme::Palette::resolve(
             self.style,
             matches!(
@@ -363,7 +361,6 @@ fn open_panel(initialize: impl FnOnce(&mut Panel)) -> Result<()> {
         picker: None,
         dropdown: None,
         animations: motion::enabled(),
-        two_columns: true,
         updates: Default::default(),
         start_check_update: settings.flag("StartCheckUpdate", true)?,
         picker_generation: 0,
