@@ -3,7 +3,7 @@ use gpui::{
     rgb,
 };
 
-pub(super) const OUTLINE_WIDTH: f32 = 1.5;
+pub(super) const OUTLINE_WIDTH: f32 = 1.;
 pub(super) const CONTROL_CORNER: f32 = 11.;
 pub(super) const PANEL_CORNER: f32 = 15.;
 pub(super) const NAV_CORNER: f32 = 18.;
