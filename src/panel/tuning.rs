@@ -558,14 +558,20 @@ impl Panel {
         let point_column = || div().w(px(40.)).flex_shrink_0();
         let value_column = || div().min_w_0().flex_1();
         let row = || div().flex().items_center().gap_4();
-        let mut rows = div().min_w(px(320.)).flex().flex_col().gap_2().child(
-            row()
-                .text_xs()
-                .text_color(gpui::rgb(palette.muted_text))
-                .child(point_column())
-                .child(value_column().child("温度（°C）"))
-                .child(value_column().child("转速（%）")),
-        );
+        let mut rows = div()
+            .w_full()
+            .min_w(px(320.))
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(
+                row()
+                    .text_xs()
+                    .text_color(gpui::rgb(palette.muted_text))
+                    .child(point_column())
+                    .child(value_column().child("温度（°C）"))
+                    .child(value_column().child("转速（%）")),
+            );
         for i in 0..5 {
             let cells = [19 + 2 * i, 20 + 2 * i].map(|id| {
                 let value = self
@@ -583,12 +589,18 @@ impl Panel {
             );
         }
         div()
-            .id("fan-point-editor")
-            .overflow_x_scroll()
+            .w_full()
             .p_3()
             .smooth_background(palette.sidebar)
             .child(super::shape::outline(palette.border))
-            .child(rows)
+            .child(
+                div()
+                    .id("fan-point-editor")
+                    .w_full()
+                    .min_w_0()
+                    .overflow_x_scroll()
+                    .child(rows),
+            )
     }
 
     fn tuning_label(&self, control: &crate::adl::overdrive::Control) -> &'static str {
