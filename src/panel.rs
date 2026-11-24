@@ -10,7 +10,8 @@ use gpui::{
     prelude::*, px, rgb, size,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use std::time::Duration;
+use std::{cell::RefCell, collections::HashMap, time::Duration};
+use windows_sys::Win32::UI::WindowsAndMessaging::IsIconic;
 
 pub const TITLE: &str = "RadeonTuner · Rust";
 mod controls;
@@ -34,6 +35,7 @@ mod tuning;
 struct Panel {
     picker: Option<picker::Picker>,
     dropdown: Option<controls::Dropdown>,
+    select_glyph_widths: RefCell<HashMap<char, f32>>,
     animations: bool,
     updates: updates::Updates,
     start_check_update: bool,
@@ -139,22 +141,36 @@ impl Panel {
             .child(layout::nav_icon(i, palette.text))
             .child(label.to_string())
     }
-    fn refresh(&mut self) {
-        self.expire_preview();
+    fn refresh(&mut self) -> bool {
+        let mut changed = false;
         if self.page == 2 {
-            self.fsr_activity = crate::adl::graphics::activity::active_games();
+            changed |= replace_changed(
+                &mut self.fsr_activity,
+                crate::adl::graphics::activity::active_games(),
+            );
         }
-        self.metrics.clear();
-        if let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) {
-            match driver.metrics(device.index) {
-                Ok(values) => {
-                    self.metrics = values;
-                    self.message.clear();
-                }
-                Err(err) => self.message = err.to_string(),
-            }
+        if self.page == 5 {
+            return changed;
         }
+        let (Some(driver), Some(device)) = (&self.driver, self.devices.get(self.selected)) else {
+            return changed | replace_changed(&mut self.metrics, Vec::new());
+        };
+        let (metrics, message) = match driver.metrics(device.index) {
+            Ok(values) => (values, String::new()),
+            Err(err) => (Vec::new(), err.to_string()),
+        };
+        changed
+            | replace_changed(&mut self.metrics, metrics)
+            | replace_changed(&mut self.message, message)
     }
+}
+
+fn replace_changed<T: PartialEq>(current: &mut T, next: T) -> bool {
+    if *current == next {
+        return false;
+    }
+    *current = next;
+    true
 }
 
 impl Render for Panel {
@@ -243,8 +259,11 @@ impl Render for Panel {
                             p.finish_preview(false);
                         }
                         p.dropdown = None;
+                        let was_settings = p.page == 5;
                         p.page = i;
-                        if i == 2 {
+                        if was_settings && i != 5 {
+                            p.refresh();
+                        } else if i == 2 {
                             p.fsr_activity = crate::adl::graphics::activity::active_games();
                         }
                         if i == 5 {
@@ -358,6 +377,7 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
     let mut panel = Panel {
         picker: None,
         dropdown: None,
+        select_glyph_widths: Default::default(),
         animations: motion::enabled(),
         updates: Default::default(),
         start_check_update: settings.flag("StartCheckUpdate", true)?,
@@ -429,6 +449,13 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
             |window, cx| {
                 window.set_window_title(TITLE);
                 set_window_icon(window);
+                let hwnd = window
+                    .window_handle()
+                    .ok()
+                    .and_then(|handle| match handle.as_raw() {
+                        RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
+                        _ => None,
+                    });
                 if panel.topmost {
                     if let Err(err) = crate::tray::topmost(true) {
                         panel.message = err.to_string();
@@ -445,8 +472,13 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
                                 Timer::after(Duration::from_secs(2)).await;
                                 if view
                                     .update(cx, |panel, cx| {
-                                        panel.refresh();
-                                        cx.notify();
+                                        let preview_active = panel.poll_preview();
+                                        let visible = hwnd
+                                            .is_none_or(|hwnd| unsafe { IsIconic(hwnd as _) == 0 });
+                                        let readings_changed = visible && panel.refresh();
+                                        if preview_active || readings_changed {
+                                            cx.notify();
+                                        }
                                     })
                                     .is_err()
                                 {

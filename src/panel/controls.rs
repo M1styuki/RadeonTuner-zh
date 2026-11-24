@@ -6,7 +6,7 @@ use gpui::{
     Bounds, Context, Corner, Div, ElementId, IntoElement, KeyDownEvent, PathBuilder, Pixels,
     Window, anchored, canvas, deferred, div, point, prelude::*, px, rgb,
 };
-use std::{cell::Cell, collections::HashMap, rc::Rc};
+use std::{cell::Cell, rc::Rc};
 
 pub(super) const SELECT_MAX_WIDTH: f32 = 216.;
 pub(super) const PROFILE_SELECT_WIDTH: SelectWidth = SelectWidth::Fixed(164.);
@@ -282,8 +282,8 @@ impl Panel {
         let count = options.len();
         let text_system = cx.text_system();
         let font = text_system.resolve_font(&gpui::font("Microsoft YaHei UI"));
-        let mut advances = HashMap::new();
-        let mut measure = |text: &str| {
+        let measure = |text: &str| {
+            let mut advances = self.select_glyph_widths.borrow_mut();
             text.chars()
                 .map(|ch| {
                     *advances.entry(ch).or_insert_with(|| {
@@ -294,14 +294,14 @@ impl Panel {
                 })
                 .sum::<f32>()
         };
-        let option_widths = options
-            .iter()
-            .map(|(label, _)| measure(label))
-            .collect::<Vec<_>>();
         let selected_width = measure(&selected);
         let width = match width.into() {
             SelectWidth::Fit(max) => {
-                (option_widths.iter().copied().fold(selected_width, f32::max) + 50.).clamp(84., max)
+                let widest = options
+                    .iter()
+                    .map(|(label, _)| measure(label))
+                    .fold(selected_width, f32::max);
+                (widest + MENU_LABEL_INSET).clamp(84., max)
             }
             SelectWidth::Fixed(width) => width,
         };
@@ -441,9 +441,8 @@ impl Panel {
                         cx.notify();
                     }
                 }));
-            for (i, ((label, detail), text_width)) in
-                options.into_iter().zip(option_widths).enumerate()
-            {
+            for (i, (label, detail)) in options.into_iter().enumerate() {
+                let text_width = measure(&label);
                 let choose = change.clone();
                 let choice_id = id.clone();
                 let tip = option_tip(

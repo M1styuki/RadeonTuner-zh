@@ -43,6 +43,7 @@ pub struct Device {
     pub index: i32,
     pub name: String,
 }
+#[derive(PartialEq, Eq)]
 pub struct Metric {
     pub label: &'static str,
     pub value: Option<i32>,

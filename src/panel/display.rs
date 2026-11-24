@@ -519,15 +519,14 @@ impl Panel {
         }
     }
 
-    pub(super) fn expire_preview(&mut self) {
-        if self
-            .display
-            .preview
-            .as_ref()
-            .is_some_and(|p| p.started.elapsed() >= TIMEOUT)
-        {
+    pub(super) fn poll_preview(&mut self) -> bool {
+        let Some(preview) = &self.display.preview else {
+            return false;
+        };
+        if preview.started.elapsed() >= TIMEOUT {
             self.finish_preview(false);
         }
+        true
     }
 
     pub(super) fn display_dialog(&self, cx: &mut Context<Self>) -> Option<Div> {

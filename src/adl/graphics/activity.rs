@@ -8,20 +8,20 @@ use windows_sys::Win32::{
 };
 
 const FEATURES: [(&str, &str); 5] = [
-    ("fsr4_upscale", "超分辨率"),
-    ("fsr4_mlfi", "帧生成"),
-    ("fsr4_mfg", "多帧生成"),
-    ("fsr4_mld", "光线再生降噪"),
-    ("fsr4_nrc", "神经辐射缓存"),
+    ("fsr4_upscale?", "超分辨率"),
+    ("fsr4_mlfi?", "帧生成"),
+    ("fsr4_mfg?", "多帧生成"),
+    ("fsr4_mld?", "光线再生降噪"),
+    ("fsr4_nrc?", "神经辐射缓存"),
 ];
 
 fn active_features(data: &str) -> Vec<&'static str> {
     FEATURES
         .iter()
-        .filter_map(|(key, label)| {
-            data.split_once(&format!("{key}?"))
+        .filter_map(|&(key, label)| {
+            data.split_once(key)
                 .is_some_and(|(_, value)| value.starts_with("1_"))
-                .then_some(*label)
+                .then_some(label)
         })
         .collect()
 }
