@@ -199,19 +199,6 @@ impl Panel {
         const GROUPS: &[&[&str]] = &[
             &[
                 "DeLagEnabled.Current",
-                "MfgRatio.Current",
-                "FsrShowInformation.Current",
-                "FsrDisableMLSwapchain.Current",
-                "FsrOverride.Current",
-                "MlfiOverride.Current",
-                "MfgOverride.Current",
-                "MldOverride.Current",
-                "NrcOverride.Current",
-                "FsrOvrDLLPath.Current",
-            ],
-            &[
-                "FrameGenEnabled.Current",
-                "FrameGenAlgorithm.Current",
                 "ChillEnabled.Current",
                 "ChillMinFps.Current",
                 "ChillMaxFps.Current",
@@ -219,11 +206,23 @@ impl Panel {
                 "FrtcFrameRateTarget.Current",
             ],
             &[
+                "FsrOverride.Current",
+                "MlfiOverride.Current",
+                "MfgOverride.Current",
+                "MfgRatio.Current",
+                "MldOverride.Current",
+                "NrcOverride.Current",
+                "FsrOvrDLLPath.Current",
+                "FsrShowInformation.Current",
+                "FsrDisableMLSwapchain.Current",
+            ],
+            &["FrameGenEnabled.Current", "FrameGenAlgorithm.Current"],
+            &[
                 "BoostMode.Current",
                 "BoostMinResolution.Current",
                 "RisEnabled.Current",
-                "RisDesktopEnabled.Current",
                 "RisSharpeningDegree.Current",
+                "RisDesktopEnabled.Current",
             ],
             &[
                 "VerticalSync.Current",
@@ -494,7 +493,6 @@ impl Panel {
                             .id("fsr-library-description")
                             .flex_1()
                             .min_w_0()
-                            .text_xs()
                             .truncate()
                             .text_color(gpui::rgb(self.palette.muted_text))
                             .tooltip(self.tooltip_owned(fsr.description.clone().into()))

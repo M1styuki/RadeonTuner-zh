@@ -2,7 +2,7 @@ mod custom;
 mod eyefinity;
 use super::Panel;
 use crate::adl::display::gamma::Gamma;
-use crate::adl::display::settings::Feature;
+use crate::adl::display::settings::{Feature, Setting};
 use crate::{
     adl::display::{Display, Mode},
     mode_preview::{Preview, TIMEOUT},
@@ -22,7 +22,7 @@ pub(super) struct DisplayPage {
     saved_gamma: Gamma,
     gamma_supported: bool,
     confirm_reset: bool,
-    settings: Vec<crate::adl::display::settings::Setting>,
+    settings: Vec<Setting>,
     displays: Vec<Display>,
     display_index: usize,
     key: Option<String>,
@@ -41,6 +41,55 @@ pub(super) struct DisplayPage {
 impl DisplayPage {
     pub(super) fn set_status(&mut self, status: String) {
         self.status = status;
+    }
+
+    #[cfg(test)]
+    pub(super) fn preview_fixture() -> Self {
+        let settings = [
+            (Feature::GpuScaling, "GPU 缩放", 0, 1),
+            (Feature::IntegerScaling, "整数缩放", 0, 1),
+            (Feature::Scaling, "缩放模式", 1, 2),
+            (Feature::Vsr, "虚拟超级分辨率", 0, 1),
+        ]
+        .into_iter()
+        .map(|(feature, label, current, max)| Setting {
+            feature,
+            label,
+            current,
+            draft: current,
+            default: 0,
+            min: 0,
+            max,
+            step: 1,
+        })
+        .collect();
+        Self {
+            app: "Global".into(),
+            displays: vec![Display {
+                connector: 0,
+                adapter: 0,
+                logical: 0,
+                name: "示例显示器".into(),
+            }],
+            settings,
+            ..Self::default()
+        }
+    }
+
+    fn set_scaling_mode(&mut self, mode: Option<i32>) {
+        let integer = mode.is_none();
+        for setting in &mut self.settings {
+            match setting.feature {
+                Feature::Scaling => {
+                    if let Some(mode) = mode {
+                        setting.draft = mode;
+                    }
+                }
+                Feature::IntegerScaling => setting.draft = i32::from(integer),
+                Feature::GpuScaling if integer => setting.draft = 1,
+                _ => {}
+            }
+        }
     }
 }
 
@@ -567,10 +616,62 @@ impl Panel {
         }
         None
     }
+    fn scaling_mode_row(&self, cx: &mut Context<Self>) -> Option<Div> {
+        let page = &self.display;
+        if page.app != "Global" {
+            return None;
+        }
+        let find = |feature| {
+            page.settings
+                .iter()
+                .find(|setting| setting.feature == feature)
+        };
+        let scaling = find(Feature::Scaling);
+        let integer = find(Feature::IntegerScaling);
+        if scaling.is_none() && integer.is_none() {
+            return None;
+        }
+        let mut labels = scaling.map_or_else(
+            || vec!["关闭".to_owned()],
+            |setting| {
+                setting
+                    .choices()
+                    .iter()
+                    .map(|label| label.to_string())
+                    .collect()
+            },
+        );
+        let integer_option = integer.map(|_| labels.len());
+        if integer.is_some() {
+            labels.push("整数缩放".to_owned());
+        }
+        let selected = if integer.is_some_and(|setting| setting.draft != 0) {
+            integer_option
+        } else {
+            Some(scaling.map_or(0, |setting| setting.draft as usize))
+        };
+        Some(self.setting_row(
+            self.hint_label("缩放模式"),
+            self.select(
+                "display-scaling-mode",
+                labels,
+                selected,
+                "缩放模式",
+                super::controls::SELECT_MAX_WIDTH,
+                move |p, index, _| {
+                    let ordinary_mode = (Some(index) != integer_option).then_some(index as i32);
+                    p.display.set_scaling_mode(ordinary_mode);
+                },
+                cx,
+            ),
+        ))
+    }
+
     pub(super) fn render_displays(&self, cx: &mut Context<Self>) -> Div {
         let page = &self.display;
         let mut categories = Vec::new();
         let mut section = div().flex().flex_col();
+        let mut has_modes = false;
         if let (Some(mode), Some(current), true) = (
             page.modes.get(page.choice),
             page.current,
@@ -674,6 +775,29 @@ impl Panel {
                         })),
                 );
             }
+            has_modes = true;
+        }
+        if page.app == "Global" && page.current.is_some() {
+            has_modes = true;
+            section = section.child(
+                self.setting_row(
+                    self.hint_label("自定义分辨率"),
+                    div().child(
+                        self.button_style(true)
+                            .id("custom-editor")
+                            .cursor_pointer()
+                            .child("管理自定义分辨率…")
+                            .on_click(cx.listener(|p, _, _, cx| {
+                                if let Err(err) = p.open_custom() {
+                                    p.display.status = err.to_string();
+                                }
+                                cx.notify();
+                            })),
+                    ),
+                ),
+            );
+        }
+        if has_modes {
             categories.push(section);
         }
         let correction_on = page
@@ -693,15 +817,16 @@ impl Panel {
             .is_some_and(|s| s.draft != 0);
         const GROUPS: &[&[Option<Feature>]] = &[
             &[
-                Some(Feature::Hdr),
                 Some(Feature::FreeSync),
-                Some(Feature::Vsr),
-                Some(Feature::GpuScaling),
-                Some(Feature::IntegerScaling),
-                Some(Feature::Scaling),
+                Some(Feature::Hdr),
                 Some(Feature::Depth),
                 Some(Feature::Pixel),
                 Some(Feature::Hdcp),
+            ],
+            &[
+                Some(Feature::GpuScaling),
+                Some(Feature::Scaling),
+                Some(Feature::Vsr),
             ],
             &[
                 Some(Feature::VariBright),
@@ -764,6 +889,13 @@ impl Panel {
                     }
                     continue;
                 };
+                if feature == Feature::Scaling {
+                    if let Some(row) = self.scaling_mode_row(cx) {
+                        rows = rows.child(row);
+                        has_rows = true;
+                    }
+                    continue;
+                }
                 let Some((i, setting)) = page
                     .settings
                     .iter()
@@ -845,26 +977,6 @@ impl Panel {
         }
         let mut extras = div().flex().flex_col();
         let mut has_extras = false;
-        if page.app == "Global" && page.current.is_some() {
-            has_extras = true;
-            extras = extras.child(
-                self.setting_row(
-                    self.hint_label("自定义分辨率"),
-                    div().child(
-                        self.button_style(true)
-                            .id("custom-editor")
-                            .cursor_pointer()
-                            .child("管理自定义分辨率…")
-                            .on_click(cx.listener(|p, _, _, cx| {
-                                if let Err(err) = p.open_custom() {
-                                    p.display.status = err.to_string();
-                                }
-                                cx.notify();
-                            })),
-                    ),
-                ),
-            );
-        }
         if page.app == "Global" && !page.displays.is_empty() {
             has_extras = true;
             extras = extras.child(
@@ -982,4 +1094,21 @@ impl Panel {
         }
         actions
     }
+}
+
+#[cfg(test)]
+#[test]
+fn integer_scaling_preserves_the_ordinary_mode_until_another_mode_is_selected() {
+    let mut page = DisplayPage::preview_fixture();
+    let drafts = |page: &DisplayPage| {
+        page.settings
+            .iter()
+            .map(|setting| setting.draft)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(drafts(&page), [0, 0, 1, 0]);
+    page.set_scaling_mode(None);
+    assert_eq!(drafts(&page), [1, 1, 1, 0]);
+    page.set_scaling_mode(Some(2));
+    assert_eq!(drafts(&page), [1, 0, 2, 0]);
 }

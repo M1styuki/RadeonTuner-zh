@@ -26,7 +26,7 @@ impl Render for Tooltip {
                 .max_w(px(366.))
                 .px(px(10.))
                 .py(px(7.))
-                .text_size(px(12.))
+                .text_size(px(13.))
                 .font_family("Microsoft YaHei UI")
                 .text_color(rgb(self.palette.text))
                 .smooth_background(self.palette.control)

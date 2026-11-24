@@ -1,34 +1,43 @@
 use super::Panel;
 use crate::integration::{self, Link, services::State};
-use gpui::{Context, Div, div, prelude::*, px, rgb};
+use gpui::{Context, Div, div, prelude::*, rgb};
 
 impl Panel {
     pub(super) fn render_settings(&self, cx: &mut Context<Self>) -> Div {
-        let mut startup = div().flex().flex_col();
-        for (i, link, label) in [
-            (0, Link::Startup, "Windows 启动时自动运行"),
-            (1, Link::StartMenu, "添加到开始菜单"),
-            (2, Link::ContextMenu, "添加到桌面右键菜单"),
-        ] {
-            let enabled = link != Link::ContextMenu || self.admin;
-            startup = startup.child(self.toggle_row(
+        let link_toggle = |i: usize, link: Link, label, cx: &mut Context<Self>| {
+            self.toggle_row(
                 ("link", i),
                 self.hint_label(label),
                 self.links[i],
-                enabled,
+                link != Link::ContextMenu || self.admin,
                 move |p, _| match link.set(!p.links[i]) {
                     Ok(()) => p.links[i] = link.enabled(),
                     Err(e) => p.settings_message = e.to_string(),
                 },
                 cx,
+            )
+        };
+        let startup = div()
+            .flex()
+            .flex_col()
+            .child(link_toggle(0, Link::Startup, "Windows 启动时自动运行", cx))
+            .child(self.preference(
+                "StartWindowVisible",
+                "启动时显示窗口",
+                self.start_visible,
+                cx,
+            ))
+            .child(self.preference(
+                "StartCheckUpdate",
+                "启动时检查更新",
+                self.start_check_update,
+                cx,
             ));
-        }
-        startup = startup.child(self.preference(
-            "StartWindowVisible",
-            "启动时显示窗口",
-            self.start_visible,
-            cx,
-        ));
+        let shortcuts = div()
+            .flex()
+            .flex_col()
+            .child(link_toggle(1, Link::StartMenu, "添加到开始菜单", cx))
+            .child(link_toggle(2, Link::ContextMenu, "添加到桌面右键菜单", cx));
         let appearance = div()
             .flex()
             .flex_col()
@@ -51,19 +60,13 @@ impl Panel {
                     ),
                 ),
             )
-            .child(self.preference("SetTopMost", "窗口置顶", self.topmost, cx))
-            .child(self.preference("ThemeIconMono", "显示单色应用程序图标", self.mono, cx));
-        let background = div()
+            .child(self.preference("SetTopMost", "窗口置顶", self.topmost, cx));
+        let tray = div()
             .flex()
             .flex_col()
-            .child(self.preference("CloseTray", "关闭到系统托盘", self.close_tray, cx))
+            .child(self.preference("ThemeIconMono", "显示单色应用程序图标", self.mono, cx))
             .child(self.preference("HideTrayIcon", "隐藏托盘图标", self.hide_tray, cx))
-            .child(self.preference(
-                "StartCheckUpdate",
-                "启动时检查更新",
-                self.start_check_update,
-                cx,
-            ));
+            .child(self.preference("CloseTray", "关闭到系统托盘", self.close_tray, cx));
         let advanced = div()
             .flex()
             .flex_col()
@@ -92,12 +95,9 @@ impl Panel {
             .items_center()
             .gap_2()
             .child("Radeon 服务")
-            .children(service_hint.map(|hint| {
-                div()
-                    .text_size(px(12.))
-                    .text_color(rgb(self.palette.muted_text))
-                    .child(hint)
-            }));
+            .children(
+                service_hint.map(|hint| div().text_color(rgb(self.palette.muted_text)).child(hint)),
+            );
         let service_label = self.with_native_hints(service_label, "Radeon 服务");
         let advanced = advanced
             .child(self.toggle_row(
@@ -152,7 +152,7 @@ impl Panel {
             .flex()
             .flex_col()
             .gap_2()
-            .child(self.setting_sections([startup, appearance, background, advanced]))
+            .child(self.setting_sections([startup, appearance, shortcuts, advanced, tray]))
             .when(!self.settings_message.is_empty(), |page| {
                 page.child(self.settings_message.clone())
             })

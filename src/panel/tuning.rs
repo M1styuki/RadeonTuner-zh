@@ -453,9 +453,8 @@ impl Panel {
         )
     }
 
-    pub(super) fn render_tuning_profiles(&self, cx: &mut Context<Self>) -> Div {
-        let mut section = div().flex().flex_col().gap_2();
-        section = section.child(self.toggle_row(
+    fn tuning_persistence(&self, cx: &mut Context<Self>) -> Div {
+        self.toggle_row(
             "keep-tuning",
             self.hint_label("保持生效"),
             self.tuning.keep,
@@ -465,10 +464,11 @@ impl Panel {
                 p.tuning.dirty = true;
             },
             cx,
-        ));
-        if self.page != 1 {
-            return section;
-        }
+        )
+    }
+
+    fn fan_mode_settings(&self, cx: &mut Context<Self>) -> Div {
+        let mut section = div().flex().flex_col();
         section = section.child(
             self.setting_row(
                 self.hint_label("风扇控制模式"),
@@ -507,50 +507,53 @@ impl Panel {
         }
         section
     }
+
     pub(super) fn render_tuning_fields(&self, cx: &mut Context<Self>) -> Div {
-        let mut page = div().flex().flex_col().gap_3();
-        if self.page == 1 {
-            for (i, control) in self.controls.iter().enumerate() {
-                if control.id == 15 && self.show_control(control.id) {
-                    page = page.child(self.tuning_field(i, cx));
-                }
-            }
-            page = page.children(self.render_curve(cx));
-            if self.tuning.mode == 3 {
-                if self.controls.iter().any(|c| (19..=28).contains(&c.id)) {
-                    page = page.child(self.fan_point_card(cx));
-                }
-            } else if self.tuning.mode == 2 {
-                page = page.child(div().text_lg().child("风扇转速范围"));
-                let mut range = div().flex().flex_wrap().gap_3();
-                let mut found = false;
-                for (i, control) in self.controls.iter().enumerate() {
-                    if matches!(control.id, 20 | 28) && self.show_control(control.id) {
-                        range = range.child(self.tuning_field(i, cx));
-                        found = true;
-                    }
-                }
-                if found {
-                    page = page.child(range);
-                }
-            }
-            return page;
-        }
         let mut groups = Vec::new();
-        for ids in [&[0, 1][..], &[8, 14, ECC][..], &[9, 37, 47][..]] {
-            let mut group = div().flex().flex_col();
-            let mut found = false;
-            for (i, control) in self.controls.iter().enumerate() {
-                if ids.contains(&control.id) {
-                    group = group.child(self.tuning_field(i, cx));
-                    found = true;
-                }
+        if self.page == 1 {
+            let mut mode = self.fan_mode_settings(cx);
+            if let Some(zero_rpm) = self.ordered_tuning_group(&[15], cx) {
+                mode = mode.child(zero_rpm);
             }
-            if found {
-                groups.push(group);
+            groups.push(mode);
+            let curve = self.render_curve(cx);
+            let mut adjustments = div().flex().flex_col().gap_3();
+            let has_curve = curve.is_some();
+            adjustments = adjustments.children(curve);
+            let has_points = self.tuning.mode == 3
+                && self
+                    .controls
+                    .iter()
+                    .any(|control| (19..=28).contains(&control.id));
+            let range = (self.tuning.mode == 2)
+                .then(|| self.ordered_tuning_group(&[20, 28], cx))
+                .flatten();
+            if has_curve || has_points || range.is_some() {
+                adjustments = adjustments.children(range);
+                if has_points {
+                    adjustments = adjustments.child(self.fan_point_card(cx));
+                }
+                groups.push(adjustments);
+            }
+        } else {
+            for ids in [&[1, 0, 37][..], &[8, 14, ECC][..], &[9, 47][..]] {
+                groups.extend(self.ordered_tuning_group(ids, cx));
             }
         }
-        page.child(self.setting_sections(groups))
+        groups.push(self.tuning_persistence(cx));
+        self.setting_sections(groups)
+    }
+
+    fn ordered_tuning_group(&self, ids: &[usize], cx: &mut Context<Self>) -> Option<Div> {
+        let mut indices = ids.iter().filter_map(|&id| {
+            if !self.show_control(id) {
+                return None;
+            }
+            self.controls.iter().position(|control| control.id == id)
+        });
+        let first = indices.next()?;
+        let group = div().flex().flex_col().child(self.tuning_field(first, cx));
+        Some(group.children(indices.map(|index| self.tuning_field(index, cx))))
     }
 
     fn fan_point_card(&self, cx: &mut Context<Self>) -> impl gpui::IntoElement {

@@ -147,11 +147,16 @@ impl Panel {
             .w_full()
             .gap_2()
             .text_color(rgb(self.palette.text))
-            .child(div().text_xl().child(if picker.remove {
-                "移除应用配置"
-            } else {
-                "添加应用配置"
-            }));
+            .child(
+                div()
+                    .text_size(gpui::px(16.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .child(if picker.remove {
+                        "移除应用配置"
+                    } else {
+                        "添加应用配置"
+                    }),
+            );
         if !picker.remove {
             let mut sources = div().flex().gap_3();
             for (id, label, steam) in [

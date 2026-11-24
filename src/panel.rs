@@ -190,16 +190,14 @@ impl Render for Panel {
             .px_4()
             .pb_4()
             .when(self.page != 5, |content| content.pt_3());
-        if self.page == 6 || self.updates.has_notice() {
+        if self.page != 6 && self.updates.has_notice() {
             content = content.child(self.update_controls(cx));
         }
         if !self.message.is_empty() && self.page != 5 {
             content = content.child(self.message.clone());
         }
         if matches!(self.page, 0 | 1) && !self.controls.is_empty() {
-            content = content
-                .child(self.render_tuning_profiles(cx))
-                .child(self.render_tuning_fields(cx));
+            content = content.child(self.render_tuning_fields(cx));
         }
         match self.page {
             2 => content = content.child(self.render_graphics(cx)),
@@ -232,13 +230,19 @@ impl Render for Panel {
                             })),
                     );
                 }
-                content = content.child(links).child(format!(
+                let version = div().flex().flex_col().gap_2().child(format!(
                     "RadeonTuner · 原作者 Arnold Vink · Rust 版 {}",
                     env!("CARGO_PKG_VERSION")
                 ));
-                for line in &self.info {
-                    content = content.child(line.clone());
-                }
+                let device = div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .children(self.info.iter().cloned());
+                let groups = std::iter::once(version.child(self.update_controls(cx)))
+                    .chain((!self.info.is_empty()).then_some(device))
+                    .chain(std::iter::once(links));
+                content = content.child(self.setting_sections(groups));
             }
             _ => {}
         }
@@ -535,6 +539,47 @@ fn preview_fan_page() {
         });
         panel.games = graphics::apps::Games::preview_fixture();
         panel.fsr_library = Some(crate::adl::graphics::fsr::Library::preview_fixture());
+        panel.display = display::DisplayPage::preview_fixture();
+        use crate::adl::multimedia::{Feature as VideoFeature, VideoControl};
+        panel.video = [
+            (VideoFeature::Brightness, 0),
+            (VideoFeature::Sharpness, 50),
+            (VideoFeature::Upscale, 1),
+        ]
+        .into_iter()
+        .map(|(feature, value)| VideoControl {
+            feature,
+            current: value,
+            saved: value,
+            draft: value,
+        })
+        .collect();
+        panel.controls.extend(
+            [
+                (9, "功耗限制", "%", -10, 15, 0),
+                (0, "最高核心频率", "MHz", 2300, 3200, 2900),
+                (8, "最高显存频率", "MHz", 2000, 2700, 2518),
+                (37, "电压偏移", "mV", -60, 60, 0),
+                (1, "最低核心频率", "MHz", 500, 2200, 2000),
+                (15, "零转速", "", 0, 1, 1),
+            ]
+            .into_iter()
+            .map(
+                |(id, label, unit, min, max, value)| crate::adl::overdrive::Control {
+                    id,
+                    label,
+                    unit,
+                    min,
+                    max,
+                    step: 1,
+                    current: value,
+                    draft: value,
+                    default: value,
+                    reset: false,
+                },
+            ),
+        );
+        panel.info.push("驱动／适配器信息（示例）".into());
         panel.frames = [
             (Field::AntiLag, 0, 1),
             (Field::Generate, 1, 1),

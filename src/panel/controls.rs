@@ -91,7 +91,8 @@ impl Panel {
         const TRACK_WIDTH: f32 = 34.;
         const TRACK_HEIGHT: f32 = 20.;
         const THUMB_DIAMETER: f32 = 14.;
-        const INSET: f32 = (TRACK_HEIGHT - THUMB_DIAMETER) / 2.;
+        const TRACK_RADIUS: f32 = TRACK_HEIGHT / 2.;
+        const THUMB_RADIUS: f32 = THUMB_DIAMETER / 2.;
         let palette = self.palette;
         div()
             .w(px(42.))
@@ -108,37 +109,45 @@ impl Panel {
                 move |progress| {
                     let fill = motion::mix(palette.control, palette.accent, progress);
                     let hover = motion::mix(palette.hover, palette.accent_hover, progress);
-                    let border = motion::mix(palette.border, palette.accent, progress);
-                    let travel = TRACK_WIDTH - TRACK_HEIGHT;
+                    let border = |active| {
+                        motion::mix(
+                            palette.border,
+                            motion::mix(active, 0xffffff, 0.42),
+                            progress,
+                        )
+                    };
+                    let rounded = |mut element: Div, radius: f32| {
+                        let radius = Some(px(radius).into());
+                        let corners = &mut element.style().corner_radii;
+                        corners.top_left = radius;
+                        corners.top_right = radius;
+                        corners.bottom_left = radius;
+                        corners.bottom_right = radius;
+                        element
+                    };
+                    let track =
+                        rounded(div().absolute().top_0().left_0().size_full(), TRACK_RADIUS)
+                            .border_1()
+                            .border_color(rgb(border(palette.accent)))
+                            .bg(rgb(fill))
+                            .when(enabled, |track| {
+                                let hover_border = border(palette.accent_hover);
+                                track.group_hover("switch-track", move |style| {
+                                    style.bg(rgb(hover)).border_color(rgb(hover_border))
+                                })
+                            });
+                    // At either stop, the thumb shares the center of the track's semicircle.
+                    let center_x = TRACK_RADIUS + (TRACK_WIDTH - TRACK_HEIGHT) * progress;
+                    let thumb = rounded(div().absolute().size(px(THUMB_DIAMETER)), THUMB_RADIUS)
+                        .top(px(TRACK_RADIUS - THUMB_RADIUS))
+                        .left(px(center_x - THUMB_RADIUS))
+                        .bg(rgb(motion::mix(palette.muted_text, 0xffffff, progress)));
                     div()
                         .relative()
                         .w(px(TRACK_WIDTH))
                         .h(px(TRACK_HEIGHT))
-                        .child(
-                            div()
-                                .absolute()
-                                .top_0()
-                                .left_0()
-                                .size_full()
-                                .rounded_full()
-                                .border_1()
-                                .border_color(rgb(border))
-                                .bg(rgb(fill))
-                                .when(enabled, |track| {
-                                    track.group_hover("switch-track", move |style| {
-                                        style.bg(rgb(hover))
-                                    })
-                                }),
-                        )
-                        .child(
-                            div()
-                                .absolute()
-                                .top(px(INSET))
-                                .left(px(INSET + travel * progress))
-                                .size(px(THUMB_DIAMETER))
-                                .rounded_full()
-                                .bg(rgb(motion::mix(palette.muted_text, 0xffffff, progress))),
-                        )
+                        .child(track)
+                        .child(thumb)
                 },
             ))
     }

@@ -108,11 +108,12 @@ impl Panel {
         Ok(())
     }
     pub(super) fn render_custom(&self, editor: &Editor, cx: &mut Context<Self>) -> Div {
-        let mut section = div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(div().text_xl().child("自定义分辨率"));
+        let mut section = div().flex().flex_col().gap_2().child(
+            div()
+                .text_size(gpui::px(16.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .child("自定义分辨率"),
+        );
         section = section.child(self.setting_row(
             self.hint_label("时序标准"),
             self.select(

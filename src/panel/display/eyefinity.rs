@@ -82,7 +82,12 @@ impl Panel {
             .flex()
             .flex_col()
             .gap_2()
-            .child(div().text_xl().child("管理 Eyefinity"))
+            .child(
+                div()
+                    .text_size(gpui::px(16.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .child("管理 Eyefinity"),
+            )
             .child(match editor.state {
                 Some(true) => "当前已启用",
                 Some(false) => "当前已禁用",

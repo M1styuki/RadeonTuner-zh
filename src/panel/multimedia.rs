@@ -230,51 +230,49 @@ impl Panel {
             .video
             .iter()
             .any(|control| control.feature == Feature::Upscale && control.draft != 0);
+        let find = |feature| {
+            self.video
+                .iter()
+                .position(|control| control.feature == feature)
+        };
+        let mut sections = Vec::new();
         let mut picture = div().flex().flex_col();
-        let mut has_picture = false;
-        let mut brightness = None;
-        for (i, control) in self.video.iter().enumerate() {
-            let label = self.hint_label(control.feature.label());
-            if control.feature == Feature::Upscale {
-                has_picture = true;
-                picture = picture.child(self.toggle_row(
-                    "video-upscale",
-                    label,
-                    control.draft != 0,
-                    true,
-                    move |p, _| p.video[i].draft = i32::from(p.video[i].draft == 0),
-                    cx,
-                ));
-            } else if control.feature != Feature::Sharpness || upscale {
-                let (min, max, _) = control.feature.limits();
-                let row = self.setting_row(
-                    label,
-                    self.number(
-                        super::numeric::Field::Video(i),
-                        control.draft,
-                        min,
-                        max,
-                        1,
-                        "",
-                        cx,
-                    ),
-                );
-                if control.feature == Feature::Brightness {
-                    brightness = Some(row);
-                } else {
-                    has_picture = true;
-                    picture = picture.child(row);
-                }
+        let upscale_index = find(Feature::Upscale);
+        if let Some(i) = upscale_index {
+            picture = picture.child(self.toggle_row(
+                "video-upscale",
+                self.hint_label(Feature::Upscale.label()),
+                upscale,
+                true,
+                move |p, _| p.video[i].draft = i32::from(p.video[i].draft == 0),
+                cx,
+            ));
+        }
+        if upscale {
+            if let Some(i) = find(Feature::Sharpness) {
+                picture = picture.child(self.video_number_row(i, cx));
             }
         }
-        let sections = has_picture.then_some(picture).into_iter().chain(brightness);
+        sections.extend(upscale_index.map(|_| picture));
+        sections.extend(find(Feature::Brightness).map(|i| self.video_number_row(i, cx)));
+        self.setting_sections(sections)
+    }
 
-        div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(section)
-            .child(self.setting_sections(sections))
+    fn video_number_row(&self, index: usize, cx: &mut Context<Self>) -> Div {
+        let control = &self.video[index];
+        let (min, max, _) = control.feature.limits();
+        self.setting_row(
+            self.hint_label(control.feature.label()),
+            self.number(
+                super::numeric::Field::Video(index),
+                control.draft,
+                min,
+                max,
+                1,
+                "",
+                cx,
+            ),
+        )
     }
 
     pub(super) fn video_actions(&self, cx: &mut Context<Self>) -> Div {

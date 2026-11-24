@@ -278,7 +278,6 @@ impl Panel {
             view.child(
                 div()
                     .id("action-status")
-                    .text_xs()
                     .truncate()
                     .tooltip(self.tooltip_owned(status.clone().into()))
                     .child(status.clone()),
