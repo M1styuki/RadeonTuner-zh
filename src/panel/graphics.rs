@@ -272,7 +272,7 @@ impl Panel {
                             .collect(),
                         Some(control.draft as usize),
                         label,
-                        crate::panel::controls::FIELD_WIDTH,
+                        crate::panel::controls::SELECT_MAX_WIDTH,
                         move |p, value, _| p.change_frame(i, value as i32),
                         cx,
                     )
@@ -362,7 +362,7 @@ impl Panel {
                                     .collect(),
                                 Some(s.draft),
                                 label,
-                                crate::panel::controls::FIELD_WIDTH,
+                                crate::panel::controls::SELECT_MAX_WIDTH,
                                 set,
                                 cx,
                             ),

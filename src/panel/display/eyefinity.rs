@@ -119,7 +119,7 @@ impl Panel {
                             .collect(),
                         values.iter().position(|&v| v == current),
                         label,
-                        crate::panel::controls::FIELD_WIDTH,
+                        crate::panel::controls::SELECT_MAX_WIDTH,
                         move |p, i, _| {
                             if let Some(e) = &mut p.display.eyefinity {
                                 match axis {

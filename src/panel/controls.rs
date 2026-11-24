@@ -6,9 +6,9 @@ use gpui::{
     Context, Div, ElementId, FocusHandle, IntoElement, KeyDownEvent, PathBuilder, Window, anchored,
     canvas, deferred, div, point, prelude::*, px, rgb,
 };
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
-pub(super) const FIELD_WIDTH: f32 = 136.;
+pub(super) const SELECT_MAX_WIDTH: f32 = 216.;
 
 pub(super) struct Dropdown {
     id: ElementId,
@@ -76,7 +76,7 @@ impl Panel {
                 div()
                     .absolute()
                     .top(px(8.))
-                    .left(px(if on { 24. } else { 4. }))
+                    .left(px(if on { 26. } else { 2. }))
                     .w(px(16.))
                     .h(px(16.))
                     .rounded_full()
@@ -167,20 +167,47 @@ impl Panel {
     pub(super) fn select(
         &self,
         id: impl Into<ElementId>,
-        labels: Vec<String>,
+        mut labels: Vec<String>,
         current: Option<usize>,
         placeholder: &str,
-        width: f32,
+        max_width: f32,
         change: impl Fn(&mut Self, usize, &mut Context<Self>) + 'static,
         cx: &mut Context<Self>,
     ) -> Div {
         let id = id.into();
+        for label in &mut labels {
+            if label.contains(['\r', '\n']) {
+                *label = label.split_whitespace().collect::<Vec<_>>().join(" ");
+            }
+        }
         let selected = labels
             .get(current.unwrap_or(usize::MAX))
             .cloned()
             .unwrap_or_else(|| placeholder.into());
         let palette = self.palette;
         let count = labels.len();
+        let text_system = cx.text_system();
+        let font = text_system.resolve_font(&gpui::font("Microsoft YaHei UI"));
+        let mut advances = HashMap::new();
+        let mut measure = |text: &str| {
+            text.chars()
+                .map(|ch| {
+                    *advances.entry(ch).or_insert_with(|| {
+                        text_system
+                            .advance(font, px(13.), ch)
+                            .map_or(13., |size| size.width / px(1.))
+                    })
+                })
+                .sum::<f32>()
+        };
+        let option_widths = labels
+            .iter()
+            .map(|label| measure(label))
+            .collect::<Vec<_>>();
+        let selected_width = measure(&selected);
+        let width = (option_widths.iter().copied().fold(selected_width, f32::max) + 50.)
+            .clamp(84., max_width);
+        let clipped_selection = (selected_width + 46. > width).then(|| selected.clone());
         let trigger = self
             .button_style(count > 0)
             .id(id.clone())
@@ -189,10 +216,11 @@ impl Panel {
             .gap_2()
             .child(div().flex_1().min_w_0().truncate().child(selected))
             .child(select_chevron(palette.text));
-        let trigger = match placeholder {
-            "选择显卡" => trigger.tooltip(self.tooltip("选择当前显卡")),
-            "选择显示器" => trigger.tooltip(self.tooltip("选择当前显示器")),
-            "选择应用程序" => trigger.tooltip(self.tooltip("选择当前应用程序")),
+        let trigger = match (clipped_selection, placeholder) {
+            (Some(text), _) => trigger.tooltip(self.tooltip_owned(text.into())),
+            (None, "选择显卡") => trigger.tooltip(self.tooltip("选择当前显卡")),
+            (None, "选择显示器") => trigger.tooltip(self.tooltip("选择当前显示器")),
+            (None, "选择应用程序") => trigger.tooltip(self.tooltip("选择当前应用程序")),
             _ => trigger,
         };
         let mut wrapper = div().relative().w(px(width)).flex_shrink_0();
@@ -263,8 +291,9 @@ impl Panel {
                     cx.notify();
                     cx.stop_propagation();
                 }));
-            for (i, label) in labels.into_iter().enumerate() {
+            for (i, (label, text_width)) in labels.into_iter().zip(option_widths).enumerate() {
                 let choose = change.clone();
+                let full_text = (text_width + 24. > width).then(|| label.clone());
                 list = list.child(
                     div()
                         .id(("option", i))
@@ -276,7 +305,10 @@ impl Panel {
                             palette.hover,
                             shape::CONTROL_CORNER,
                         )
-                        .child(label)
+                        .when_some(full_text, |row, text| {
+                            row.tooltip(self.tooltip_owned(text.into()))
+                        })
+                        .child(div().min_w_0().truncate().child(label))
                         .on_click(cx.listener(move |p, _, _, cx| {
                             p.dropdown = None;
                             choose(p, i, cx);

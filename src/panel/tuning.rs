@@ -30,6 +30,8 @@ impl Default for Editor {
     }
 }
 
+pub(super) type FanCurve = [(i32, i32); 5];
+
 fn key(id: usize) -> Option<String> {
     let field: String = match id {
         0 => "CoreMax".into(),
@@ -51,55 +53,87 @@ fn key(id: usize) -> Option<String> {
     Some(field + ".Current")
 }
 impl Panel {
-    pub(super) fn curve_points(&self) -> Vec<(i32, i32)> {
+    pub(super) fn fan_curves(&self) -> Option<(FanCurve, FanCurve)> {
         let get = |id| self.controls.iter().find(|c| c.id == id);
-        let speeds = get(20)
-            .zip(get(28))
-            .map(|(first, last)| profiles::curve(first.draft, last.draft, self.tuning.quiet));
-        (0..5)
-            .filter_map(|i| {
-                let temp = get(19 + i * 2)?;
-                let speed = get(20 + i * 2)?;
-                Some(match self.tuning.mode {
-                    3 => (temp.draft, speed.draft),
-                    2 => (temp.default, speeds?[i]),
-                    _ => (temp.default, speed.default),
-                })
-            })
-            .collect()
+        let range = if self.tuning.mode == 2 {
+            profiles::curve(get(20)?.draft, get(28)?.draft, self.tuning.quiet)
+        } else {
+            [0; 5]
+        };
+        let mut current = [(0, 0); 5];
+        let mut target = [(0, 0); 5];
+        for i in 0..5 {
+            let temp = get(19 + i * 2)?;
+            let speed = get(20 + i * 2)?;
+            current[i] = (temp.current, speed.current);
+            target[i] = match self.tuning.mode {
+                3 => (temp.draft, speed.draft),
+                2 => (temp.default, range[i]),
+                _ => (temp.default, speed.default),
+            };
+        }
+        Some((current, target))
     }
 
-    pub(super) fn editable_curve(&self) -> bool {
-        self.tuning.mode == 3 && self.curve_points().len() == 5
+    pub(super) fn is_fan_point(&self, index: usize) -> bool {
+        self.tuning.mode == 3
+            && self
+                .controls
+                .get(index)
+                .is_some_and(|c| (19..=28).contains(&c.id))
+    }
+
+    pub(super) fn set_tuning_number(&mut self, index: usize, mut value: i32) {
+        if self.is_fan_point(index) {
+            let control = &self.controls[index];
+            let get = |id| self.controls.iter().find(|c| c.id == id).map(|c| c.draft);
+            let gap = i32::from(control.id % 2 == 1);
+            let min = if control.id >= 21 {
+                get(control.id - 2).map_or(control.min, |prev| {
+                    prev.saturating_add(gap).max(control.min)
+                })
+            } else {
+                control.min
+            };
+            let max = if control.id <= 26 {
+                get(control.id + 2).map_or(control.max, |next| {
+                    next.saturating_sub(gap).min(control.max)
+                })
+            } else {
+                control.max
+            };
+            if min > max {
+                return;
+            }
+            value = value.clamp(min, max);
+        }
+        if let Some(control) = self.controls.get_mut(index) {
+            control.draft = value;
+        }
     }
 
     pub(super) fn move_curve_point(&mut self, point: usize, temperature: i32, speed: i32) {
-        if !self.editable_curve() || point >= 5 {
+        if self.tuning.mode != 3 || point >= 5 {
             return;
         }
-        let points = self.curve_points();
         for (axis, desired) in [temperature, speed].into_iter().enumerate() {
-            let gap = i32::from(axis == 0);
-            let axis_value = |(temp, speed)| if axis == 0 { temp } else { speed };
-            let previous = point.checked_sub(1).map(|i| axis_value(points[i]) + gap);
-            let next = points
-                .get(point + 1)
-                .copied()
-                .map(|value| axis_value(value) - gap);
-            if let Some(control) = self
+            if let Some(index) = self
                 .controls
-                .iter_mut()
-                .find(|c| c.id == 19 + point * 2 + axis)
+                .iter()
+                .position(|c| c.id == 19 + point * 2 + axis)
             {
-                let min = previous.unwrap_or(control.min).max(control.min);
-                let max = next.unwrap_or(control.max).min(control.max);
-                if min <= max {
-                    let draft = desired.clamp(min, max);
-                    self.tuning.dirty |= draft != control.draft;
-                    control.draft = draft;
-                }
+                self.set_tuning_number(index, desired);
             }
         }
+    }
+
+    pub(super) fn fan_curve_editable(&self) -> bool {
+        self.tuning.mode == 3
+    }
+
+    #[cfg(test)]
+    pub(super) fn override_fan_mode_for_preview(&mut self) {
+        self.tuning.mode = 3;
     }
     pub(super) fn load_tuning(&mut self) -> Result<()> {
         let device = self.devices.get(self.selected).context("未选择显卡")?;
@@ -341,7 +375,7 @@ impl Panel {
                     labels,
                     selected,
                     "选择应用程序",
-                    crate::panel::controls::FIELD_WIDTH,
+                    crate::panel::controls::SELECT_MAX_WIDTH,
                     move |p, i, _| {
                         p.tuning.app = apps[i].clone();
                         p.read_controls();
@@ -444,7 +478,7 @@ impl Panel {
                         .into(),
                     Some(self.tuning.mode),
                     "风扇控制模式",
-                    crate::panel::controls::FIELD_WIDTH,
+                    crate::panel::controls::SELECT_MAX_WIDTH,
                     |p, i, _| {
                         p.tuning.mode = i;
                         p.tuning.dirty = true;
@@ -461,7 +495,7 @@ impl Panel {
                     ["线性", "静音"].map(str::to_owned).into(),
                     Some(usize::from(self.tuning.quiet)),
                     "范围风扇曲线",
-                    crate::panel::controls::FIELD_WIDTH,
+                    crate::panel::controls::SELECT_MAX_WIDTH,
                     |p, i, _| {
                         p.tuning.quiet = i == 1;
                         p.tuning.dirty = true;
@@ -480,31 +514,11 @@ impl Panel {
                     page = page.child(self.tuning_field(i, cx));
                 }
             }
-            page = page.child(self.render_curve(cx));
+            page = page.children(self.render_curve(cx));
             if self.tuning.mode == 3 {
-                page = page.child(div().text_lg().child("风扇曲线"));
-                let mut curves = div().flex().flex_wrap().gap_3();
-                for point in 0..5 {
-                    let mut card = div()
-                        .w(px(300.))
-                        .flex_shrink_0()
-                        .flex()
-                        .flex_col()
-                        .gap_2()
-                        .px_3()
-                        .py_2()
-                        .smooth_background(self.palette.sidebar)
-                        .child(div().text_lg().child(format!("风扇曲线 {}", point + 1)));
-                    for id in [19 + 2 * point, 20 + 2 * point] {
-                        if let Some((i, _)) =
-                            self.controls.iter().enumerate().find(|(_, c)| c.id == id)
-                        {
-                            card = card.child(self.tuning_control(i, cx));
-                        }
-                    }
-                    curves = curves.child(card);
+                if self.controls.iter().any(|c| (19..=28).contains(&c.id)) {
+                    page = page.child(self.fan_point_card(cx));
                 }
-                page = page.child(curves);
             } else if self.tuning.mode == 2 {
                 page = page.child(div().text_lg().child("风扇转速范围"));
                 let mut range = div().flex().flex_wrap().gap_3();
@@ -545,6 +559,44 @@ impl Panel {
         page
     }
 
+    fn fan_point_card(&self, cx: &mut Context<Self>) -> impl gpui::IntoElement {
+        let palette = self.palette;
+        let point_column = || div().w(px(40.)).flex_shrink_0();
+        let value_column = || div().min_w_0().flex_1();
+        let row = || div().flex().items_center().gap_4();
+        let mut rows = div().min_w(px(320.)).flex().flex_col().gap_2().child(
+            row()
+                .text_xs()
+                .text_color(gpui::rgb(palette.muted_text))
+                .child(point_column())
+                .child(value_column().child("温度（°C）"))
+                .child(value_column().child("转速（%）")),
+        );
+        for i in 0..5 {
+            let cells = [19 + 2 * i, 20 + 2 * i].map(|id| {
+                let value = self
+                    .controls
+                    .iter()
+                    .position(|control| control.id == id)
+                    .map(|index| self.tuning_number_input(index, cx))
+                    .unwrap_or_else(|| div().text_color(gpui::rgb(palette.muted_text)).child("—"));
+                value_column().child(value)
+            });
+            rows = rows.child(
+                row()
+                    .child(point_column().child(format!("点{}", i + 1)))
+                    .children(cells),
+            );
+        }
+        div()
+            .id("fan-point-editor")
+            .overflow_x_scroll()
+            .p_3()
+            .smooth_background(palette.sidebar)
+            .child(super::shape::outline(palette.border))
+            .child(rows)
+    }
+
     fn tuning_label(&self, control: &crate::adl::overdrive::Control) -> &'static str {
         match (self.tuning.mode, control.id) {
             (2, 20) => "最低风扇转速",
@@ -556,8 +608,15 @@ impl Panel {
     }
 
     fn tuning_control(&self, i: usize, cx: &mut Context<Self>) -> Div {
+        self.setting_row(
+            self.hint_label(self.tuning_label(&self.controls[i])),
+            self.tuning_number_input(i, cx),
+        )
+    }
+
+    fn tuning_number_input(&self, i: usize, cx: &mut Context<Self>) -> Div {
         let control = &self.controls[i];
-        let input = self.number(
+        self.number(
             super::numeric::Field::Tuning(i),
             control.draft,
             control.min,
@@ -565,8 +624,7 @@ impl Panel {
             control.step,
             control.unit,
             cx,
-        );
-        self.setting_row(self.hint_label(self.tuning_label(control)), input)
+        )
     }
 
     fn tuning_field(&self, i: usize, cx: &mut Context<Self>) -> Div {
@@ -603,7 +661,7 @@ impl Panel {
                     labels,
                     Some((control.draft - minimum) as usize),
                     "选择",
-                    crate::panel::controls::FIELD_WIDTH,
+                    crate::panel::controls::SELECT_MAX_WIDTH,
                     move |p, at, _| p.controls[i].draft = minimum + at as i32,
                     cx,
                 ),

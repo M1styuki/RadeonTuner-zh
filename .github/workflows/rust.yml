@@ -22,6 +22,21 @@ jobs:
       - run: cargo fmt --check
       - run: cargo test --locked --release
       - run: cargo build --locked --release
+      - name: Locate the fan UI test executable
+        if: github.ref == 'refs/heads/rust-gpui-fixes'
+        shell: pwsh
+        run: |
+          $output = cargo test --locked --release --no-run --message-format=json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $test = $output | ConvertFrom-Json | Where-Object { $_.profile.test -and $_.target.name -eq 'radeon-tuner' -and $_.executable }
+          if (@($test).Count -ne 1) { throw 'Expected one RadeonTuner test executable.' }
+          Copy-Item -LiteralPath $test.executable -Destination RadeonTuner-Fan-UI-Test.exe
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/rust-gpui-fixes'
+        with:
+          name: RadeonTuner-Fan-UI-Test
+          path: RadeonTuner-Fan-UI-Test.exe
+          if-no-files-found: error
       - name: Prepare Rust release asset
         shell: pwsh
         run: |

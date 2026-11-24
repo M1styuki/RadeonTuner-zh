@@ -120,7 +120,7 @@ impl Panel {
                 STANDARDS.iter().map(|(name, _)| name.to_string()).collect(),
                 Some(editor.standard),
                 "时序标准",
-                crate::panel::controls::FIELD_WIDTH,
+                crate::panel::controls::SELECT_MAX_WIDTH,
                 |p, i, _| {
                     if let Some(e) = &mut p.display.custom {
                         e.standard = i;
@@ -137,7 +137,7 @@ impl Panel {
                 ["逐行", "隔行"].map(str::to_owned).into(),
                 Some(usize::from(editor.interlaced)),
                 "扫描方式",
-                crate::panel::controls::FIELD_WIDTH,
+                crate::panel::controls::SELECT_MAX_WIDTH,
                 |p, i, _| {
                     if let Some(e) = &mut p.display.custom {
                         e.interlaced = i == 1;
@@ -207,7 +207,7 @@ impl Panel {
                         ["正极性", "负极性"].map(str::to_owned).into(),
                         Some(usize::from(t.detail.flags & bit != 0)),
                         label,
-                        crate::panel::controls::FIELD_WIDTH,
+                        crate::panel::controls::SELECT_MAX_WIDTH,
                         move |p, value, _| {
                             if let Some(t) =
                                 p.display.custom.as_mut().and_then(|e| e.timing.as_mut())

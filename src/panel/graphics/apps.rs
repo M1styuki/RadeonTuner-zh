@@ -176,7 +176,7 @@ impl Panel {
             labels,
             Some(selected as usize),
             "选择应用程序",
-            crate::panel::controls::FIELD_WIDTH,
+            crate::panel::controls::SELECT_MAX_WIDTH,
             move |p, i, _| {
                 if i == 0 {
                     p.read_device_details();

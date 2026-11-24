@@ -41,7 +41,7 @@ impl Panel {
                         .into(),
                     Some(self.style as usize),
                     "主题颜色样式",
-                    crate::panel::controls::FIELD_WIDTH,
+                    crate::panel::controls::SELECT_MAX_WIDTH,
                     |p, i, _| match p.settings.set("ThemeStyle", serde_json::json!(i)) {
                         Ok(()) => p.style = i as i64,
                         Err(e) => p.settings_message = e.to_string(),

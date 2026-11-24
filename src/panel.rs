@@ -322,6 +322,25 @@ fn set_window_icon(window: &Window) {
 }
 
 pub fn run() -> Result<()> {
+    open_panel(
+        |panel| match Driver::open().and_then(|driver| Ok((driver.devices()?, driver))) {
+            Ok((devices, driver)) => {
+                if devices.is_empty() {
+                    panel.message = "未检测到可访问的 AMD 显卡".into();
+                }
+                panel.devices = devices;
+                panel.driver = Some(driver);
+                panel.read_device_details();
+                panel.read_displays();
+                panel.read_controls();
+                panel.refresh();
+            }
+            Err(err) => panel.message = format!("{err:#}"),
+        },
+    )
+}
+
+fn open_panel(initialize: impl FnOnce(&mut Panel)) -> Result<()> {
     let settings = Settings::open()?;
     let start_visible = settings.flag("StartWindowVisible", false)?;
     let close_tray = settings.flag("CloseTray", true)?;
@@ -388,20 +407,7 @@ pub fn run() -> Result<()> {
         start_visible,
         close_tray,
     };
-    match Driver::open().and_then(|driver| Ok((driver.devices()?, driver))) {
-        Ok((devices, driver)) => {
-            if devices.is_empty() {
-                panel.message = "未检测到可访问的 AMD 显卡".into();
-            }
-            panel.devices = devices;
-            panel.driver = Some(driver);
-            panel.read_device_details();
-            panel.read_displays();
-            panel.read_controls();
-            panel.refresh();
-        }
-        Err(err) => panel.message = format!("{err:#}"),
-    }
+    initialize(&mut panel);
     Application::new().run(move |cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(860.), px(720.)), cx);
         cx.open_window(
@@ -456,4 +462,35 @@ pub fn run() -> Result<()> {
         cx.activate(true);
     });
     Ok(())
+}
+
+#[cfg(test)]
+#[test]
+#[ignore = "opens a window for an interactive fan-layout check"]
+fn preview_fan_page() {
+    open_panel(|panel| {
+        panel.page = 1;
+        panel.message = "风扇界面预览（示例数据）".into();
+        panel.override_fan_mode_for_preview();
+        let temperatures = [30, 45, 58, 73, 88];
+        let speeds = [24, 34, 47, 65, 83];
+        for (point, (&temp, &speed)) in temperatures.iter().zip(&speeds).enumerate() {
+            for (axis, value) in [temp, speed].into_iter().enumerate() {
+                let temperature = axis == 0;
+                panel.controls.push(crate::adl::overdrive::Control {
+                    id: 19 + point * 2 + axis,
+                    label: if temperature { "温度" } else { "转速" },
+                    unit: if temperature { "°C" } else { "%" },
+                    min: if temperature { 20 } else { 10 },
+                    max: 100,
+                    step: 1,
+                    current: if temperature { value } else { value - 4 },
+                    draft: value,
+                    default: value,
+                    reset: false,
+                });
+            }
+        }
+    })
+    .expect("fan page preview");
 }

@@ -1,8 +1,17 @@
 use super::Panel;
 use crate::panel::shape::ContinuousCorners;
 use gpui::{
-    Context, Div, FocusHandle, KeyDownEvent, Stateful, Subscription, div, prelude::*, px, rgb,
+    Bounds, Context, Div, FocusHandle, KeyDownEvent, Pixels, Stateful, Subscription, div, fill,
+    point, prelude::*, px, rgb, size,
 };
+
+const THUMB_RADIUS: f32 = 6.;
+
+fn slider_fraction(bounds: Bounds<Pixels>, x: Pixels) -> f32 {
+    let inset = px(THUMB_RADIUS);
+    let travel = (bounds.size.width - inset * 2.).max(px(1.));
+    (x - bounds.origin.x - inset) / travel
+}
 
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Field {
@@ -80,11 +89,7 @@ impl Panel {
     }
     fn set_number(&mut self, field: Field, value: i32) {
         match field {
-            Field::Tuning(i) => {
-                if let Some(c) = self.controls.get_mut(i) {
-                    c.draft = value;
-                }
-            }
+            Field::Tuning(i) => self.set_tuning_number(i, value),
             Field::Video(i) => {
                 if let Some(c) = self.video.get_mut(i) {
                     c.draft = value;
@@ -106,11 +111,24 @@ impl Panel {
         unit: &'static str,
         cx: &mut Context<Self>,
     ) -> Div {
-        let text = self.number_text(field, value, min, max, step, unit, cx);
-        let mut input = div().flex().items_center().gap_2();
+        let compact = matches!(field, Field::Tuning(i) if self.is_fan_point(i));
+        let width = match (field, unit) {
+            (Field::Custom(_), "×10 kHz") => 130.,
+            (Field::Custom(_), _) => 98.,
+            (Field::Gamma(_), _) => 68.,
+            _ if min >= -999 && max <= 999 && matches!(unit, "°C" | "%" | "") => 64.,
+            _ => 88.,
+        };
+        let text = self.number_text(field, value, min, max, step, unit, width, cx);
+        let input = div().flex().items_center().gap_2();
         if matches!(field, Field::Custom(_)) || max <= min {
             return input.child(text);
         }
+        let input = if compact {
+            input.w_full().min_w_0()
+        } else {
+            input.w(px(184. + 8. + width))
+        };
         let position = move |fraction: f32| {
             let range = i64::from(max) - i64::from(min);
             let step = i64::from(step.max(1));
@@ -129,41 +147,35 @@ impl Panel {
                 geometry.set(Some(bounds));
                 let ratio =
                     ((value as f64 - min as f64) / (max as f64 - min as f64)).clamp(0., 1.) as f32;
-                let x = bounds.origin.x + bounds.size.width * ratio;
+                let inset = px(THUMB_RADIUS);
+                let left = bounds.origin.x + inset;
+                let width = (bounds.size.width - inset * 2.).max(px(1.));
+                let x = left + width * ratio;
                 let y = bounds.origin.y + bounds.size.height * 0.5;
-                for (from, to, width, color) in [
-                    (
-                        gpui::point(bounds.origin.x, y),
-                        gpui::point(bounds.right(), y),
-                        3.,
-                        palette.grid,
-                    ),
-                    (
-                        gpui::point(bounds.origin.x, y),
-                        gpui::point(x, y),
-                        3.,
-                        palette.accent,
-                    ),
-                    (
-                        gpui::point(x, y - px(4.)),
-                        gpui::point(x, y + px(4.)),
-                        5.,
-                        palette.accent,
-                    ),
-                ] {
-                    let mut line = gpui::PathBuilder::stroke(px(width));
-                    line.move_to(from);
-                    line.line_to(to);
-                    if let Ok(path) = line.build() {
-                        window.paint_path(path, rgb(color));
-                    }
+                let rail = |length, color| {
+                    fill(
+                        Bounds::new(point(left, y - px(2.)), size(length, px(4.))),
+                        rgb(color),
+                    )
+                    .corner_radii(px(2.))
+                };
+                window.paint_quad(rail(width, palette.grid));
+                if x > left {
+                    window.paint_quad(rail(x - left, palette.accent));
                 }
+                window.paint_quad(
+                    fill(
+                        Bounds::new(point(x - inset, y - inset), size(inset * 2., inset * 2.)),
+                        rgb(palette.accent),
+                    )
+                    .corner_radii(inset),
+                );
                 let dragged = entity.clone();
                 window.on_mouse_event(move |ev: &gpui::MouseMoveEvent, phase, _, cx| {
                     if !phase.bubble() || !ev.dragging() || dragged.read(cx).slider != Some(field) {
                         return;
                     }
-                    let v = position((ev.position.x - bounds.origin.x) / bounds.size.width);
+                    let v = position(slider_fraction(bounds, ev.position.x));
                     dragged.update(cx, |p, cx| {
                         p.set_number(field, v);
                         cx.notify();
@@ -178,29 +190,31 @@ impl Panel {
             },
         )
         .size_full();
-        input = input.child(
-            div()
-                .w(px(120.))
-                .h(px(20.))
-                .smooth_hover_background(None, palette.hover, super::shape::CONTROL_CORNER)
-                .cursor_pointer()
-                .on_mouse_down(
-                    gpui::MouseButton::Left,
-                    cx.listener(move |p, ev: &gpui::MouseDownEvent, _, cx| {
-                        if let Some(bounds) = slot.get() {
-                            p.finish_edit(true);
-                            p.slider = Some(field);
-                            p.set_number(
-                                field,
-                                position((ev.position.x - bounds.origin.x) / bounds.size.width),
-                            );
-                            cx.notify();
-                        }
-                    }),
-                )
-                .child(track),
-        );
-        input.child(text)
+        input
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(20.))
+                    .h(px(24.))
+                    .smooth_hover_background(None, palette.hover, super::shape::CONTROL_CORNER)
+                    .cursor_pointer()
+                    .on_mouse_down(
+                        gpui::MouseButton::Left,
+                        cx.listener(move |p, ev: &gpui::MouseDownEvent, _, cx| {
+                            if let Some(bounds) = slot.get() {
+                                p.finish_edit(true);
+                                p.slider = Some(field);
+                                p.set_number(
+                                    field,
+                                    position(slider_fraction(bounds, ev.position.x)),
+                                );
+                                cx.notify();
+                            }
+                        }),
+                    )
+                    .child(track),
+            )
+            .child(text)
     }
     fn number_text(
         &self,
@@ -210,6 +224,7 @@ impl Panel {
         max: i32,
         step: i32,
         unit: &'static str,
+        width: f32,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let id = match field {
@@ -224,12 +239,15 @@ impl Panel {
         let edit = self.edit.as_ref().filter(|e| e.field == field);
         let base = div()
             .id(id)
-            .w(px(crate::panel::controls::FIELD_WIDTH))
+            .w(px(width))
+            .px_1()
             .flex_shrink_0()
             .h(px(32.))
             .flex()
             .justify_center()
             .items_center()
+            .whitespace_nowrap()
+            .overflow_hidden()
             .relative()
             .when(edit.is_none(), |input| {
                 input.smooth_hover_background(
