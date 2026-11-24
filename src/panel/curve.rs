@@ -146,13 +146,15 @@ impl Panel {
                     .child((100 - i * 20).to_string())
             }));
         let x_labels = div().relative().h(px(18.)).children((0..=5).map(|i| {
-            div()
-                .absolute()
-                .left(relative(i as f32 / 5.))
-                .ml(px(-16.))
-                .w(px(32.))
-                .text_center()
-                .child((i * 20).to_string())
+            let tick = div().absolute().w(px(32.)).child((i * 20).to_string());
+            match i {
+                0 => tick.left_0(),
+                5 => tick.right_0().text_right(),
+                _ => tick
+                    .left(relative(i as f32 / 5.))
+                    .ml(px(-16.))
+                    .text_center(),
+            }
         }));
         let key = |label, color| {
             div()
@@ -167,7 +169,6 @@ impl Panel {
                 .flex()
                 .flex_col()
                 .gap_2()
-                .pr(px(16.))
                 .text_xs()
                 .text_color(rgb(palette.muted_text))
                 .child(

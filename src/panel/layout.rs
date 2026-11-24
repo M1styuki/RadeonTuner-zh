@@ -1,4 +1,7 @@
-use super::{NAV_WIDTH, Panel};
+use super::{
+    NAV_WIDTH, Panel, motion,
+    shape::{self, ContinuousCorners},
+};
 use gpui::{Context, Div, PathBuilder, Pixels, canvas, div, point, prelude::*, px, rgb};
 use std::collections::HashSet;
 
@@ -136,6 +139,16 @@ impl Panel {
         if self.page == 5 {
             return header;
         }
+        header = header
+            .bg(rgb(motion::mix(
+                self.palette.canvas,
+                self.palette.sidebar,
+                0.55,
+            )))
+            .border_b_1()
+            .border_color(rgb(self.palette.border))
+            .gap_3()
+            .pb_3();
         let mut locations = HashSet::new();
         let devices = self
             .devices
@@ -192,9 +205,19 @@ impl Panel {
         };
         header = header.child(toolbar);
         if !self.metrics.is_empty() {
-            let columns =
-                (((viewport - px(NAV_WIDTH + 32.)) / px(118.)).floor() as u16).clamp(1, 5);
-            let mut stats = div().w_full().grid().grid_cols(columns).gap_x_4().gap_y_2();
+            let stats_width = viewport - px(NAV_WIDTH + 32. + 24.);
+            let columns = (((stats_width + px(16.)) / px(146.)).floor() as u16).clamp(1, 5);
+            let card_color = motion::mix(self.palette.canvas, self.palette.selected, 0.75);
+            let mut stats = div()
+                .w_full()
+                .grid()
+                .grid_cols(columns)
+                .gap_x_4()
+                .gap_y_2()
+                .px_3()
+                .py_2()
+                .smooth_background(card_color)
+                .child(shape::outline(self.palette.border));
             for (i, item) in self.metrics.iter().enumerate() {
                 let reading = item
                     .value
@@ -205,10 +228,13 @@ impl Panel {
                         .id(("metric", i))
                         .min_w_0()
                         .flex()
-                        .flex_col()
+                        .items_baseline()
+                        .justify_between()
+                        .gap_2()
                         .tooltip(self.tooltip(item.label))
                         .child(
                             div()
+                                .min_w_0()
                                 .text_xs()
                                 .truncate()
                                 .text_color(rgb(self.palette.muted_text))
@@ -217,7 +243,7 @@ impl Panel {
                         .child(
                             div()
                                 .flex()
-                                .justify_end()
+                                .flex_shrink_0()
                                 .items_baseline()
                                 .gap_1()
                                 .whitespace_nowrap()

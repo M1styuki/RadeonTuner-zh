@@ -1,11 +1,12 @@
 use super::Panel;
 use crate::panel::shape::ContinuousCorners;
 use gpui::{
-    Bounds, Context, Div, FocusHandle, KeyDownEvent, Pixels, Stateful, Subscription, div, fill,
-    point, prelude::*, px, rgb, size,
+    Bounds, Context, Div, FocusHandle, KeyDownEvent, Pixels, Size, Stateful, Subscription, div,
+    fill, point, prelude::*, px, rgb, size,
 };
 
-const THUMB_RADIUS: f32 = 6.;
+const THUMB_RADIUS: f32 = 7.;
+const SLIDER_HEIGHT: f32 = 28.;
 
 fn slider_fraction(bounds: Bounds<Pixels>, x: Pixels) -> f32 {
     let inset = px(THUMB_RADIUS);
@@ -112,22 +113,42 @@ impl Panel {
         cx: &mut Context<Self>,
     ) -> Div {
         let compact = matches!(field, Field::Tuning(i) if self.is_fan_point(i));
+        let has_slider = !matches!(field, Field::Custom(_)) && max > min;
         let width = match (field, unit) {
             (Field::Custom(_), "×10 kHz") => 130.,
             (Field::Custom(_), _) => 98.,
-            (Field::Gamma(_), _) => 68.,
-            _ if min >= -999 && max <= 999 && matches!(unit, "°C" | "%" | "") => 64.,
-            _ => 88.,
+            _ => {
+                let widest = [min, max, value]
+                    .into_iter()
+                    .map(|n| {
+                        let reading = format!("{} {unit}", format_number(field, n));
+                        self.control_text_width(reading.trim_end(), cx)
+                    })
+                    .fold(0., f32::max);
+                let floor = if compact { 56. } else { 48. };
+                (((widest + 12.) / 4.).ceil() * 4.).max(floor)
+            }
         };
-        let text = self.number_text(field, value, min, max, step, unit, width, cx);
+        let height = if has_slider { SLIDER_HEIGHT } else { 32. };
+        let text = self.number_text(
+            field,
+            value,
+            min,
+            max,
+            step,
+            unit,
+            size(px(width), px(height)),
+            cx,
+        );
         let input = div().flex().items_center().gap_2();
-        if matches!(field, Field::Custom(_)) || max <= min {
+        if !has_slider {
             return input.child(text);
         }
         let input = if compact {
             input.w_full().min_w_0()
         } else {
-            input.w(px(184. + 8. + width))
+            let rail = (width * 4.).min(240.);
+            input.w(px(rail + 2. * THUMB_RADIUS + 8. + width))
         };
         let position = move |fraction: f32| {
             let range = i64::from(max) - i64::from(min);
@@ -195,7 +216,7 @@ impl Panel {
                 div()
                     .flex_1()
                     .min_w(px(20.))
-                    .h(px(24.))
+                    .h(px(SLIDER_HEIGHT))
                     .smooth_hover_background(None, palette.hover, super::shape::CONTROL_CORNER)
                     .cursor_pointer()
                     .on_mouse_down(
@@ -224,7 +245,7 @@ impl Panel {
         max: i32,
         step: i32,
         unit: &'static str,
-        width: f32,
+        input_size: Size<Pixels>,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let id = match field {
@@ -239,10 +260,9 @@ impl Panel {
         let edit = self.edit.as_ref().filter(|e| e.field == field);
         let base = div()
             .id(id)
-            .w(px(width))
+            .size(input_size)
             .px_1()
             .flex_shrink_0()
-            .h(px(32.))
             .flex()
             .justify_center()
             .items_center()
@@ -341,11 +361,7 @@ impl Panel {
                     cx.notify();
                 }));
         }
-        let formatted = if matches!(field, Field::Gamma(_)) {
-            format!("{:.2}", value as f64 / 100.)
-        } else {
-            value.to_string()
-        };
+        let formatted = format_number(field, value);
         base.cursor_text()
             .child(format!("{formatted} {unit}").trim_end().to_owned())
             .on_click(cx.listener(move |p, _, window, cx| {
@@ -372,5 +388,13 @@ impl Panel {
                 });
                 cx.notify();
             }))
+    }
+}
+
+fn format_number(field: Field, value: i32) -> String {
+    if matches!(field, Field::Gamma(_)) {
+        format!("{:.2}", value as f64 / 100.)
+    } else {
+        value.to_string()
     }
 }

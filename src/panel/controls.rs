@@ -3,7 +3,7 @@ use super::{
     shape::{self, ContinuousCorners},
 };
 use gpui::{
-    Bounds, Context, Corner, Div, ElementId, IntoElement, KeyDownEvent, PathBuilder, Pixels,
+    App, Bounds, Context, Corner, Div, ElementId, IntoElement, KeyDownEvent, PathBuilder, Pixels,
     Window, anchored, canvas, deferred, div, point, prelude::*, px, rgb,
 };
 use std::{cell::Cell, rc::Rc};
@@ -88,12 +88,19 @@ impl Panel {
     }
 
     fn toggle_switch(&self, on: bool, enabled: bool) -> Div {
+        const TRACK_WIDTH: f32 = 34.;
+        const TRACK_HEIGHT: f32 = 20.;
+        const THUMB_DIAMETER: f32 = 14.;
+        const INSET: f32 = (TRACK_HEIGHT - THUMB_DIAMETER) / 2.;
         let palette = self.palette;
         div()
-            .relative()
-            .w(px(44.))
+            .w(px(42.))
             .h(px(32.))
             .flex_shrink_0()
+            .flex()
+            .justify_end()
+            .items_center()
+            .group("switch-track")
             .child(motion::transition(
                 "switch-slide",
                 if on { 1. } else { 0. },
@@ -101,31 +108,36 @@ impl Panel {
                 move |progress| {
                     let fill = motion::mix(palette.control, palette.accent, progress);
                     let hover = motion::mix(palette.hover, palette.accent_hover, progress);
+                    let border = motion::mix(palette.border, palette.accent, progress);
+                    let travel = TRACK_WIDTH - TRACK_HEIGHT;
                     div()
                         .relative()
-                        .size_full()
+                        .w(px(TRACK_WIDTH))
+                        .h(px(TRACK_HEIGHT))
                         .child(
                             div()
                                 .absolute()
-                                .top(px(6.))
-                                .w_full()
-                                .h(px(20.))
+                                .top_0()
+                                .left_0()
+                                .size_full()
                                 .rounded_full()
                                 .border_1()
-                                .border_color(rgb(palette.border))
+                                .border_color(rgb(border))
                                 .bg(rgb(fill))
                                 .when(enabled, |track| {
-                                    track.hover(move |style| style.bg(rgb(hover)))
+                                    track.group_hover("switch-track", move |style| {
+                                        style.bg(rgb(hover))
+                                    })
                                 }),
                         )
                         .child(
                             div()
                                 .absolute()
-                                .top(px(10.))
-                                .left(px(4. + 24. * progress))
-                                .size(px(12.))
+                                .top(px(INSET))
+                                .left(px(INSET + travel * progress))
+                                .size(px(THUMB_DIAMETER))
                                 .rounded_full()
-                                .bg(rgb(motion::mix(palette.text, 0xffffff, progress))),
+                                .bg(rgb(motion::mix(palette.muted_text, 0xffffff, progress))),
                         )
                 },
             ))
@@ -237,6 +249,21 @@ impl Panel {
         self.setting_row(label, div().child(switch))
     }
 
+    pub(super) fn control_text_width(&self, text: &str, cx: &App) -> f32 {
+        let text_system = cx.text_system();
+        let font = text_system.resolve_font(&gpui::font("Microsoft YaHei UI"));
+        let mut advances = self.control_glyph_widths.borrow_mut();
+        text.chars()
+            .map(|ch| {
+                *advances.entry(ch).or_insert_with(|| {
+                    text_system
+                        .advance(font, px(13.), ch)
+                        .map_or(13., |size| size.width / px(1.))
+                })
+            })
+            .sum()
+    }
+
     pub(super) fn select(
         &self,
         id: impl Into<ElementId>,
@@ -280,20 +307,7 @@ impl Panel {
             .to_string();
         let palette = self.palette;
         let count = options.len();
-        let text_system = cx.text_system();
-        let font = text_system.resolve_font(&gpui::font("Microsoft YaHei UI"));
-        let measure = |text: &str| {
-            let mut advances = self.select_glyph_widths.borrow_mut();
-            text.chars()
-                .map(|ch| {
-                    *advances.entry(ch).or_insert_with(|| {
-                        text_system
-                            .advance(font, px(13.), ch)
-                            .map_or(13., |size| size.width / px(1.))
-                    })
-                })
-                .sum::<f32>()
-        };
+        let measure = |text: &str| self.control_text_width(text, cx);
         let selected_width = measure(&selected);
         let width = match width.into() {
             SelectWidth::Fit(max) => {

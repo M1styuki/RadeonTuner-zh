@@ -35,7 +35,7 @@ mod tuning;
 struct Panel {
     picker: Option<picker::Picker>,
     dropdown: Option<controls::Dropdown>,
-    select_glyph_widths: RefCell<HashMap<char, f32>>,
+    control_glyph_widths: RefCell<HashMap<char, f32>>,
     animations: bool,
     updates: updates::Updates,
     start_check_update: bool,
@@ -182,7 +182,14 @@ impl Render for Panel {
                 gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight
             ),
         );
-        let mut content = div().flex().flex_col().w_full().gap_3().px_4().pb_4();
+        let mut content = div()
+            .flex()
+            .flex_col()
+            .w_full()
+            .gap_3()
+            .px_4()
+            .pb_4()
+            .when(self.page != 5, |content| content.pt_3());
         if self.page == 6 || self.updates.has_notice() {
             content = content.child(self.update_controls(cx));
         }
@@ -377,7 +384,7 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
     let mut panel = Panel {
         picker: None,
         dropdown: None,
-        select_glyph_widths: Default::default(),
+        control_glyph_widths: Default::default(),
         animations: motion::enabled(),
         updates: Default::default(),
         start_check_update: settings.flag("StartCheckUpdate", true)?,
