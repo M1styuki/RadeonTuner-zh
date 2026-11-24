@@ -508,8 +508,11 @@ impl Panel {
             section = section.child(
                 div()
                     .id("fsr-library-path")
+                    .w_full()
                     .text_xs()
-                    .truncate()
+                    .whitespace_nowrap()
+                    .overflow_hidden()
+                    .text_color(gpui::rgb(self.palette.muted_text))
                     .tooltip(self.tooltip_owned(path.clone().into()))
                     .child(path),
             );

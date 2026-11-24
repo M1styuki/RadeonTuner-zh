@@ -21,16 +21,18 @@ struct Tooltip {
 
 impl Render for Tooltip {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .max_w(px(366.))
-            .px(px(10.))
-            .py(px(7.))
-            .text_size(px(12.))
-            .font_family("Microsoft YaHei UI")
-            .text_color(rgb(self.palette.text))
-            .smooth_background(self.palette.control)
-            .child(shape::outline(self.palette.border))
-            .child(self.text.clone())
+        div().py(px(12.)).child(
+            div()
+                .max_w(px(366.))
+                .px(px(10.))
+                .py(px(7.))
+                .text_size(px(12.))
+                .font_family("Microsoft YaHei UI")
+                .text_color(rgb(self.palette.text))
+                .smooth_background(self.palette.control)
+                .child(shape::outline(self.palette.border))
+                .child(self.text.clone()),
+        )
     }
 }
 
