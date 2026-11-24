@@ -4,7 +4,7 @@ use super::{
 };
 use gpui::{
     App, Bounds, Context, Corner, Div, ElementId, IntoElement, KeyDownEvent, PathBuilder, Pixels,
-    Window, anchored, canvas, deferred, div, point, prelude::*, px, rgb,
+    Window, anchored, canvas, deferred, div, point, prelude::*, px, rgb, size,
 };
 use std::{cell::Cell, rc::Rc};
 
@@ -91,8 +91,7 @@ impl Panel {
         const TRACK_WIDTH: f32 = 34.;
         const TRACK_HEIGHT: f32 = 20.;
         const THUMB_DIAMETER: f32 = 12.;
-        const TRACK_RADIUS: f32 = TRACK_HEIGHT / 2.;
-        const THUMB_RADIUS: f32 = THUMB_DIAMETER / 2.;
+        const OUTLINE_WIDTH: f32 = 1.;
         let palette = self.palette;
         div()
             .w(px(42.))
@@ -109,45 +108,49 @@ impl Panel {
                 move |progress| {
                     let fill = motion::mix(palette.control, palette.accent, progress);
                     let hover = motion::mix(palette.hover, palette.accent_hover, progress);
-                    let border = |active| {
-                        motion::mix(
-                            palette.border,
-                            motion::mix(active, 0xffffff, 0.42),
-                            progress,
-                        )
-                    };
-                    let rounded = |mut element: Div, radius: f32| {
-                        let radius = Some(px(radius).into());
-                        let corners = &mut element.style().corner_radii;
-                        corners.top_left = radius;
-                        corners.top_right = radius;
-                        corners.bottom_left = radius;
-                        corners.bottom_right = radius;
-                        element
-                    };
-                    let track =
-                        rounded(div().absolute().top_0().left_0().size_full(), TRACK_RADIUS)
-                            .border_1()
-                            .border_color(rgb(border(palette.accent)))
-                            .bg(rgb(fill))
-                            .when(enabled, |track| {
-                                let hover_border = border(palette.accent_hover);
-                                track.group_hover("switch-track", move |style| {
-                                    style.bg(rgb(hover)).border_color(rgb(hover_border))
-                                })
-                            });
-                    // At either stop, the thumb shares the center of the track's semicircle.
-                    let center_x = TRACK_RADIUS + (TRACK_WIDTH - TRACK_HEIGHT) * progress;
-                    let thumb = rounded(div().absolute().size(px(THUMB_DIAMETER)), THUMB_RADIUS)
-                        .top(px(TRACK_RADIUS - THUMB_RADIUS))
-                        .left(px(center_x - THUMB_RADIUS))
-                        .bg(rgb(motion::mix(palette.muted_text, 0xffffff, progress)));
+                    let outline = motion::mix(
+                        palette.border,
+                        motion::mix(palette.accent, 0xffffff, 0.42),
+                        progress,
+                    );
+                    let knob = motion::mix(palette.muted_text, 0xffffff, progress);
                     div()
-                        .relative()
                         .w(px(TRACK_WIDTH))
                         .h(px(TRACK_HEIGHT))
-                        .child(track)
-                        .child(thumb)
+                        .text_color(rgb(fill))
+                        .when(enabled, |track| {
+                            track.group_hover("switch-track", move |style| {
+                                style.text_color(rgb(hover))
+                            })
+                        })
+                        .child(
+                            canvas(
+                                |_, _, _| (),
+                                move |bounds, _, window, _| {
+                                    let radius = px(THUMB_DIAMETER / 2.);
+                                    let center = bounds.center();
+                                    let travel = bounds.size.width - bounds.size.height;
+                                    let knob_bounds = Bounds::new(
+                                        point(
+                                            center.x + travel * (progress - 0.5) - radius,
+                                            center.y - radius,
+                                        ),
+                                        size(px(THUMB_DIAMETER), px(THUMB_DIAMETER)),
+                                    );
+                                    let fill = window.text_style().color;
+                                    for (shape, color) in [
+                                        (bounds, rgb(outline).into()),
+                                        (bounds.dilate(px(-OUTLINE_WIDTH)), fill),
+                                        (knob_bounds, rgb(knob).into()),
+                                    ] {
+                                        if let Ok(path) = capsule(shape).build() {
+                                            window.paint_path(path, color);
+                                        }
+                                    }
+                                },
+                            )
+                            .size_full(),
+                        )
                 },
             ))
     }
@@ -539,6 +542,21 @@ impl Panel {
         }
         wrapper
     }
+}
+
+fn capsule(bounds: Bounds<Pixels>) -> PathBuilder {
+    let radius = bounds.size.height * 0.5;
+    let left = bounds.left() + radius;
+    let right = bounds.right() - radius;
+    let radii = point(radius, radius);
+    let mut path = PathBuilder::fill();
+    path.move_to(point(left, bounds.top()));
+    path.line_to(point(right, bounds.top()));
+    path.arc_to(radii, px(0.), false, true, point(right, bounds.bottom()));
+    path.line_to(point(left, bounds.bottom()));
+    path.arc_to(radii, px(0.), false, true, point(left, bounds.top()));
+    path.close();
+    path
 }
 
 fn option_tip(label: &str, detail: Option<&str>, clipped: bool) -> Option<String> {
