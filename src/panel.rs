@@ -18,6 +18,7 @@ mod curve;
 mod display;
 mod graphics;
 mod layout;
+mod motion;
 mod multimedia;
 mod numeric;
 mod picker;
@@ -32,6 +33,8 @@ mod tuning;
 struct Panel {
     picker: Option<picker::Picker>,
     dropdown: Option<controls::Dropdown>,
+    animations: bool,
+    two_columns: bool,
     updates: updates::Updates,
     start_check_update: bool,
     picker_generation: u64,
@@ -116,17 +119,23 @@ impl Panel {
                 palette.hover,
                 shape::NAV_CORNER,
             )
-            .when(selected, |row| {
-                row.child(
+            .child(motion::transition(
+                "nav-marker",
+                if selected { 1. } else { 0. },
+                self.animations,
+                move |t| {
                     div()
                         .absolute()
                         .left_0()
-                        .top(px(15.))
+                        .top(px(29. - 14. * t))
                         .w(px(2.))
-                        .h(px(28.))
-                        .child(shape::surface_radius(palette.accent, 1.)),
-                )
-            })
+                        .h(px(28. * t))
+                        .opacity(t)
+                        .when(t > 0., |marker| {
+                            marker.child(shape::surface_radius(palette.accent, 1.))
+                        })
+                },
+            ))
             .child(layout::nav_icon(i, palette.light))
             .child(label.to_string())
     }
@@ -150,6 +159,7 @@ impl Panel {
 
 impl Render for Panel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.two_columns = window.viewport_size().width >= px(752.);
         self.palette = theme::Palette::resolve(
             self.style,
             matches!(
@@ -284,7 +294,11 @@ impl Render for Panel {
                             .flex_1()
                             .min_h_0()
                             .overflow_y_scroll()
-                            .child(content),
+                            .child(motion::reveal(
+                                content,
+                                ("page-entrance", self.page),
+                                self.animations,
+                            )),
                     ),
             );
         if self.picker.is_some() {
@@ -348,6 +362,8 @@ fn open_panel(initialize: impl FnOnce(&mut Panel)) -> Result<()> {
     let mut panel = Panel {
         picker: None,
         dropdown: None,
+        animations: motion::enabled(),
+        two_columns: true,
         updates: Default::default(),
         start_check_update: settings.flag("StartCheckUpdate", true)?,
         picker_generation: 0,

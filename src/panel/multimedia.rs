@@ -232,12 +232,16 @@ impl Panel {
             .video
             .iter()
             .any(|control| control.feature == Feature::Upscale && control.draft != 0);
+        let mut picture = div().flex().flex_col();
+        let mut has_picture = false;
+        let mut brightness = None;
         for (i, control) in self.video.iter().enumerate() {
-            let label = control.feature.label();
+            let label = self.hint_label(control.feature.label());
             if control.feature == Feature::Upscale {
-                section = section.child(self.toggle_row(
+                has_picture = true;
+                picture = picture.child(self.toggle_row(
                     "video-upscale",
-                    self.hint_label(label),
+                    label,
                     control.draft != 0,
                     true,
                     move |p, _| p.video[i].draft = i32::from(p.video[i].draft == 0),
@@ -245,8 +249,8 @@ impl Panel {
                 ));
             } else if control.feature != Feature::Sharpness || upscale {
                 let (min, max, _) = control.feature.limits();
-                section = section.child(self.setting_row(
-                    self.hint_label(label),
+                let row = self.setting_row(
+                    label,
                     self.number(
                         super::numeric::Field::Video(i),
                         control.draft,
@@ -256,15 +260,27 @@ impl Panel {
                         "",
                         cx,
                     ),
-                ));
+                );
+                if control.feature == Feature::Brightness {
+                    brightness = Some(row);
+                } else {
+                    has_picture = true;
+                    picture = picture.child(row);
+                }
             }
         }
+        let sections = has_picture
+            .then_some(("视频超分辨率和锐化", picture))
+            .into_iter()
+            .chain(brightness.map(|row| ("视频亮度", row)));
+
         div()
             .flex()
             .flex_col()
             .gap_2()
             .child(self.video_actions(cx))
             .child(section)
+            .child(self.setting_sections(sections))
             .child(self.video_status.clone())
     }
 

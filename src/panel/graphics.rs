@@ -196,179 +196,222 @@ impl Panel {
             section = section.child(game.clone());
         }
         use crate::adl::graphics::frames::Field;
-        let order = [
-            "DeLagEnabled.Current",
-            "MfgRatio.Current",
-            "FsrShowInformation.Current",
-            "FsrDisableMLSwapchain.Current",
-            "FsrOverride.Current",
-            "MlfiOverride.Current",
-            "MfgOverride.Current",
-            "MldOverride.Current",
-            "NrcOverride.Current",
-            "FsrOvrDLLPath.Current",
-            "FrameGenEnabled.Current",
-            "FrameGenAlgorithm.Current",
-            "ChillEnabled.Current",
-            "ChillMinFps.Current",
-            "ChillMaxFps.Current",
-            "FrtcEnabled.Current",
-            "FrtcFrameRateTarget.Current",
-            "BoostMode.Current",
-            "BoostMinResolution.Current",
-            "RisEnabled.Current",
-            "RisDesktopEnabled.Current",
-            "RisSharpeningDegree.Current",
-            "VerticalSync.Current",
-            "EnhancedSync.Current",
-            "OpenGLTripleBuffering.Current",
-            "AntiAliasingOverride.Current",
-            "AntiAliasingMethod.Current",
-            "AntiAliasingLevel.Current",
-            "AntiAliasingEnhancedQuality.Current",
-            "AntiAliasingMorphological.Current",
-            "AnisotropicOverride.Current",
-            "TextureFilteringQuality.Current",
-            "SurfaceFormatOptimization.Current",
-            "OpenGL10BitPixelFormat.Current",
-            "TessellationMode.Current",
-            "TessellationLevel.Current",
+        const GROUPS: &[(&str, &[&str])] = &[
+            (
+                "FSR 与延迟降低",
+                &[
+                    "DeLagEnabled.Current",
+                    "MfgRatio.Current",
+                    "FsrShowInformation.Current",
+                    "FsrDisableMLSwapchain.Current",
+                    "FsrOverride.Current",
+                    "MlfiOverride.Current",
+                    "MfgOverride.Current",
+                    "MldOverride.Current",
+                    "NrcOverride.Current",
+                    "FsrOvrDLLPath.Current",
+                ],
+            ),
+            (
+                "帧生成与帧率",
+                &[
+                    "FrameGenEnabled.Current",
+                    "FrameGenAlgorithm.Current",
+                    "ChillEnabled.Current",
+                    "ChillMinFps.Current",
+                    "ChillMaxFps.Current",
+                    "FrtcEnabled.Current",
+                    "FrtcFrameRateTarget.Current",
+                ],
+            ),
+            (
+                "动态分辨率与锐化",
+                &[
+                    "BoostMode.Current",
+                    "BoostMinResolution.Current",
+                    "RisEnabled.Current",
+                    "RisDesktopEnabled.Current",
+                    "RisSharpeningDegree.Current",
+                ],
+            ),
+            (
+                "同步",
+                &[
+                    "VerticalSync.Current",
+                    "EnhancedSync.Current",
+                    "OpenGLTripleBuffering.Current",
+                ],
+            ),
+            (
+                "抗锯齿",
+                &[
+                    "AntiAliasingOverride.Current",
+                    "AntiAliasingMethod.Current",
+                    "AntiAliasingLevel.Current",
+                    "AntiAliasingEnhancedQuality.Current",
+                    "AntiAliasingMorphological.Current",
+                ],
+            ),
+            (
+                "纹理与曲面细分",
+                &[
+                    "AnisotropicOverride.Current",
+                    "TextureFilteringQuality.Current",
+                    "SurfaceFormatOptimization.Current",
+                    "OpenGL10BitPixelFormat.Current",
+                    "TessellationMode.Current",
+                    "TessellationLevel.Current",
+                ],
+            ),
         ];
-        for key in order {
-            if key == "FsrOvrDLLPath.Current" {
-                section = section.children(self.fsr_controls(cx));
-                continue;
-            }
-            if let Some((i, control)) = self
-                .frames
-                .iter()
-                .enumerate()
-                .find(|(_, c)| c.field.name() == key)
-            {
-                if !control.field.enabled(&self.frames)
-                    || (control.field.experimental() && !self.experimental)
+        let mut categories = Vec::new();
+        for &(name, keys) in GROUPS {
+            let mut rows = div().flex().flex_col();
+            let mut has_rows = false;
+            for &key in keys {
+                if key == "FsrOvrDLLPath.Current" {
+                    if let Some(fsr) = self.fsr_controls(cx) {
+                        rows = rows.child(fsr);
+                        has_rows = true;
+                    }
+                    continue;
+                }
+                if let Some((i, control)) = self
+                    .frames
+                    .iter()
+                    .enumerate()
+                    .find(|(_, c)| c.field.name() == key)
                 {
-                    continue;
-                }
-                let label = control.field.label();
-                let mut control_view = if control.min == 0 && control.max == 1 {
-                    section = section.child(self.toggle_row(
-                        ("frame-toggle", i),
-                        self.hint_label(label),
-                        control.draft != 0,
-                        true,
-                        move |p, _| p.change_frame(i, i32::from(p.frames[i].draft == 0)),
-                        cx,
-                    ));
-                    continue;
-                } else if !control.field.entries().is_empty() {
-                    self.select(
-                        ("frame-choice", i),
-                        control
-                            .field
-                            .entries()
-                            .iter()
-                            .map(|s| s.to_string())
-                            .collect(),
-                        Some(control.draft as usize),
-                        label,
-                        crate::panel::controls::SELECT_MAX_WIDTH,
-                        move |p, value, _| p.change_frame(i, value as i32),
-                        cx,
-                    )
-                } else if self.chill_linked && control.field == Field::Low {
-                    div().child(format!("{} FPS", control.draft)).opacity(0.5)
-                } else {
-                    self.number(
-                        super::numeric::Field::Frame(i),
-                        control.draft,
-                        control.min,
-                        control.max,
-                        control.step,
-                        control.field.unit(),
-                        cx,
-                    )
-                };
-                if control.field == Field::High {
-                    control_view = div()
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .child(
-                            self.button_style(true)
-                                .min_w(gpui::px(44.))
-                                .id("chill-link")
-                                .cursor_pointer()
-                                .child(if self.chill_linked {
-                                    "取消联动"
-                                } else {
-                                    "联动"
-                                })
-                                .on_click(cx.listener(|p, _, _, cx| {
-                                    p.chill_linked = !p.chill_linked;
-                                    cx.notify();
-                                })),
-                        )
-                        .child(control_view);
-                }
-                section = section.child(self.setting_row(self.hint_label(label), control_view));
-            }
-            if let Some((i, s)) = self
-                .graphics
-                .iter()
-                .enumerate()
-                .find(|(_, s)| s.choice.profile_key == key)
-            {
-                if s.choice.experimental && !self.experimental {
-                    continue;
-                }
-                let label = s.choice.label;
-                let set = move |p: &mut Panel, index, _: &mut Context<Panel>| {
-                    p.graphics[i].draft = index;
-                    p.graphics_dirty = true;
-                };
-                if matches!(
-                    key,
-                    "FsrOverride.Current"
-                        | "MlfiOverride.Current"
-                        | "MfgOverride.Current"
-                        | "MldOverride.Current"
-                        | "NrcOverride.Current"
-                        | "EnhancedSync.Current"
-                        | "OpenGLTripleBuffering.Current"
-                        | "AntiAliasingOverride.Current"
-                        | "AntiAliasingEnhancedQuality.Current"
-                        | "AntiAliasingMorphological.Current"
-                        | "SurfaceFormatOptimization.Current"
-                ) {
-                    section = section.child(self.toggle_row(
-                        ("graphics-toggle", i),
-                        self.hint_label(label),
-                        s.draft != 0,
-                        true,
-                        move |p, cx| set(p, usize::from(p.graphics[i].draft == 0), cx),
-                        cx,
-                    ));
-                } else {
-                    section = section.child(
-                        self.setting_row(
+                    if !control.field.enabled(&self.frames)
+                        || (control.field.experimental() && !self.experimental)
+                    {
+                        continue;
+                    }
+                    has_rows = true;
+                    let label = control.field.label();
+                    let mut control_view = if control.min == 0 && control.max == 1 {
+                        rows = rows.child(self.toggle_row(
+                            ("frame-toggle", i),
                             self.hint_label(label),
-                            self.select(
-                                ("graphics-choice", i),
-                                s.choice
-                                    .entries
-                                    .iter()
-                                    .map(|(label, _)| label.to_string())
-                                    .collect(),
-                                Some(s.draft),
-                                label,
-                                crate::panel::controls::SELECT_MAX_WIDTH,
-                                set,
-                                cx,
-                            ),
-                        ),
-                    );
+                            control.draft != 0,
+                            true,
+                            move |p, _| p.change_frame(i, i32::from(p.frames[i].draft == 0)),
+                            cx,
+                        ));
+                        continue;
+                    } else if !control.field.entries().is_empty() {
+                        self.select(
+                            ("frame-choice", i),
+                            control
+                                .field
+                                .entries()
+                                .iter()
+                                .map(|s| s.to_string())
+                                .collect(),
+                            Some(control.draft as usize),
+                            label,
+                            crate::panel::controls::SELECT_MAX_WIDTH,
+                            move |p, value, _| p.change_frame(i, value as i32),
+                            cx,
+                        )
+                    } else if self.chill_linked && control.field == Field::Low {
+                        div().child(format!("{} FPS", control.draft)).opacity(0.5)
+                    } else {
+                        self.number(
+                            super::numeric::Field::Frame(i),
+                            control.draft,
+                            control.min,
+                            control.max,
+                            control.step,
+                            control.field.unit(),
+                            cx,
+                        )
+                    };
+                    if control.field == Field::High {
+                        control_view = div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                self.button_style(true)
+                                    .min_w(gpui::px(44.))
+                                    .id("chill-link")
+                                    .cursor_pointer()
+                                    .child(if self.chill_linked {
+                                        "取消联动"
+                                    } else {
+                                        "联动"
+                                    })
+                                    .on_click(cx.listener(|p, _, _, cx| {
+                                        p.chill_linked = !p.chill_linked;
+                                        cx.notify();
+                                    })),
+                            )
+                            .child(control_view);
+                    }
+                    rows = rows.child(self.setting_row(self.hint_label(label), control_view));
                 }
+                if let Some((i, s)) = self
+                    .graphics
+                    .iter()
+                    .enumerate()
+                    .find(|(_, s)| s.choice.profile_key == key)
+                {
+                    if s.choice.experimental && !self.experimental {
+                        continue;
+                    }
+                    has_rows = true;
+                    let label = s.choice.label;
+                    let set = move |p: &mut Panel, index, _: &mut Context<Panel>| {
+                        p.graphics[i].draft = index;
+                        p.graphics_dirty = true;
+                    };
+                    if matches!(
+                        key,
+                        "FsrOverride.Current"
+                            | "MlfiOverride.Current"
+                            | "MfgOverride.Current"
+                            | "MldOverride.Current"
+                            | "NrcOverride.Current"
+                            | "EnhancedSync.Current"
+                            | "OpenGLTripleBuffering.Current"
+                            | "AntiAliasingOverride.Current"
+                            | "AntiAliasingEnhancedQuality.Current"
+                            | "AntiAliasingMorphological.Current"
+                            | "SurfaceFormatOptimization.Current"
+                    ) {
+                        rows = rows.child(self.toggle_row(
+                            ("graphics-toggle", i),
+                            self.hint_label(label),
+                            s.draft != 0,
+                            true,
+                            move |p, cx| set(p, usize::from(p.graphics[i].draft == 0), cx),
+                            cx,
+                        ));
+                    } else {
+                        rows = rows.child(
+                            self.setting_row(
+                                self.hint_label(label),
+                                self.select(
+                                    ("graphics-choice", i),
+                                    s.choice
+                                        .entries
+                                        .iter()
+                                        .map(|(label, _)| label.to_string())
+                                        .collect(),
+                                    Some(s.draft),
+                                    label,
+                                    crate::panel::controls::SELECT_MAX_WIDTH,
+                                    set,
+                                    cx,
+                                ),
+                            ),
+                        );
+                    }
+                }
+            }
+            if has_rows {
+                categories.push((name, rows));
             }
         }
         if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
@@ -380,6 +423,7 @@ impl Panel {
             .gap_2()
             .child(self.graphics_actions(cx))
             .child(section)
+            .child(self.setting_sections(categories))
             .child(self.graphics_status.clone())
     }
 

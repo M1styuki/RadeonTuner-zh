@@ -570,7 +570,8 @@ impl Panel {
     }
     pub(super) fn render_displays(&self, cx: &mut Context<Self>) -> Div {
         let page = &self.display;
-        let mut section = div().flex().flex_col().gap_0();
+        let mut categories = Vec::new();
+        let mut section = div().flex().flex_col();
         if let (Some(mode), Some(current), true) = (
             page.modes.get(page.choice),
             page.current,
@@ -674,6 +675,7 @@ impl Panel {
                         })),
                 );
             }
+            categories.push(("显示模式", section));
         }
         let correction_on = page
             .settings
@@ -690,142 +692,169 @@ impl Panel {
             .iter()
             .find(|s| s.feature == Feature::VariBright)
             .is_some_and(|s| s.draft != 0);
-        let order = [
-            Some(Feature::Hdr),
-            Some(Feature::FreeSync),
-            Some(Feature::Vsr),
-            Some(Feature::GpuScaling),
-            Some(Feature::IntegerScaling),
-            Some(Feature::Scaling),
-            Some(Feature::VariBright),
-            Some(Feature::VariBrightLevel),
-            Some(Feature::Depth),
-            Some(Feature::Pixel),
-            None,
-            Some(Feature::Color(1)),
-            Some(Feature::Color(2)),
-            Some(Feature::Color(4)),
-            Some(Feature::Color(8)),
-            Some(Feature::Enhancement),
-            Some(Feature::TemperatureSource),
-            Some(Feature::Color(16)),
-            Some(Feature::Correction(0)),
-            Some(Feature::Correction(1)),
-            Some(Feature::Correction(2)),
-            Some(Feature::Correction(3)),
-            Some(Feature::Hdcp),
+        const GROUPS: &[(&str, &[Option<Feature>])] = &[
+            (
+                "显示输出与缩放",
+                &[
+                    Some(Feature::Hdr),
+                    Some(Feature::FreeSync),
+                    Some(Feature::Vsr),
+                    Some(Feature::GpuScaling),
+                    Some(Feature::IntegerScaling),
+                    Some(Feature::Scaling),
+                    Some(Feature::Depth),
+                    Some(Feature::Pixel),
+                    Some(Feature::Hdcp),
+                ],
+            ),
+            (
+                "亮度与色彩",
+                &[
+                    Some(Feature::VariBright),
+                    Some(Feature::VariBrightLevel),
+                    None,
+                    Some(Feature::Color(1)),
+                    Some(Feature::Color(2)),
+                    Some(Feature::Color(4)),
+                    Some(Feature::Color(8)),
+                    Some(Feature::Enhancement),
+                    Some(Feature::TemperatureSource),
+                    Some(Feature::Color(16)),
+                ],
+            ),
+            (
+                "色觉辅助",
+                &[
+                    Some(Feature::Correction(0)),
+                    Some(Feature::Correction(1)),
+                    Some(Feature::Correction(2)),
+                    Some(Feature::Correction(3)),
+                ],
+            ),
         ];
-        for feature in order {
-            let Some(feature) = feature else {
-                if page.gamma_supported {
-                    section = section.child(self.toggle_row(
-                        "gamma-control",
-                        self.hint_label("显示伽马控制"),
-                        page.gamma.enabled,
-                        true,
-                        |p, _| p.display.gamma.enabled = !p.display.gamma.enabled,
-                        cx,
-                    ));
-                    if page.gamma.enabled {
-                        for (i, label) in [
-                            "显示伽马基准",
-                            "显示伽马红色",
-                            "显示伽马绿色",
-                            "显示伽马蓝色",
-                        ]
-                        .into_iter()
-                        .enumerate()
-                        {
-                            section = section.child(self.setting_row(
-                                self.hint_label(label),
-                                self.number(
-                                    super::numeric::Field::Gamma(i),
-                                    page.gamma.values[i],
-                                    50,
-                                    300,
-                                    1,
-                                    "",
-                                    cx,
-                                ),
-                            ));
+        for &(name, features) in GROUPS {
+            let mut rows = div().flex().flex_col();
+            let mut has_rows = false;
+            for &feature in features {
+                let Some(feature) = feature else {
+                    if page.gamma_supported {
+                        has_rows = true;
+                        rows = rows.child(self.toggle_row(
+                            "gamma-control",
+                            self.hint_label("显示伽马控制"),
+                            page.gamma.enabled,
+                            true,
+                            |p, _| p.display.gamma.enabled = !p.display.gamma.enabled,
+                            cx,
+                        ));
+                        if page.gamma.enabled {
+                            for (i, label) in [
+                                "显示伽马基准",
+                                "显示伽马红色",
+                                "显示伽马绿色",
+                                "显示伽马蓝色",
+                            ]
+                            .into_iter()
+                            .enumerate()
+                            {
+                                rows = rows.child(self.setting_row(
+                                    self.hint_label(label),
+                                    self.number(
+                                        super::numeric::Field::Gamma(i),
+                                        page.gamma.values[i],
+                                        50,
+                                        300,
+                                        1,
+                                        "",
+                                        cx,
+                                    ),
+                                ));
+                            }
                         }
                     }
-                }
-                continue;
-            };
-            let Some((i, setting)) = page
-                .settings
-                .iter()
-                .enumerate()
-                .find(|(_, s)| s.feature == feature)
-            else {
-                continue;
-            };
-
-            if page.app != "Global" && !setting.feature.per_app() {
-                continue;
-            }
-            if matches!(setting.feature, Feature::Correction(1..=3)) && !correction_on {
-                continue;
-            }
-            if setting.feature == Feature::Color(16) && !temperature_on {
-                continue;
-            }
-            if setting.feature == Feature::VariBrightLevel && !vari_bright_on {
-                continue;
-            }
-            if setting.min == 0 && setting.max == 1 {
-                section = section.child(self.toggle_row(
-                    ("display-toggle", i),
-                    self.hint_label(setting.label),
-                    setting.draft != 0,
-                    true,
-                    move |p, _| {
-                        p.display.settings[i].draft = i32::from(p.display.settings[i].draft == 0)
-                    },
-                    cx,
-                ));
-            } else if matches!(
-                setting.feature,
-                Feature::Color(_) | Feature::Correction(1..=3)
-            ) {
-                section = section.child(self.setting_row(
-                    self.hint_label(setting.label),
-                    self.number(
-                        super::numeric::Field::Display(i),
-                        setting.draft,
-                        setting.min,
-                        setting.max,
-                        setting.step,
-                        "",
-                        cx,
-                    ),
-                ));
-            } else {
-                let labels = if setting.choices().is_empty() {
-                    (setting.min..=setting.max)
-                        .step_by(setting.step as usize)
-                        .map(|n| n.to_string())
-                        .collect()
-                } else {
-                    setting.choices().iter().map(|s| s.to_string()).collect()
+                    continue;
                 };
-                let min = setting.min;
-                let step = setting.step;
-                section = section.child(self.setting_row(
-                    self.hint_label(setting.label),
-                    self.select(
-                        ("display-choice", i),
-                        labels,
-                        Some(((setting.draft - min) / step) as usize),
-                        setting.label,
-                        crate::panel::controls::SELECT_MAX_WIDTH,
-                        move |p, n, _| p.display.settings[i].draft = min + n as i32 * step,
+                let Some((i, setting)) = page
+                    .settings
+                    .iter()
+                    .enumerate()
+                    .find(|(_, s)| s.feature == feature)
+                else {
+                    continue;
+                };
+
+                if page.app != "Global" && !setting.feature.per_app() {
+                    continue;
+                }
+                if matches!(setting.feature, Feature::Correction(1..=3)) && !correction_on {
+                    continue;
+                }
+                if setting.feature == Feature::Color(16) && !temperature_on {
+                    continue;
+                }
+                if setting.feature == Feature::VariBrightLevel && !vari_bright_on {
+                    continue;
+                }
+                has_rows = true;
+                if setting.min == 0 && setting.max == 1 {
+                    rows = rows.child(self.toggle_row(
+                        ("display-toggle", i),
+                        self.hint_label(setting.label),
+                        setting.draft != 0,
+                        true,
+                        move |p, _| {
+                            p.display.settings[i].draft =
+                                i32::from(p.display.settings[i].draft == 0)
+                        },
                         cx,
-                    ),
-                ));
+                    ));
+                } else if matches!(
+                    setting.feature,
+                    Feature::Color(_) | Feature::Correction(1..=3)
+                ) {
+                    rows = rows.child(self.setting_row(
+                        self.hint_label(setting.label),
+                        self.number(
+                            super::numeric::Field::Display(i),
+                            setting.draft,
+                            setting.min,
+                            setting.max,
+                            setting.step,
+                            "",
+                            cx,
+                        ),
+                    ));
+                } else {
+                    let labels = if setting.choices().is_empty() {
+                        (setting.min..=setting.max)
+                            .step_by(setting.step as usize)
+                            .map(|n| n.to_string())
+                            .collect()
+                    } else {
+                        setting.choices().iter().map(|s| s.to_string()).collect()
+                    };
+                    let min = setting.min;
+                    let step = setting.step;
+                    rows = rows.child(self.setting_row(
+                        self.hint_label(setting.label),
+                        self.select(
+                            ("display-choice", i),
+                            labels,
+                            Some(((setting.draft - min) / step) as usize),
+                            setting.label,
+                            crate::panel::controls::SELECT_MAX_WIDTH,
+                            move |p, n, _| p.display.settings[i].draft = min + n as i32 * step,
+                            cx,
+                        ),
+                    ));
+                }
+            }
+            if has_rows {
+                categories.push((name, rows));
             }
         }
+        let mut extras = div().flex().flex_col();
+        let mut has_extras = false;
         if page.app == "Global" && page.current.is_some() {
             section = section.child(
                 self.setting_row(
@@ -864,7 +893,8 @@ impl Panel {
                 ),
             );
         } else if page.key.is_some() && page.app != "Global" {
-            section = section.child(self.toggle_row(
+            has_extras = true;
+            extras = extras.child(self.toggle_row(
                 "auto-eye",
                 self.hint_label("自动 Eyefinity"),
                 page.auto_eye,
@@ -873,15 +903,18 @@ impl Panel {
                 cx,
             ));
         }
-        if page.displays.is_empty() && page.status.is_empty() {
-            section = section.child("未检测到可用的 AMD 显示器");
+        if has_extras {
+            categories.push(("自定义分辨率与多屏", extras));
         }
         div()
             .flex()
             .flex_col()
             .gap_2()
             .child(self.display_actions(cx))
-            .child(section)
+            .child(self.setting_sections(categories))
+            .when(page.displays.is_empty() && page.status.is_empty(), |view| {
+                view.child("未检测到可用的 AMD 显示器")
+            })
             .child(page.status.clone())
     }
 

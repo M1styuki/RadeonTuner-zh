@@ -535,16 +535,13 @@ impl Panel {
             }
             return page;
         }
+        let mut groups = Vec::new();
         for (label, ids) in [
             ("核心调校", &[0, 1][..]),
             ("显存调校", &[8, 14, ECC][..]),
             ("功耗与电压", &[9, 37, 47][..]),
         ] {
-            let mut group = div()
-                .flex()
-                .flex_col()
-                .gap_2()
-                .child(div().text_lg().child(label));
+            let mut group = div().flex().flex_col();
             let mut found = false;
             for (i, control) in self.controls.iter().enumerate() {
                 if ids.contains(&control.id) {
@@ -553,10 +550,10 @@ impl Panel {
                 }
             }
             if found {
-                page = page.child(group);
+                groups.push((label, group));
             }
         }
-        page
+        page.child(self.setting_sections(groups))
     }
 
     fn fan_point_card(&self, cx: &mut Context<Self>) -> impl gpui::IntoElement {

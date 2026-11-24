@@ -4,14 +4,14 @@ use gpui::{Context, Div, div, prelude::*, px, rgb};
 
 impl Panel {
     pub(super) fn render_settings(&self, cx: &mut Context<Self>) -> Div {
-        let mut page = div().flex().flex_col();
+        let mut startup = div().flex().flex_col();
         for (i, link, label) in [
             (0, Link::Startup, "Windows 启动时自动运行"),
             (1, Link::StartMenu, "添加到开始菜单"),
             (2, Link::ContextMenu, "添加到桌面右键菜单"),
         ] {
             let enabled = link != Link::ContextMenu || self.admin;
-            page = page.child(self.toggle_row(
+            startup = startup.child(self.toggle_row(
                 ("link", i),
                 self.hint_label(label),
                 self.links[i],
@@ -23,44 +23,57 @@ impl Panel {
                 cx,
             ));
         }
-        for (key, label, on) in [
-            ("StartWindowVisible", "启动时显示窗口", self.start_visible),
-            ("SetTopMost", "窗口置顶", self.topmost),
-            ("CloseTray", "关闭到系统托盘", self.close_tray),
-            ("HideTrayIcon", "隐藏托盘图标", self.hide_tray),
-        ] {
-            page = page.child(self.preference(key, label, on, cx));
-        }
-        page = page.child(
-            self.setting_row(
-                self.hint_label("主题颜色样式"),
-                self.select(
-                    "theme",
-                    ["灰色", "黑色", "白色", "跟随系统"]
-                        .map(str::to_owned)
-                        .into(),
-                    Some(self.style as usize),
-                    "主题颜色样式",
-                    crate::panel::controls::SELECT_MAX_WIDTH,
-                    |p, i, _| match p.settings.set("ThemeStyle", serde_json::json!(i)) {
-                        Ok(()) => p.style = i as i64,
-                        Err(e) => p.settings_message = e.to_string(),
-                    },
-                    cx,
+        startup = startup.child(self.preference(
+            "StartWindowVisible",
+            "启动时显示窗口",
+            self.start_visible,
+            cx,
+        ));
+        let appearance = div()
+            .flex()
+            .flex_col()
+            .child(
+                self.setting_row(
+                    self.hint_label("主题颜色样式"),
+                    self.select(
+                        "theme",
+                        ["灰色", "黑色", "白色", "跟随系统"]
+                            .map(str::to_owned)
+                            .into(),
+                        Some(self.style as usize),
+                        "主题颜色样式",
+                        crate::panel::controls::SELECT_MAX_WIDTH,
+                        |p, i, _| match p.settings.set("ThemeStyle", serde_json::json!(i)) {
+                            Ok(()) => p.style = i as i64,
+                            Err(e) => p.settings_message = e.to_string(),
+                        },
+                        cx,
+                    ),
                 ),
-            ),
-        );
-        for (key, label, on) in [
-            ("ThemeIconMono", "显示单色应用程序图标", self.mono),
-            ("ShowExperimental", "显示实验性设置", self.experimental),
-            (
+            )
+            .child(self.preference("SetTopMost", "窗口置顶", self.topmost, cx))
+            .child(self.preference("ThemeIconMono", "显示单色应用程序图标", self.mono, cx));
+        let background = div()
+            .flex()
+            .flex_col()
+            .child(self.preference("CloseTray", "关闭到系统托盘", self.close_tray, cx))
+            .child(self.preference("HideTrayIcon", "隐藏托盘图标", self.hide_tray, cx))
+            .child(self.preference(
+                "StartCheckUpdate",
+                "启动时检查更新",
+                self.start_check_update,
+                cx,
+            ));
+        let advanced = div()
+            .flex()
+            .flex_col()
+            .child(self.preference("ShowExperimental", "显示实验性设置", self.experimental, cx))
+            .child(self.preference(
                 "SkipSupportCheckGraphics",
                 "跳过显卡功能支持检查",
                 self.skip_graphics_check,
-            ),
-        ] {
-            page = page.child(self.preference(key, label, on, cx));
-        }
+                cx,
+            ));
         let service_on = self.radeon_services == Some(State::Enabled);
         let service_available = matches!(
             self.radeon_services,
@@ -86,63 +99,68 @@ impl Panel {
                     .child(hint)
             }));
         let service_label = self.with_native_hints(service_label, "Radeon 服务");
-        page.child(self.toggle_row(
-            "services",
-            service_label,
-            service_on,
-            service_available && self.admin,
-            move |p, _| {
-                let result = integration::services::set_enabled(!service_on);
-                p.radeon_services = integration::services::state().ok();
-                p.settings_message = result
-                    .map(|()| {
-                        if service_on {
-                            "已禁用 Radeon 服务".into()
-                        } else {
-                            "已启用 Radeon 服务".into()
-                        }
-                    })
-                    .unwrap_or_else(|e| e.to_string());
-            },
-            cx,
-        ))
-        .child(self.preference(
-            "StartCheckUpdate",
-            "启动时检查更新",
-            self.start_check_update,
-            cx,
-        ))
-        .child(self.toggle_row(
-            "mpo",
-            self.hint_label("禁用多平面叠加（MPO）"),
-            self.mpo,
-            self.admin,
-            |p, _| match integration::set_mpo_disabled(!p.mpo) {
-                Ok(()) => {
-                    p.mpo = !p.mpo;
-                    p.settings_message = "MPO 设置已保存，重启电脑后生效".into();
-                }
-                Err(e) => p.settings_message = e.to_string(),
-            },
-            cx,
-        ))
-        .child(self.toggle_row(
-            "exclude-drivers",
-            self.hint_label("从 Windows 更新中排除驱动程序"),
-            self.excludes_drivers,
-            self.admin,
-            |p, _| match integration::set_excludes_drivers(!p.excludes_drivers) {
-                Ok(()) => {
-                    p.excludes_drivers = integration::excludes_drivers();
-                    p.settings_message = "Windows 更新设置已保存".into();
-                }
-                Err(e) => p.settings_message = e.to_string(),
-            },
-            cx,
-        ))
-        .when(!self.settings_message.is_empty(), |page| {
-            page.child(self.settings_message.clone())
-        })
+        let advanced = advanced
+            .child(self.toggle_row(
+                "services",
+                service_label,
+                service_on,
+                service_available && self.admin,
+                move |p, _| {
+                    let result = integration::services::set_enabled(!service_on);
+                    p.radeon_services = integration::services::state().ok();
+                    p.settings_message = result
+                        .map(|()| {
+                            if service_on {
+                                "已禁用 Radeon 服务".into()
+                            } else {
+                                "已启用 Radeon 服务".into()
+                            }
+                        })
+                        .unwrap_or_else(|e| e.to_string());
+                },
+                cx,
+            ))
+            .child(self.toggle_row(
+                "mpo",
+                self.hint_label("禁用多平面叠加（MPO）"),
+                self.mpo,
+                self.admin,
+                |p, _| match integration::set_mpo_disabled(!p.mpo) {
+                    Ok(()) => {
+                        p.mpo = !p.mpo;
+                        p.settings_message = "MPO 设置已保存，重启电脑后生效".into();
+                    }
+                    Err(e) => p.settings_message = e.to_string(),
+                },
+                cx,
+            ))
+            .child(self.toggle_row(
+                "exclude-drivers",
+                self.hint_label("从 Windows 更新中排除驱动程序"),
+                self.excludes_drivers,
+                self.admin,
+                |p, _| match integration::set_excludes_drivers(!p.excludes_drivers) {
+                    Ok(()) => {
+                        p.excludes_drivers = integration::excludes_drivers();
+                        p.settings_message = "Windows 更新设置已保存".into();
+                    }
+                    Err(e) => p.settings_message = e.to_string(),
+                },
+                cx,
+            ));
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(self.setting_sections([
+                ("启动与快捷方式", startup),
+                ("外观与窗口", appearance),
+                ("托盘与更新", background),
+                ("驱动与高级设置", advanced),
+            ]))
+            .when(!self.settings_message.is_empty(), |page| {
+                page.child(self.settings_message.clone())
+            })
     }
 
     fn preference(
