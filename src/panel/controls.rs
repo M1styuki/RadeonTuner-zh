@@ -4,7 +4,7 @@ use super::{
 };
 use gpui::{
     App, Bounds, Context, Corner, Div, ElementId, IntoElement, KeyDownEvent, PathBuilder, Pixels,
-    Window, anchored, canvas, deferred, div, point, prelude::*, px, rgb, size,
+    Window, anchored, canvas, deferred, div, fill, point, prelude::*, px, quad, rgb, size,
 };
 use std::{cell::Cell, rc::Rc};
 
@@ -88,10 +88,11 @@ impl Panel {
     }
 
     fn toggle_switch(&self, on: bool, enabled: bool) -> Div {
-        const TRACK_WIDTH: f32 = 34.;
-        const TRACK_HEIGHT: f32 = 20.;
-        const THUMB_DIAMETER: f32 = 12.;
-        const OUTLINE_WIDTH: f32 = 1.;
+        const SCALE: f32 = 1.2;
+        const TRACK_WIDTH: f32 = 34. * SCALE;
+        const TRACK_HEIGHT: f32 = 20. * SCALE;
+        const THUMB_DIAMETER: f32 = 12. * SCALE;
+        const OUTLINE_WIDTH: f32 = 1.5;
         let palette = self.palette;
         div()
             .w(px(42.))
@@ -106,18 +107,13 @@ impl Panel {
                 if on { 1. } else { 0. },
                 self.animations,
                 move |progress| {
-                    let fill = motion::mix(palette.control, palette.accent, progress);
+                    let track_fill = motion::mix(palette.control, palette.accent, progress);
                     let hover = motion::mix(palette.hover, palette.accent_hover, progress);
-                    let outline = motion::mix(
-                        palette.border,
-                        motion::mix(palette.accent, 0xffffff, 0.42),
-                        progress,
-                    );
                     let knob = motion::mix(palette.muted_text, 0xffffff, progress);
                     div()
                         .w(px(TRACK_WIDTH))
                         .h(px(TRACK_HEIGHT))
-                        .text_color(rgb(fill))
+                        .text_color(rgb(track_fill))
                         .when(enabled, |track| {
                             track.group_hover("switch-track", move |style| {
                                 style.text_color(rgb(hover))
@@ -137,16 +133,18 @@ impl Panel {
                                         ),
                                         size(px(THUMB_DIAMETER), px(THUMB_DIAMETER)),
                                     );
-                                    let fill = window.text_style().color;
-                                    for (shape, color) in [
-                                        (bounds, rgb(outline).into()),
-                                        (bounds.dilate(px(-OUTLINE_WIDTH)), fill),
-                                        (knob_bounds, rgb(knob).into()),
-                                    ] {
-                                        if let Ok(path) = capsule(shape).build() {
-                                            window.paint_path(path, color);
-                                        }
-                                    }
+                                    // One anti-aliased quad keeps the stroke and fill on the same arc.
+                                    window.paint_quad(quad(
+                                        bounds,
+                                        bounds.size.height * 0.5,
+                                        window.text_style().color,
+                                        px(OUTLINE_WIDTH),
+                                        rgb(palette.border),
+                                        gpui::BorderStyle::Solid,
+                                    ));
+                                    window.paint_quad(
+                                        fill(knob_bounds, rgb(knob)).corner_radii(radius),
+                                    );
                                 },
                             )
                             .size_full(),
@@ -542,21 +540,6 @@ impl Panel {
         }
         wrapper
     }
-}
-
-fn capsule(bounds: Bounds<Pixels>) -> PathBuilder {
-    let radius = bounds.size.height * 0.5;
-    let left = bounds.left() + radius;
-    let right = bounds.right() - radius;
-    let radii = point(radius, radius);
-    let mut path = PathBuilder::fill();
-    path.move_to(point(left, bounds.top()));
-    path.line_to(point(right, bounds.top()));
-    path.arc_to(radii, px(0.), false, true, point(right, bounds.bottom()));
-    path.line_to(point(left, bounds.bottom()));
-    path.arc_to(radii, px(0.), false, true, point(left, bounds.top()));
-    path.close();
-    path
 }
 
 fn option_tip(label: &str, detail: Option<&str>, clipped: bool) -> Option<String> {
