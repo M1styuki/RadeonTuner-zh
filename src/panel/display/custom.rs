@@ -114,13 +114,13 @@ impl Panel {
             .gap_2()
             .child(div().text_xl().child("自定义分辨率"));
         section = section.child(self.setting_row(
-            "时序标准",
+            self.hint_label("时序标准"),
             self.select(
                 "timing-standard",
                 STANDARDS.iter().map(|(name, _)| name.to_string()).collect(),
                 Some(editor.standard),
                 "时序标准",
-                160.,
+                crate::panel::controls::FIELD_WIDTH,
                 |p, i, _| {
                     if let Some(e) = &mut p.display.custom {
                         e.standard = i;
@@ -131,13 +131,13 @@ impl Panel {
             ),
         ));
         section = section.child(self.setting_row(
-            "扫描方式",
+            self.hint_label("扫描方式"),
             self.select(
                 "scan-type",
                 ["逐行", "隔行"].map(str::to_owned).into(),
                 Some(usize::from(editor.interlaced)),
                 "扫描方式",
-                160.,
+                crate::panel::controls::FIELD_WIDTH,
                 |p, i, _| {
                     if let Some(e) = &mut p.display.custom {
                         e.interlaced = i == 1;
@@ -183,7 +183,7 @@ impl Panel {
                     .flex()
                     .items_center()
                     .justify_between()
-                    .child(names[i])
+                    .child(self.hint_label(names[i]))
                     .child(self.number(
                         super::super::numeric::Field::Custom(i),
                         val,
@@ -201,13 +201,13 @@ impl Panel {
                 .enumerate()
             {
                 section = section.child(self.setting_row(
-                    label,
+                    self.hint_label(label),
                     self.select(
                         ("sync-polarity", i),
                         ["正极性", "负极性"].map(str::to_owned).into(),
                         Some(usize::from(t.detail.flags & bit != 0)),
                         label,
-                        160.,
+                        crate::panel::controls::FIELD_WIDTH,
                         move |p, value, _| {
                             if let Some(t) =
                                 p.display.custom.as_mut().and_then(|e| e.timing.as_mut())

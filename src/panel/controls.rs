@@ -8,6 +8,8 @@ use gpui::{
 };
 use std::rc::Rc;
 
+pub(super) const FIELD_WIDTH: f32 = 136.;
+
 pub(super) struct Dropdown {
     id: ElementId,
     focus: FocusHandle,
@@ -53,28 +55,23 @@ impl Panel {
             palette.hover
         };
         let track = div()
-            .size_full()
-            .relative()
+            .absolute()
+            .top(px(6.))
+            .w_full()
+            .h(px(20.))
+            .rounded_full()
+            .border_1()
+            .border_color(rgb(palette.border))
+            .bg(rgb(fill))
             .when(enabled, |track| {
-                track.smooth_hover_background(Some(fill), hover, 10.)
-            })
-            .when(!enabled, |track| {
-                track.child(shape::surface_radius(fill, 10.))
-            })
-            .child(shape::outline_radius(palette.border, 10.));
+                track.hover(move |style| style.bg(rgb(hover)))
+            });
         div()
             .relative()
             .w(px(44.))
             .h(px(32.))
             .flex_shrink_0()
-            .child(
-                div()
-                    .absolute()
-                    .top(px(6.))
-                    .w_full()
-                    .h(px(20.))
-                    .child(track),
-            )
+            .child(track)
             .child(
                 div()
                     .absolute()
@@ -82,7 +79,6 @@ impl Panel {
                     .left(px(if on { 24. } else { 4. }))
                     .w(px(16.))
                     .h(px(16.))
-                    // The circular thumb already has constant curvature.
                     .rounded_full()
                     .bg(rgb(if on { 0xffffff } else { palette.text })),
             )
@@ -193,6 +189,12 @@ impl Panel {
             .gap_2()
             .child(div().flex_1().min_w_0().truncate().child(selected))
             .child(select_chevron(palette.text));
+        let trigger = match placeholder {
+            "选择显卡" => trigger.tooltip(self.tooltip("选择当前显卡")),
+            "选择显示器" => trigger.tooltip(self.tooltip("选择当前显示器")),
+            "选择应用程序" => trigger.tooltip(self.tooltip("选择当前应用程序")),
+            _ => trigger,
+        };
         let mut wrapper = div().relative().w(px(width)).flex_shrink_0();
         let open = self
             .dropdown

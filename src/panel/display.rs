@@ -466,7 +466,7 @@ impl Panel {
                 labels,
                 Some(page.display_index),
                 "选择显示器",
-                172.,
+                152.,
                 |p, i, _| {
                     p.display.display_index = i;
                     p.display.app = "Global".into();
@@ -494,7 +494,7 @@ impl Panel {
                     labels,
                     selected,
                     "选择应用程序",
-                    160.,
+                    crate::panel::controls::FIELD_WIDTH,
                     move |p, i, _| {
                         p.display.app = apps[i].clone();
                         p.read_modes();
@@ -617,7 +617,7 @@ impl Panel {
                     sizes.iter().map(|(_, w, h)| format!("{w} × {h}")).collect(),
                     Some(size_pos),
                     "显示分辨率",
-                    160.,
+                    crate::panel::controls::FIELD_WIDTH,
                     move |p, i, _| p.display.choice = preferred[i],
                     cx,
                 ),
@@ -632,7 +632,7 @@ impl Panel {
                             .collect(),
                         Some(refresh_pos),
                         "显示刷新率",
-                        160.,
+                        crate::panel::controls::FIELD_WIDTH,
                         move |p, i, _| p.display.choice = same[i],
                         cx,
                     ),
@@ -646,7 +646,7 @@ impl Panel {
                     angles.map(|a| format!("{a}°")).into(),
                     angles.iter().position(|&a| a == page.angle),
                     "显示方向",
-                    160.,
+                    crate::panel::controls::FIELD_WIDTH,
                     move |p, i, _| p.display.angle = angles[i],
                     cx,
                 ),
@@ -720,7 +720,7 @@ impl Panel {
                 if page.gamma_supported {
                     section = section.child(self.toggle_row(
                         "gamma-control",
-                        "显示伽马控制",
+                        self.hint_label("显示伽马控制"),
                         page.gamma.enabled,
                         true,
                         |p, _| p.display.gamma.enabled = !p.display.gamma.enabled,
@@ -737,7 +737,7 @@ impl Panel {
                         .enumerate()
                         {
                             section = section.child(self.setting_row(
-                                label,
+                                self.hint_label(label),
                                 self.number(
                                     super::numeric::Field::Gamma(i),
                                     page.gamma.values[i],
@@ -777,7 +777,7 @@ impl Panel {
             if setting.min == 0 && setting.max == 1 {
                 section = section.child(self.toggle_row(
                     ("display-toggle", i),
-                    setting.label,
+                    self.hint_label(setting.label),
                     setting.draft != 0,
                     true,
                     move |p, _| {
@@ -790,7 +790,7 @@ impl Panel {
                 Feature::Color(_) | Feature::Correction(1..=3)
             ) {
                 section = section.child(self.setting_row(
-                    setting.label,
+                    self.hint_label(setting.label),
                     self.number(
                         super::numeric::Field::Display(i),
                         setting.draft,
@@ -813,13 +813,13 @@ impl Panel {
                 let min = setting.min;
                 let step = setting.step;
                 section = section.child(self.setting_row(
-                    setting.label,
+                    self.hint_label(setting.label),
                     self.select(
                         ("display-choice", i),
                         labels,
                         Some(((setting.draft - min) / step) as usize),
                         setting.label,
-                        160.,
+                        crate::panel::controls::FIELD_WIDTH,
                         move |p, n, _| p.display.settings[i].draft = min + n as i32 * step,
                         cx,
                     ),
@@ -829,7 +829,7 @@ impl Panel {
         if page.app == "Global" && page.current.is_some() {
             section = section.child(
                 self.setting_row(
-                    "自定义分辨率",
+                    self.hint_label("自定义分辨率"),
                     div().child(
                         self.button_style(true)
                             .id("custom-editor")
@@ -848,7 +848,7 @@ impl Panel {
         if page.app == "Global" && !page.displays.is_empty() {
             section = section.child(
                 self.setting_row(
-                    "Eyefinity 操作",
+                    self.hint_label("Eyefinity 操作"),
                     div().child(
                         self.button_style(true)
                             .id("manage-eye")
@@ -866,7 +866,7 @@ impl Panel {
         } else if page.key.is_some() && page.app != "Global" {
             section = section.child(self.toggle_row(
                 "auto-eye",
-                "自动 Eyefinity",
+                self.hint_label("自动 Eyefinity"),
                 page.auto_eye,
                 true,
                 |p, _| p.display.auto_eye = !p.display.auto_eye,
@@ -900,7 +900,11 @@ impl Panel {
                 .zip(&page.saved)
                 .any(|(s, saved)| s.draft != *saved)
             || (page.app == "Global" && page.settings.iter().any(|s| s.draft != s.current));
-        let apply = self.button_style(changed).id("display-apply").child("应用");
+        let apply = self
+            .button_style(changed)
+            .id("display-apply")
+            .tooltip(self.tooltip("应用显示设置。"))
+            .child("应用");
         actions = actions.child(if changed {
             apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
                 let result = p.save_display_profile();
@@ -917,6 +921,7 @@ impl Panel {
             actions = actions.child(
                 self.button_style(true)
                     .id("display-defaults")
+                    .tooltip(self.tooltip("将显示设置恢复为默认值。"))
                     .cursor_pointer()
                     .child(if page.confirm_reset {
                         "确认重置所选显示配置"

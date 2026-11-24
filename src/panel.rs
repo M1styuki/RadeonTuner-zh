@@ -24,6 +24,7 @@ mod picker;
 mod settings_page;
 mod shape;
 mod theme;
+mod tooltips;
 mod transfer;
 mod updates;
 const PAGES: [&str; 7] = ["调校", "风扇", "显卡", "显示", "多媒体", "设置", "信息"];

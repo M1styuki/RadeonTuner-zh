@@ -98,6 +98,11 @@ impl Panel {
         row = row.child(
             self.button_style(true)
                 .id("import-profile")
+                .tooltip(self.tooltip(match kind {
+                    Kind::Tuning => "从文件导入调校与风扇设置；导入后不会自动应用。",
+                    Kind::Graphics => "从文件导入显卡设置。",
+                    Kind::Display => "从文件导入显示设置。",
+                }))
                 .cursor_pointer()
                 .child("导入")
                 .on_click(cx.listener(move |p, _, _, cx| {
@@ -162,6 +167,11 @@ impl Panel {
         row.child(
             self.button_style(true)
                 .id("export-profile")
+                .tooltip(self.tooltip(match kind {
+                    Kind::Tuning => "将当前调校与风扇设置导出到文件。",
+                    Kind::Graphics => "将当前显卡设置导出到文件。",
+                    Kind::Display => "将当前显示设置导出到文件。",
+                }))
                 .cursor_pointer()
                 .child("导出")
                 .on_click(cx.listener(move |p, _, _, cx| {

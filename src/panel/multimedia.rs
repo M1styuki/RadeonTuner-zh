@@ -210,7 +210,7 @@ impl Panel {
             labels,
             selected,
             "选择应用程序",
-            160.,
+            crate::panel::controls::FIELD_WIDTH,
             move |p, i, _| {
                 p.video_app = apps[i].clone();
                 p.read_video();
@@ -237,7 +237,7 @@ impl Panel {
             if control.feature == Feature::Upscale {
                 section = section.child(self.toggle_row(
                     "video-upscale",
-                    label,
+                    self.hint_label(label),
                     control.draft != 0,
                     true,
                     move |p, _| p.video[i].draft = i32::from(p.video[i].draft == 0),
@@ -246,7 +246,7 @@ impl Panel {
             } else if control.feature != Feature::Sharpness || upscale {
                 let (min, max, _) = control.feature.limits();
                 section = section.child(self.setting_row(
-                    label,
+                    self.hint_label(label),
                     self.number(
                         super::numeric::Field::Video(i),
                         control.draft,
@@ -274,7 +274,11 @@ impl Panel {
             .video
             .iter()
             .any(|control| control.current != control.draft || control.saved != control.draft);
-        let apply = self.button_style(changed).id("video-apply").child("应用");
+        let apply = self
+            .button_style(changed)
+            .id("video-apply")
+            .tooltip(self.tooltip("应用多媒体设置。"))
+            .child("应用");
         actions = actions.child(if changed {
             apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
                 if let Err(e) = p.apply_video_profile(false) {
@@ -317,6 +321,7 @@ impl Panel {
             actions = actions.child(
                 self.button_style(true)
                     .id("video-reset")
+                    .tooltip(self.tooltip("将多媒体设置恢复为默认值。"))
                     .cursor_pointer()
                     .child("重置")
                     .on_click(cx.listener(|p, _, _, cx| {

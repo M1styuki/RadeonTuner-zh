@@ -13,7 +13,7 @@ impl Panel {
             let enabled = link != Link::ContextMenu || self.admin;
             page = page.child(self.toggle_row(
                 ("link", i),
-                label,
+                self.hint_label(label),
                 self.links[i],
                 enabled,
                 move |p, _| match link.set(!p.links[i]) {
@@ -33,7 +33,7 @@ impl Panel {
         }
         page = page.child(
             self.setting_row(
-                "主题颜色样式",
+                self.hint_label("主题颜色样式"),
                 self.select(
                     "theme",
                     ["灰色", "黑色", "白色", "跟随系统"]
@@ -41,7 +41,7 @@ impl Panel {
                         .into(),
                     Some(self.style as usize),
                     "主题颜色样式",
-                    160.,
+                    crate::panel::controls::FIELD_WIDTH,
                     |p, i, _| match p.settings.set("ThemeStyle", serde_json::json!(i)) {
                         Ok(()) => p.style = i as i64,
                         Err(e) => p.settings_message = e.to_string(),
@@ -85,6 +85,7 @@ impl Panel {
                     .text_color(rgb(self.palette.muted_text))
                     .child(hint)
             }));
+        let service_label = self.with_native_hints(service_label, "Radeon 服务");
         page.child(self.toggle_row(
             "services",
             service_label,
@@ -113,7 +114,7 @@ impl Panel {
         ))
         .child(self.toggle_row(
             "mpo",
-            "禁用多平面叠加（MPO）",
+            self.hint_label("禁用多平面叠加（MPO）"),
             self.mpo,
             self.admin,
             |p, _| match integration::set_mpo_disabled(!p.mpo) {
@@ -127,7 +128,7 @@ impl Panel {
         ))
         .child(self.toggle_row(
             "exclude-drivers",
-            "从 Windows 更新中排除驱动程序",
+            self.hint_label("从 Windows 更新中排除驱动程序"),
             self.excludes_drivers,
             self.admin,
             |p, _| match integration::set_excludes_drivers(!p.excludes_drivers) {
@@ -153,7 +154,7 @@ impl Panel {
     ) -> Div {
         self.toggle_row(
             key,
-            label,
+            self.hint_label(label),
             on,
             true,
             move |p, _| {

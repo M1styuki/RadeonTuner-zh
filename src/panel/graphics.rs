@@ -254,7 +254,7 @@ impl Panel {
                 let mut control_view = if control.min == 0 && control.max == 1 {
                     section = section.child(self.toggle_row(
                         ("frame-toggle", i),
-                        label,
+                        self.hint_label(label),
                         control.draft != 0,
                         true,
                         move |p, _| p.change_frame(i, i32::from(p.frames[i].draft == 0)),
@@ -272,7 +272,7 @@ impl Panel {
                             .collect(),
                         Some(control.draft as usize),
                         label,
-                        160.,
+                        crate::panel::controls::FIELD_WIDTH,
                         move |p, value, _| p.change_frame(i, value as i32),
                         cx,
                     )
@@ -311,7 +311,7 @@ impl Panel {
                         )
                         .child(control_view);
                 }
-                section = section.child(self.setting_row(label, control_view));
+                section = section.child(self.setting_row(self.hint_label(label), control_view));
             }
             if let Some((i, s)) = self
                 .graphics
@@ -343,7 +343,7 @@ impl Panel {
                 ) {
                     section = section.child(self.toggle_row(
                         ("graphics-toggle", i),
-                        label,
+                        self.hint_label(label),
                         s.draft != 0,
                         true,
                         move |p, cx| set(p, usize::from(p.graphics[i].draft == 0), cx),
@@ -352,7 +352,7 @@ impl Panel {
                 } else {
                     section = section.child(
                         self.setting_row(
-                            label,
+                            self.hint_label(label),
                             self.select(
                                 ("graphics-choice", i),
                                 s.choice
@@ -362,7 +362,7 @@ impl Panel {
                                     .collect(),
                                 Some(s.draft),
                                 label,
-                                160.,
+                                crate::panel::controls::FIELD_WIDTH,
                                 set,
                                 cx,
                             ),
@@ -458,7 +458,7 @@ impl Panel {
                 div()
                     .flex()
                     .flex_col()
-                    .child("FSR 覆盖库")
+                    .child(self.hint_label("FSR 覆盖库"))
                     .child(div().text_xs().child(fsr.description.clone())),
                 row,
             ),
@@ -487,6 +487,7 @@ impl Panel {
         let apply = self
             .button_style(changed)
             .id("graphics-apply")
+            .tooltip(self.tooltip("应用显卡设置。"))
             .child("应用");
         actions = actions.child(if changed {
             apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
@@ -536,6 +537,7 @@ impl Panel {
                 actions = actions.child(
                     self.button_style(true)
                         .id("graphics-reset")
+                        .tooltip(self.tooltip("将显卡设置恢复为默认值。"))
                         .cursor_pointer()
                         .child("重置")
                         .on_click(cx.listener(|p, _, _, cx| {
@@ -550,6 +552,7 @@ impl Panel {
             actions = actions.child(
                 self.button_style(true)
                     .id("clear-shaders")
+                    .tooltip(self.tooltip("清除基于磁盘的着色器缓存内容。"))
                     .cursor_pointer()
                     .child(if self.confirm_cache {
                         "确认清除着色器缓存"

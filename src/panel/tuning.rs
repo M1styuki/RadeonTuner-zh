@@ -341,7 +341,7 @@ impl Panel {
                     labels,
                     selected,
                     "选择应用程序",
-                    160.,
+                    crate::panel::controls::FIELD_WIDTH,
                     move |p, i, _| {
                         p.tuning.app = apps[i].clone();
                         p.read_controls();
@@ -355,7 +355,11 @@ impl Panel {
     pub(super) fn render_tuning_profiles(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_2();
         let changed = self.tuning_changed();
-        let apply = self.button_style(changed).id("apply-tuning").child("应用");
+        let apply = self
+            .button_style(changed)
+            .id("apply-tuning")
+            .tooltip(self.tooltip("应用调校与风扇设置。"))
+            .child("应用");
         let apply = if changed {
             apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
                 p.tuning_status = p
@@ -371,6 +375,7 @@ impl Panel {
         actions = actions.child(
             self.button_style(true)
                 .id("reset-tuning-profile")
+                .tooltip(self.tooltip("将调校与风扇设置恢复为默认值。"))
                 .cursor_pointer()
                 .child(if self.tuning.confirm_reset {
                     "确认重置"
@@ -417,7 +422,7 @@ impl Panel {
         );
         section = section.child(self.toggle_row(
             "keep-tuning",
-            "保持生效",
+            self.hint_label("保持生效"),
             self.tuning.keep,
             true,
             |p, _| {
@@ -431,7 +436,7 @@ impl Panel {
         }
         section = section.child(
             self.setting_row(
-                "风扇控制模式",
+                self.hint_label("风扇控制模式"),
                 self.select(
                     "fan-mode",
                     ["无风扇控制", "仅零 RPM", "范围风扇转速", "自定义风扇曲线"]
@@ -439,7 +444,7 @@ impl Panel {
                         .into(),
                     Some(self.tuning.mode),
                     "风扇控制模式",
-                    160.,
+                    crate::panel::controls::FIELD_WIDTH,
                     |p, i, _| {
                         p.tuning.mode = i;
                         p.tuning.dirty = true;
@@ -450,13 +455,13 @@ impl Panel {
         );
         if self.tuning.mode == 2 {
             section = section.child(self.setting_row(
-                "范围风扇曲线",
+                self.hint_label("范围风扇曲线"),
                 self.select(
                     "fan-shape",
                     ["线性", "静音"].map(str::to_owned).into(),
                     Some(usize::from(self.tuning.quiet)),
                     "范围风扇曲线",
-                    160.,
+                    crate::panel::controls::FIELD_WIDTH,
                     |p, i, _| {
                         p.tuning.quiet = i == 1;
                         p.tuning.dirty = true;
@@ -561,7 +566,7 @@ impl Panel {
             control.unit,
             cx,
         );
-        self.setting_row(self.tuning_label(control), input)
+        self.setting_row(self.hint_label(self.tuning_label(control)), input)
     }
 
     fn tuning_field(&self, i: usize, cx: &mut Context<Self>) -> Div {
@@ -569,7 +574,7 @@ impl Panel {
         if control.id == 15 && control.min == 0 && control.max == 1 {
             return self.toggle_row(
                 "fan-zero-rpm",
-                "风扇零 RPM 模式",
+                self.hint_label("风扇零 RPM 模式"),
                 control.draft != 0,
                 true,
                 move |p, _| p.controls[i].draft = i32::from(p.controls[i].draft == 0),
@@ -592,13 +597,13 @@ impl Panel {
                 })
                 .collect();
             return self.setting_row(
-                self.tuning_label(control),
+                self.hint_label(self.tuning_label(control)),
                 self.select(
                     ("tuning-choice", i),
                     labels,
                     Some((control.draft - minimum) as usize),
                     "选择",
-                    160.,
+                    crate::panel::controls::FIELD_WIDTH,
                     move |p, at, _| p.controls[i].draft = minimum + at as i32,
                     cx,
                 ),

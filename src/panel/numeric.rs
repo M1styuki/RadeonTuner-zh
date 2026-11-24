@@ -224,7 +224,7 @@ impl Panel {
         let edit = self.edit.as_ref().filter(|e| e.field == field);
         let base = div()
             .id(id)
-            .w(px(160.))
+            .w(px(crate::panel::controls::FIELD_WIDTH))
             .flex_shrink_0()
             .h(px(32.))
             .flex()

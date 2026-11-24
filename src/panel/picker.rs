@@ -54,6 +54,11 @@ impl Panel {
                 self.button_style(true)
                     .id(id)
                     .cursor_pointer()
+                    .tooltip(self.tooltip(if remove {
+                        "移除应用程序"
+                    } else {
+                        "添加应用程序"
+                    }))
                     .child(label)
                     .on_click(cx.listener(move |p, _, _, cx| {
                         p.open_picker(target, remove);
@@ -257,6 +262,7 @@ impl Panel {
             list = list.child(
                 div()
                     .id(("picker-choice", i))
+                    .tooltip(self.tooltip_owned(label.clone().into()))
                     .cursor_pointer()
                     .p_1()
                     .smooth_hover_background(

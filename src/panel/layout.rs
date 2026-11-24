@@ -5,6 +5,14 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+pub(super) fn load_icon(bytes: &[u8]) -> Option<Arc<RenderImage>> {
+    let mut rgba = image::load_from_memory(bytes).ok()?.into_rgba8();
+    for pixel in rgba.pixels_mut() {
+        pixel.0.swap(0, 2);
+    }
+    Some(Arc::new(RenderImage::new([image::Frame::new(rgba)])))
+}
+
 pub(super) fn nav_icon(index: usize, light: bool) -> Div {
     macro_rules! asset {
         ($name:literal) => {
@@ -28,18 +36,11 @@ pub(super) fn nav_icon(index: usize, light: bool) -> Div {
     let icons = ICONS.get_or_init(|| {
         [false, true].map(|light| {
             ASSETS.map(|(dark_image, light_image)| {
-                let mut rgba =
-                    image::load_from_memory(if light { light_image } else { dark_image })
-                        .ok()?
-                        .into_rgba8();
-                for pixel in rgba.pixels_mut() {
-                    pixel.0.swap(0, 2);
-                }
-                Some(Arc::new(RenderImage::new([image::Frame::new(rgba)])))
+                load_icon(if light { light_image } else { dark_image })
             })
         })
     });
-    div().w(px(34.)).h(px(34.)).children(
+    div().size(px(26.)).children(
         icons[usize::from(light)][index]
             .clone()
             .map(|source| img(source).size_full()),
@@ -93,7 +94,7 @@ impl Panel {
                 labels,
                 selected,
                 "选择显卡",
-                238.,
+                208.,
                 move |p, i, _| {
                     p.finish_preview(false);
                     p.selected = indices[i];
@@ -123,10 +124,12 @@ impl Panel {
                 .px_3()
                 .py_2()
                 .smooth_background(self.palette.sidebar);
-            for item in &self.metrics {
+            for (i, item) in self.metrics.iter().enumerate() {
                 if let Some(value) = item.value {
                     stats = stats.child(
                         div()
+                            .id(("metric", i))
+                            .tooltip(self.tooltip(item.label))
                             .flex_shrink_0()
                             .child(format!("{} {value} {}", item.label, item.unit)),
                     );
