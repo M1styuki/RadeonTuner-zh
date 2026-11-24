@@ -35,7 +35,7 @@ pub(super) struct DisplayPage {
     current: Option<Mode>,
     angle: i32,
     preview: Option<Preview>,
-    status: String,
+    pub(super) status: String,
 }
 
 impl DisplayPage {
@@ -675,7 +675,7 @@ impl Panel {
                         })),
                 );
             }
-            categories.push(("显示模式", section));
+            categories.push(section);
         }
         let correction_on = page
             .settings
@@ -692,47 +692,38 @@ impl Panel {
             .iter()
             .find(|s| s.feature == Feature::VariBright)
             .is_some_and(|s| s.draft != 0);
-        const GROUPS: &[(&str, &[Option<Feature>])] = &[
-            (
-                "显示输出与缩放",
-                &[
-                    Some(Feature::Hdr),
-                    Some(Feature::FreeSync),
-                    Some(Feature::Vsr),
-                    Some(Feature::GpuScaling),
-                    Some(Feature::IntegerScaling),
-                    Some(Feature::Scaling),
-                    Some(Feature::Depth),
-                    Some(Feature::Pixel),
-                    Some(Feature::Hdcp),
-                ],
-            ),
-            (
-                "亮度与色彩",
-                &[
-                    Some(Feature::VariBright),
-                    Some(Feature::VariBrightLevel),
-                    None,
-                    Some(Feature::Color(1)),
-                    Some(Feature::Color(2)),
-                    Some(Feature::Color(4)),
-                    Some(Feature::Color(8)),
-                    Some(Feature::Enhancement),
-                    Some(Feature::TemperatureSource),
-                    Some(Feature::Color(16)),
-                ],
-            ),
-            (
-                "色觉辅助",
-                &[
-                    Some(Feature::Correction(0)),
-                    Some(Feature::Correction(1)),
-                    Some(Feature::Correction(2)),
-                    Some(Feature::Correction(3)),
-                ],
-            ),
+        const GROUPS: &[&[Option<Feature>]] = &[
+            &[
+                Some(Feature::Hdr),
+                Some(Feature::FreeSync),
+                Some(Feature::Vsr),
+                Some(Feature::GpuScaling),
+                Some(Feature::IntegerScaling),
+                Some(Feature::Scaling),
+                Some(Feature::Depth),
+                Some(Feature::Pixel),
+                Some(Feature::Hdcp),
+            ],
+            &[
+                Some(Feature::VariBright),
+                Some(Feature::VariBrightLevel),
+                None,
+                Some(Feature::Color(1)),
+                Some(Feature::Color(2)),
+                Some(Feature::Color(4)),
+                Some(Feature::Color(8)),
+                Some(Feature::Enhancement),
+                Some(Feature::TemperatureSource),
+                Some(Feature::Color(16)),
+            ],
+            &[
+                Some(Feature::Correction(0)),
+                Some(Feature::Correction(1)),
+                Some(Feature::Correction(2)),
+                Some(Feature::Correction(3)),
+            ],
         ];
-        for &(name, features) in GROUPS {
+        for &features in GROUPS {
             let mut rows = div().flex().flex_col();
             let mut has_rows = false;
             for &feature in features {
@@ -850,7 +841,7 @@ impl Panel {
                 }
             }
             if has_rows {
-                categories.push((name, rows));
+                categories.push(rows);
             }
         }
         let mut extras = div().flex().flex_col();
@@ -906,21 +897,19 @@ impl Panel {
             ));
         }
         if has_extras {
-            categories.push(("自定义分辨率与多屏", extras));
+            categories.push(extras);
         }
         div()
             .flex()
             .flex_col()
             .gap_2()
-            .child(self.display_actions(cx))
             .child(self.setting_sections(categories))
             .when(page.displays.is_empty() && page.status.is_empty(), |view| {
                 view.child("未检测到可用的 AMD 显示器")
             })
-            .child(page.status.clone())
     }
 
-    fn display_actions(&self, cx: &mut Context<Self>) -> Div {
+    pub(super) fn display_actions(&self, cx: &mut Context<Self>) -> Div {
         let page = &self.display;
         let mut actions = div().flex().flex_wrap().items_center().gap_2();
         if page.displays.is_empty() {

@@ -375,7 +375,7 @@ impl Panel {
                     labels,
                     selected,
                     "选择应用程序",
-                    crate::panel::controls::SELECT_MAX_WIDTH,
+                    crate::panel::controls::PROFILE_SELECT_WIDTH,
                     move |p, i, _| {
                         p.tuning.app = apps[i].clone();
                         p.read_controls();
@@ -386,8 +386,7 @@ impl Panel {
         }
         row
     }
-    pub(super) fn render_tuning_profiles(&self, cx: &mut Context<Self>) -> Div {
-        let mut section = div().flex().flex_col().gap_2();
+    pub(super) fn tuning_actions(&self, cx: &mut Context<Self>) -> Div {
         let changed = self.tuning_changed();
         let apply = self
             .button_style(changed)
@@ -442,18 +441,20 @@ impl Panel {
                     })),
             );
         }
-        section = section.child(
-            actions.child(
-                self.button_style(true)
-                    .id("reload-tuning")
-                    .cursor_pointer()
-                    .child("读取驱动")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        p.read_controls();
-                        cx.notify();
-                    })),
-            ),
-        );
+        actions.child(
+            self.button_style(true)
+                .id("reload-tuning")
+                .cursor_pointer()
+                .child("读取驱动")
+                .on_click(cx.listener(|p, _, _, cx| {
+                    p.read_controls();
+                    cx.notify();
+                })),
+        )
+    }
+
+    pub(super) fn render_tuning_profiles(&self, cx: &mut Context<Self>) -> Div {
+        let mut section = div().flex().flex_col().gap_2();
         section = section.child(self.toggle_row(
             "keep-tuning",
             self.hint_label("保持生效"),
@@ -536,11 +537,7 @@ impl Panel {
             return page;
         }
         let mut groups = Vec::new();
-        for (label, ids) in [
-            ("核心调校", &[0, 1][..]),
-            ("显存调校", &[8, 14, ECC][..]),
-            ("功耗与电压", &[9, 37, 47][..]),
-        ] {
+        for ids in [&[0, 1][..], &[8, 14, ECC][..], &[9, 37, 47][..]] {
             let mut group = div().flex().flex_col();
             let mut found = false;
             for (i, control) in self.controls.iter().enumerate() {
@@ -550,7 +547,7 @@ impl Panel {
                 }
             }
             if found {
-                groups.push((label, group));
+                groups.push(group);
             }
         }
         page.child(self.setting_sections(groups))

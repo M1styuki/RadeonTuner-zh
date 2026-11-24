@@ -9,6 +9,18 @@ use gpui::{
 use std::{cell::Cell, collections::HashMap, rc::Rc};
 
 pub(super) const SELECT_MAX_WIDTH: f32 = 216.;
+pub(super) const PROFILE_SELECT_WIDTH: SelectWidth = SelectWidth::Fixed(164.);
+
+pub(super) enum SelectWidth {
+    Fit(f32),
+    Fixed(f32),
+}
+
+impl From<f32> for SelectWidth {
+    fn from(max: f32) -> Self {
+        Self::Fit(max)
+    }
+}
 
 pub(super) struct Dropdown {
     id: ElementId,
@@ -101,9 +113,9 @@ impl Panel {
                         .child(
                             div()
                                 .absolute()
-                                .top(px(8.))
-                                .left(px(2. + 24. * progress))
-                                .size(px(16.))
+                                .top(px(10.))
+                                .left(px(4. + 24. * progress))
+                                .size(px(12.))
                                 .rounded_full()
                                 .bg(rgb(motion::mix(palette.text, 0xffffff, progress))),
                         )
@@ -165,31 +177,21 @@ impl Panel {
             )
     }
 
-    pub(super) fn setting_sections(
-        &self,
-        sections: impl IntoIterator<Item = (&'static str, Div)>,
-    ) -> Div {
+    pub(super) fn setting_sections(&self, sections: impl IntoIterator<Item = Div>) -> Div {
         div()
             .flex()
             .flex_col()
-            .gap_3()
-            .children(sections.into_iter().map(|(title, content)| {
+            .children(sections.into_iter().enumerate().map(|(index, section)| {
                 div()
                     .min_w_0()
-                    .p_3()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .smooth_background(self.palette.sidebar)
-                    .child(shape::outline(self.palette.border))
-                    .child(
-                        div()
-                            .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .pb_1()
-                            .child(title),
-                    )
-                    .child(content)
+                    .when(index > 0, |group| {
+                        group
+                            .mt_2()
+                            .pt_2()
+                            .border_t_1()
+                            .border_color(rgb(self.palette.border))
+                    })
+                    .child(section)
             }))
     }
 
@@ -233,7 +235,7 @@ impl Panel {
         mut labels: Vec<String>,
         current: Option<usize>,
         placeholder: &str,
-        max_width: f32,
+        width: impl Into<SelectWidth>,
         change: impl Fn(&mut Self, usize, &mut Context<Self>) + 'static,
         cx: &mut Context<Self>,
     ) -> Div {
@@ -268,8 +270,12 @@ impl Panel {
             .map(|label| measure(label))
             .collect::<Vec<_>>();
         let selected_width = measure(&selected);
-        let width = (option_widths.iter().copied().fold(selected_width, f32::max) + 50.)
-            .clamp(84., max_width);
+        let width = match width.into() {
+            SelectWidth::Fit(max) => {
+                (option_widths.iter().copied().fold(selected_width, f32::max) + 50.).clamp(84., max)
+            }
+            SelectWidth::Fixed(width) => width,
+        };
         let clipped_selection = (selected_width + 46. > width).then(|| selected.clone());
         let open = self
             .dropdown
@@ -300,13 +306,11 @@ impl Panel {
                 self.animations,
                 move |progress| select_chevron(palette.text, progress),
             ));
-        let trigger = match (clipped_selection, placeholder) {
-            (Some(text), _) => trigger.tooltip(self.tooltip_owned(text.into())),
-            (None, "选择显卡") => trigger.tooltip(self.tooltip("选择当前显卡")),
-            (None, "选择显示器") => trigger.tooltip(self.tooltip("选择当前显示器")),
-            (None, "选择应用程序") => trigger.tooltip(self.tooltip("选择当前应用程序")),
-            _ => trigger,
-        };
+        let trigger = trigger.when(self.dropdown.is_none(), |trigger| {
+            trigger.when_some(clipped_selection, |trigger, text| {
+                trigger.tooltip(self.tooltip_owned(text.into()))
+            })
+        });
         let mut wrapper = div().relative().w(px(width)).flex_shrink_0();
         if count == 0 {
             return wrapper.child(trigger);

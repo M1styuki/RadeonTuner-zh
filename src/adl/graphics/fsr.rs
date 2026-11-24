@@ -63,6 +63,16 @@ pub struct Library {
     default: PathBuf,
 }
 impl Library {
+    #[cfg(test)]
+    pub(crate) fn preview_fixture() -> Self {
+        Self {
+            current: String::new(),
+            draft: String::new(),
+            description: "驱动默认库 · 2.4.0.4370 · FSR 4.1.2".into(),
+            default: PathBuf::from("amdxcffx64.dll"),
+        }
+    }
+
     pub fn select(&mut self, path: String) {
         self.draft = path;
         let default = self.draft.trim().is_empty();

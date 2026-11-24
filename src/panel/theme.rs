@@ -1,6 +1,5 @@
 #[derive(Clone, Copy)]
 pub(super) struct Palette {
-    pub light: bool,
     pub hover: u32,
     pub canvas: u32,
     pub text: u32,
@@ -18,7 +17,6 @@ impl Palette {
     pub fn resolve(style: i64, system_light: bool) -> Self {
         if style == 2 || (style == 3 && system_light) {
             Self {
-                light: true,
                 hover: 0xe9edf3,
                 canvas: 0xffffff,
                 text: 0x1b2028,
@@ -34,7 +32,6 @@ impl Palette {
             }
         } else {
             Self {
-                light: false,
                 hover: 0x2b323d,
                 canvas: if style == 1 { 0 } else { 0x15181d },
                 text: 0xe6ebf2,

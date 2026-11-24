@@ -222,10 +222,8 @@ impl Panel {
     pub(super) fn render_video(&self, cx: &mut Context<Self>) -> Div {
         let mut section = div().flex().flex_col().gap_2();
         if self.video.is_empty() {
-            return section.child(if self.video_status.is_empty() {
-                "当前设备无可用的视频设置".to_string()
-            } else {
-                self.video_status.clone()
+            return section.when(self.video_status.is_empty(), |view| {
+                view.child("当前设备无可用的视频设置")
             });
         }
         let upscale = self
@@ -269,22 +267,17 @@ impl Panel {
                 }
             }
         }
-        let sections = has_picture
-            .then_some(("视频超分辨率和锐化", picture))
-            .into_iter()
-            .chain(brightness.map(|row| ("视频亮度", row)));
+        let sections = has_picture.then_some(picture).into_iter().chain(brightness);
 
         div()
             .flex()
             .flex_col()
             .gap_2()
-            .child(self.video_actions(cx))
             .child(section)
             .child(self.setting_sections(sections))
-            .child(self.video_status.clone())
     }
 
-    fn video_actions(&self, cx: &mut Context<Self>) -> Div {
+    pub(super) fn video_actions(&self, cx: &mut Context<Self>) -> Div {
         let mut actions = div().flex().flex_wrap().items_center().gap_2();
         let changed = self
             .video

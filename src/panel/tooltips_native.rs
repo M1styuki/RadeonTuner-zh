@@ -1,10 +1,10 @@
 // Static tooltip text matched to the non-Rust v0.75 MainPage.xaml controls.
 fn native_hints(label: &str) -> &'static [(Kind, &'static str)] {
     match label {
-        "FSR 延迟降低" => &[
+        "Radeon Anti-Lag" => &[
             (
                 Kind::Information,
-                "FSR 延迟降低（Anti-Lag）通过控制 CPU 工作节奏，避免其过度领先 GPU，从而帮助减少 GPU 受限场景中的输入延迟；启用此设置可能导致轻微帧率下降。",
+                "Radeon Anti-Lag 通过控制 CPU 工作节奏，避免其过度领先 GPU，从而帮助减少 GPU 受限场景中的输入延迟；启用此设置可能导致轻微帧率下降。",
             ),
             (
                 Kind::Warning,
@@ -81,18 +81,18 @@ fn native_hints(label: &str) -> &'static [(Kind, &'static str)] {
                 "* 游玩在线游戏时，请确保使用 AMD 官方签名的版本，以免与游戏反作弊保护产生冲突。\n\n* 此设置仅适用于 RDNA2 或更新显卡。",
             ),
         ],
-        "AMD 流体运动帧" => &[
+        "AMD Fluid Motion Frames" => &[
             (
                 Kind::Information,
                 "流体运动帧是一种帧生成功能，可将显示帧率提升到游戏内限制之上，带来更流畅的体验。",
             ),
             (
                 Kind::Warning,
-                "* 此设置可能会增加游戏延迟，建议使用“FSR 延迟降低”以获得最佳性能。\n\n* 此设置仅在使用独占全屏模式时有效。\n\n* 此设置仅适用于使用 OpenGL、Vulkan 和 DirectX 11 或 12 的应用程序。\n\n* 此设置仅适用于 RDNA2 或更新显卡。\n\n* 启用后，此设置会禁用“垂直同步”和“帧率目标控制”，你仍可使用“Radeon Chill”限制 FPS。\n\n* 此设置仅在使用“默认”驱动程序软件安装类型时有效，需要 Adrenalin Software 在后台运行，并且需要将应用程序添加到游戏库。",
+                "* 此设置可能会增加游戏延迟，建议使用“Radeon Anti-Lag”以获得最佳性能。\n\n* 此设置仅在使用独占全屏模式时有效。\n\n* 此设置仅适用于使用 OpenGL、Vulkan 和 DirectX 11 或 12 的应用程序。\n\n* 此设置仅适用于 RDNA2 或更新显卡。\n\n* 启用后，此设置会禁用“垂直同步”和“帧率目标控制”，你仍可使用“Radeon Chill”限制 FPS。\n\n* 此设置仅在使用“默认”驱动程序软件安装类型时有效，需要 Adrenalin Software 在后台运行，并且需要将应用程序添加到游戏库。",
             ),
             (Kind::Experimental, "这是用于测试目的的实验性设置。"),
         ],
-        "帧生成算法" => &[(Kind::Information, "调整所使用的流体运动帧算法。")],
+        "AFMF 帧生成算法" => &[(Kind::Information, "调整所使用的流体运动帧算法。")],
         "Radeon Chill" => &[
             (
                 Kind::Information,
@@ -100,7 +100,7 @@ fn native_hints(label: &str) -> &'static [(Kind, &'static str)] {
             ),
             (
                 Kind::Warning,
-                "* 此设置不适用于 OpenGL 应用程序。\n\n* 启用“FSR 延迟降低”或“Radeon Boost”时无法使用此设置。",
+                "* 此设置不适用于 OpenGL 应用程序。\n\n* 启用“Radeon Anti-Lag”或“Radeon Boost”时无法使用此设置。",
             ),
         ],
         "帧率目标控制" => &[
@@ -123,9 +123,9 @@ fn native_hints(label: &str) -> &'static [(Kind, &'static str)] {
                 "* 此设置仅适用于白名单应用程序；如需绕过驱动程序限制，可将应用程序可执行文件重命名为“sottr.exe”。\n\n* 启用“Radeon Chill”时无法使用此设置。\n\n* 此设置仅适用于 RDNA2 或更新显卡。",
             ),
         ],
-        "Radeon 图像锐化" => &[(
+        "Radeon Image Sharpening" => &[(
             Kind::Information,
-            "Radeon 图像锐化可恢复被其他效果柔化的游戏画面清晰度，适用于生产力和媒体类应用程序。",
+            "Radeon Image Sharpening 可恢复被其他效果柔化的游戏画面清晰度，适用于生产力和媒体类应用程序。",
         )],
         "桌面锐化" => &[(
             Kind::Information,

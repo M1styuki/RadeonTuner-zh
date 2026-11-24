@@ -152,12 +152,7 @@ impl Panel {
             .flex()
             .flex_col()
             .gap_2()
-            .child(self.setting_sections([
-                ("启动与快捷方式", startup),
-                ("外观与窗口", appearance),
-                ("托盘与更新", background),
-                ("驱动与高级设置", advanced),
-            ]))
+            .child(self.setting_sections([startup, appearance, background, advanced]))
             .when(!self.settings_message.is_empty(), |page| {
                 page.child(self.settings_message.clone())
             })

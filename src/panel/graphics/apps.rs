@@ -5,6 +5,18 @@ pub(in crate::panel) struct Games {
     list: Vec<App>,
     pub(super) selected: Option<App>,
 }
+#[cfg(test)]
+impl Games {
+    pub(in crate::panel) fn preview_fixture() -> Self {
+        let mut game = App::new("ExampleGame.exe".into());
+        game.path = r"C:\Program Files\Example Game\bin\x64".into();
+        Self {
+            list: vec![game],
+            selected: None,
+        }
+    }
+}
+
 impl Panel {
     pub(super) fn game_name(&self) -> String {
         self.games
@@ -176,7 +188,7 @@ impl Panel {
             labels,
             Some(selected as usize),
             "选择应用程序",
-            crate::panel::controls::SELECT_MAX_WIDTH,
+            crate::panel::controls::PROFILE_SELECT_WIDTH,
             move |p, i, _| {
                 if i == 0 {
                     p.read_device_details();

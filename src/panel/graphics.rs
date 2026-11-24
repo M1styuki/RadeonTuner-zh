@@ -196,76 +196,58 @@ impl Panel {
             section = section.child(game.clone());
         }
         use crate::adl::graphics::frames::Field;
-        const GROUPS: &[(&str, &[&str])] = &[
-            (
-                "FSR 与延迟降低",
-                &[
-                    "DeLagEnabled.Current",
-                    "MfgRatio.Current",
-                    "FsrShowInformation.Current",
-                    "FsrDisableMLSwapchain.Current",
-                    "FsrOverride.Current",
-                    "MlfiOverride.Current",
-                    "MfgOverride.Current",
-                    "MldOverride.Current",
-                    "NrcOverride.Current",
-                    "FsrOvrDLLPath.Current",
-                ],
-            ),
-            (
-                "帧生成与帧率",
-                &[
-                    "FrameGenEnabled.Current",
-                    "FrameGenAlgorithm.Current",
-                    "ChillEnabled.Current",
-                    "ChillMinFps.Current",
-                    "ChillMaxFps.Current",
-                    "FrtcEnabled.Current",
-                    "FrtcFrameRateTarget.Current",
-                ],
-            ),
-            (
-                "动态分辨率与锐化",
-                &[
-                    "BoostMode.Current",
-                    "BoostMinResolution.Current",
-                    "RisEnabled.Current",
-                    "RisDesktopEnabled.Current",
-                    "RisSharpeningDegree.Current",
-                ],
-            ),
-            (
-                "同步",
-                &[
-                    "VerticalSync.Current",
-                    "EnhancedSync.Current",
-                    "OpenGLTripleBuffering.Current",
-                ],
-            ),
-            (
-                "抗锯齿",
-                &[
-                    "AntiAliasingOverride.Current",
-                    "AntiAliasingMethod.Current",
-                    "AntiAliasingLevel.Current",
-                    "AntiAliasingEnhancedQuality.Current",
-                    "AntiAliasingMorphological.Current",
-                ],
-            ),
-            (
-                "纹理与曲面细分",
-                &[
-                    "AnisotropicOverride.Current",
-                    "TextureFilteringQuality.Current",
-                    "SurfaceFormatOptimization.Current",
-                    "OpenGL10BitPixelFormat.Current",
-                    "TessellationMode.Current",
-                    "TessellationLevel.Current",
-                ],
-            ),
+        const GROUPS: &[&[&str]] = &[
+            &[
+                "DeLagEnabled.Current",
+                "MfgRatio.Current",
+                "FsrShowInformation.Current",
+                "FsrDisableMLSwapchain.Current",
+                "FsrOverride.Current",
+                "MlfiOverride.Current",
+                "MfgOverride.Current",
+                "MldOverride.Current",
+                "NrcOverride.Current",
+                "FsrOvrDLLPath.Current",
+            ],
+            &[
+                "FrameGenEnabled.Current",
+                "FrameGenAlgorithm.Current",
+                "ChillEnabled.Current",
+                "ChillMinFps.Current",
+                "ChillMaxFps.Current",
+                "FrtcEnabled.Current",
+                "FrtcFrameRateTarget.Current",
+            ],
+            &[
+                "BoostMode.Current",
+                "BoostMinResolution.Current",
+                "RisEnabled.Current",
+                "RisDesktopEnabled.Current",
+                "RisSharpeningDegree.Current",
+            ],
+            &[
+                "VerticalSync.Current",
+                "EnhancedSync.Current",
+                "OpenGLTripleBuffering.Current",
+            ],
+            &[
+                "AntiAliasingOverride.Current",
+                "AntiAliasingMethod.Current",
+                "AntiAliasingLevel.Current",
+                "AntiAliasingEnhancedQuality.Current",
+                "AntiAliasingMorphological.Current",
+            ],
+            &[
+                "AnisotropicOverride.Current",
+                "TextureFilteringQuality.Current",
+                "SurfaceFormatOptimization.Current",
+                "OpenGL10BitPixelFormat.Current",
+                "TessellationMode.Current",
+                "TessellationLevel.Current",
+            ],
         ];
         let mut categories = Vec::new();
-        for &(name, keys) in GROUPS {
+        for &keys in GROUPS {
             let mut rows = div().flex().flex_col();
             let mut has_rows = false;
             for &key in keys {
@@ -411,7 +393,7 @@ impl Panel {
                 }
             }
             if has_rows {
-                categories.push((name, rows));
+                categories.push(rows);
             }
         }
         if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
@@ -421,10 +403,8 @@ impl Panel {
             .flex()
             .flex_col()
             .gap_2()
-            .child(self.graphics_actions(cx))
             .child(section)
             .child(self.setting_sections(categories))
-            .child(self.graphics_status.clone())
     }
 
     fn fsr_controls(&self, cx: &mut Context<Self>) -> Option<Div> {
@@ -501,19 +481,43 @@ impl Panel {
             self.setting_row(
                 div()
                     .flex()
-                    .flex_col()
-                    .child(self.hint_label("FSR 覆盖库"))
-                    .child(div().text_xs().child(fsr.description.clone())),
+                    .min_w_0()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        self.hint_label("FSR 覆盖库")
+                            .whitespace_nowrap()
+                            .flex_shrink_0(),
+                    )
+                    .child(
+                        div()
+                            .id("fsr-library-description")
+                            .flex_1()
+                            .min_w_0()
+                            .text_xs()
+                            .truncate()
+                            .text_color(gpui::rgb(self.palette.muted_text))
+                            .tooltip(self.tooltip_owned(fsr.description.clone().into()))
+                            .child(fsr.description.clone()),
+                    ),
                 row,
             ),
         );
         if self.experimental {
-            section = section.child(fsr.path().display().to_string());
+            let path = fsr.path().display().to_string();
+            section = section.child(
+                div()
+                    .id("fsr-library-path")
+                    .text_xs()
+                    .truncate()
+                    .tooltip(self.tooltip_owned(path.clone().into()))
+                    .child(path),
+            );
         }
         Some(section)
     }
 
-    fn graphics_actions(&self, cx: &mut Context<Self>) -> Div {
+    pub(super) fn graphics_actions(&self, cx: &mut Context<Self>) -> Div {
         let mut actions = div().flex().flex_wrap().items_center().gap_2();
         if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
             return actions;

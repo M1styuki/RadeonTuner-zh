@@ -28,6 +28,7 @@ mod theme;
 mod tooltips;
 mod transfer;
 mod updates;
+const NAV_WIDTH: f32 = 82.;
 const PAGES: [&str; 7] = ["调校", "风扇", "显卡", "显示", "多媒体", "设置", "信息"];
 mod tuning;
 struct Panel {
@@ -135,7 +136,7 @@ impl Panel {
                         })
                 },
             ))
-            .child(layout::nav_icon(i, palette.light))
+            .child(layout::nav_icon(i, palette.text))
             .child(label.to_string())
     }
     fn refresh(&mut self) {
@@ -176,9 +177,6 @@ impl Render for Panel {
             content = content
                 .child(self.render_tuning_profiles(cx))
                 .child(self.render_tuning_fields(cx));
-        }
-        if matches!(self.page, 0 | 1) && !self.tuning_status.is_empty() {
-            content = content.child(self.tuning_status.clone());
         }
         match self.page {
             2 => content = content.child(self.render_graphics(cx)),
@@ -226,7 +224,7 @@ impl Render for Panel {
         }
         let mut nav = div()
             .id("navigation")
-            .w(px(82.))
+            .w(px(NAV_WIDTH))
             .flex_shrink_0()
             .overflow_y_scroll()
             .p_2()
@@ -285,7 +283,7 @@ impl Render for Panel {
                     .min_w_0()
                     .flex()
                     .flex_col()
-                    .child(self.render_header(cx))
+                    .child(self.render_header(window.viewport_size().width, cx))
                     .child(
                         div()
                             .id(("content", self.page))
@@ -334,8 +332,8 @@ fn set_window_icon(window: &Window) {
 }
 
 pub fn run() -> Result<()> {
-    open_panel(
-        |panel| match Driver::open().and_then(|driver| Ok((driver.devices()?, driver))) {
+    open_panel(true, |panel| {
+        match Driver::open().and_then(|driver| Ok((driver.devices()?, driver))) {
             Ok((devices, driver)) => {
                 if devices.is_empty() {
                     panel.message = "未检测到可访问的 AMD 显卡".into();
@@ -348,11 +346,11 @@ pub fn run() -> Result<()> {
                 panel.refresh();
             }
             Err(err) => panel.message = format!("{err:#}"),
-        },
-    )
+        }
+    })
 }
 
-fn open_panel(initialize: impl FnOnce(&mut Panel)) -> Result<()> {
+fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Result<()> {
     let settings = Settings::open()?;
     let start_visible = settings.flag("StartWindowVisible", false)?;
     let close_tray = settings.flag("CloseTray", true)?;
@@ -441,21 +439,23 @@ fn open_panel(initialize: impl FnOnce(&mut Panel)) -> Result<()> {
                     {
                         panel.check_updates(false, cx);
                     }
-                    cx.spawn(async move |view, cx| {
-                        loop {
-                            Timer::after(Duration::from_secs(2)).await;
-                            if view
-                                .update(cx, |panel, cx| {
-                                    panel.refresh();
-                                    cx.notify();
-                                })
-                                .is_err()
-                            {
-                                break;
+                    if poll_hardware {
+                        cx.spawn(async move |view, cx| {
+                            loop {
+                                Timer::after(Duration::from_secs(2)).await;
+                                if view
+                                    .update(cx, |panel, cx| {
+                                        panel.refresh();
+                                        cx.notify();
+                                    })
+                                    .is_err()
+                                {
+                                    break;
+                                }
                             }
-                        }
-                    })
-                    .detach();
+                        })
+                        .detach();
+                    }
                     if panel.settings.flag("FirstLaunch", true).unwrap_or(false) {
                         if let Err(err) = panel.settings.set_flag("FirstLaunch", false) {
                             panel.message = format!("保存首次启动状态失败：{err}");
@@ -481,9 +481,66 @@ fn open_panel(initialize: impl FnOnce(&mut Panel)) -> Result<()> {
 #[test]
 #[ignore = "opens a window for an interactive fan-layout check"]
 fn preview_fan_page() {
-    open_panel(|panel| {
+    open_panel(false, |panel| {
+        use crate::adl::graphics::frames::{Control, Field};
         panel.page = 1;
-        panel.message = "风扇界面预览（示例数据）".into();
+        panel.message = "界面预览（示例数据）".into();
+        panel.experimental = true;
+        panel.devices.push(Device {
+            gamma_key: String::new(),
+            registry_path: String::new(),
+            profile_key: String::new(),
+            pci_location: None,
+            index: 0,
+            name: "AMD Radeon RX 9070 XT".into(),
+        });
+        panel.games = graphics::apps::Games::preview_fixture();
+        panel.fsr_library = Some(crate::adl::graphics::fsr::Library::preview_fixture());
+        panel.frames = [
+            (Field::AntiLag, 0, 1),
+            (Field::Generate, 1, 1),
+            (Field::Algorithm, 1, 2),
+            (Field::Chill, 1, 1),
+            (Field::Low, 75, 300),
+            (Field::High, 140, 300),
+            (Field::Cap, 1, 1),
+            (Field::Target, 120, 300),
+            (Field::Boost, 2, 3),
+            (Field::MinResolution, 84, 100),
+            (Field::Sharpen, 1, 1),
+            (Field::Sharpness, 65, 100),
+            (Field::Desktop, 0, 1),
+            (Field::AntiAliasing, 1, 2),
+            (Field::DeepColor, 0, 1),
+        ]
+        .into_iter()
+        .map(|(field, draft, max)| Control {
+            field,
+            current: draft,
+            draft,
+            min: 0,
+            max,
+            step: 1,
+        })
+        .collect();
+        panel.metrics = [
+            ("核心占用", Some(51), "%"),
+            ("显存占用率", Some(32), "%"),
+            ("已用显存", Some(5241), "MB"),
+            ("核心频率", Some(2312), "MHz"),
+            ("显存频率", Some(2518), "MHz"),
+            ("功耗", Some(198), "W"),
+            ("核心电压", Some(966), "mV"),
+            ("风扇转速", Some(1024), "RPM"),
+            ("风扇转速比", Some(52), "%"),
+            ("核心温度", Some(61), "°C"),
+            ("显存温度", Some(64), "°C"),
+            ("热点温度", Some(72), "°C"),
+            ("进气温度", None, "°C"),
+        ]
+        .into_iter()
+        .map(|(label, value, unit)| Metric { label, value, unit })
+        .collect();
         panel.override_fan_mode_for_preview();
         let temperatures = [30, 45, 58, 73, 88];
         let speeds = [24, 34, 47, 65, 83];
