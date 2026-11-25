@@ -135,16 +135,16 @@ impl Panel {
             .gap_2()
             .px_4()
             .pt_3()
-            .pb_2();
+            .pb_2()
+            .bg(self.layer_color(self.palette.canvas, 0.60));
         if self.page == 5 {
             return header;
         }
         header = header
-            .bg(rgb(motion::mix(
-                self.palette.canvas,
-                self.palette.sidebar,
-                0.55,
-            )))
+            .bg(self.layer_color(
+                motion::mix(self.palette.canvas, self.palette.sidebar, 0.55),
+                0.44,
+            ))
             .border_b_1()
             .border_color(rgb(self.palette.border))
             .gap_3()

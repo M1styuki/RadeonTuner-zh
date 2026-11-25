@@ -1,6 +1,6 @@
 [package]
 name = "radeon-tuner"
-version = "0.75.14"
+version = "0.75.15"
 edition = "2024"
 publish = false
 
@@ -15,7 +15,7 @@ serde_json = "1"
 tempfile = "3"
 tray-icon = "0.21"
 image = { version = "0.25", default-features = false, features = ["ico"] }
-windows-sys = { version = "0.59", features = ["Win32_Foundation","Win32_UI_WindowsAndMessaging","Win32_System_Threading","Win32_System_Services","Win32_Security","Win32_System_LibraryLoader","Win32_System_Diagnostics_ToolHelp","Win32_System_Registry","Win32_Storage_FileSystem","Win32_UI_Shell","Win32_System_Com"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation","Win32_Graphics_Dwm","Win32_UI_Controls","Win32_UI_WindowsAndMessaging","Win32_System_Threading","Win32_System_Services","Win32_Security","Win32_System_LibraryLoader","Win32_System_Diagnostics_ToolHelp","Win32_System_Registry","Win32_Storage_FileSystem","Win32_UI_Shell","Win32_System_Com"] }
 self-replace = "1.5.1"
 sha2 = "0.10.9"
 semver = "1.0.28"

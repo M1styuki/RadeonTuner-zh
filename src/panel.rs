@@ -43,6 +43,8 @@ struct Panel {
     pending_import: Option<transfer::Pending>,
     style: i64,
     palette: theme::Palette,
+    mica: bool,
+    frame_dark: Option<bool>,
     mpo: bool,
     excludes_drivers: bool,
     admin: bool,
@@ -175,13 +177,16 @@ fn replace_changed<T: PartialEq>(current: &mut T, next: T) -> bool {
 
 impl Render for Panel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.palette = theme::Palette::resolve(
-            self.style,
-            matches!(
-                window.appearance(),
-                gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight
-            ),
+        let system_light = matches!(
+            window.appearance(),
+            gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight
         );
+        self.palette = theme::Palette::resolve(self.style, system_light);
+        let dark = !theme::Palette::is_light(self.style, system_light);
+        if self.frame_dark != Some(dark) {
+            theme::set_caption_dark(window, dark);
+            self.frame_dark = Some(dark);
+        }
         let mut content = div()
             .flex()
             .flex_col()
@@ -251,6 +256,7 @@ impl Render for Panel {
         }
         let mut nav = div()
             .id("navigation")
+            .bg(self.layer_color(self.palette.canvas, 0.22))
             .w(px(NAV_WIDTH))
             .flex_shrink_0()
             .overflow_y_scroll()
@@ -305,7 +311,6 @@ impl Render for Panel {
             .font_family("Microsoft YaHei UI")
             .flex()
             .text_color(rgb(self.palette.text))
-            .bg(rgb(self.palette.canvas))
             .child(nav)
             .child(
                 div()
@@ -317,6 +322,7 @@ impl Render for Panel {
                     .child(
                         div()
                             .id(("content", self.page))
+                            .bg(self.layer_color(self.palette.canvas, 0.60))
                             .flex_1()
                             .min_h_0()
                             .overflow_y_scroll()
@@ -397,6 +403,8 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
         pending_import: None,
         style,
         palette: theme::Palette::resolve(style, false),
+        mica: false,
+        frame_dark: None,
         admin: unsafe { windows_sys::Win32::UI::Shell::IsUserAnAdmin() != 0 },
         radeon_services: services::state().ok(),
         mpo: crate::integration::mpo_disabled(),
@@ -461,6 +469,7 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
             |window, cx| {
                 window.set_window_title(TITLE);
                 set_window_icon(window);
+                panel.mica = theme::enable_mica(window);
                 let hwnd = window
                     .window_handle()
                     .ok()
