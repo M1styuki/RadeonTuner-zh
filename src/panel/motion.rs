@@ -28,7 +28,12 @@ pub(super) fn enabled() -> bool {
     animate != 0
 }
 
-pub(super) fn reveal<E>(element: E, id: impl Into<ElementId>, enabled: bool) -> AnyElement
+pub(super) fn reveal<E>(
+    element: E,
+    id: impl Into<ElementId>,
+    enabled: bool,
+    offset_y: f32,
+) -> AnyElement
 where
     E: IntoElement + Styled + 'static,
 {
@@ -37,7 +42,11 @@ where
             .with_animation(
                 id,
                 Animation::new(DURATION).with_easing(spring),
-                |elem, t| elem.opacity(0.55 + 0.45 * t),
+                move |elem, t| {
+                    elem.relative()
+                        .top(gpui::px(offset_y * (1. - t)))
+                        .opacity(0.18 + 0.82 * t)
+                },
             )
             .into_any_element()
     } else {

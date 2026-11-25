@@ -84,6 +84,7 @@ impl Panel {
                     .child(content),
                 "dialog-open",
                 self.animations,
+                8.,
             ))
     }
 
@@ -532,6 +533,7 @@ impl Panel {
                             list,
                             ElementId::NamedChild(Box::new(id), "open".into()),
                             self.animations,
+                            if menu.above { 4. } else { -4. },
                         )),
                 )
                 .with_priority(3),

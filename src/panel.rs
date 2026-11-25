@@ -324,6 +324,7 @@ impl Render for Panel {
                                 content,
                                 ("page-entrance", self.page),
                                 self.animations,
+                                12.,
                             )),
                     ),
             );
