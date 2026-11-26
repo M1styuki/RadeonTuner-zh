@@ -5,11 +5,16 @@ use windows_sys::Win32::{
     Foundation::HWND,
     Graphics::Dwm::{
         DWMSBT_MAINWINDOW, DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_USE_IMMERSIVE_DARK_MODE,
-        DwmExtendFrameIntoClientArea, DwmSetWindowAttribute,
+        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmExtendFrameIntoClientArea,
+        DwmSetWindowAttribute,
     },
     UI::{
         Controls::MARGINS,
-        WindowsAndMessaging::{GWL_EXSTYLE, GetWindowLongW, WS_EX_NOREDIRECTIONBITMAP},
+        WindowsAndMessaging::{
+            GWL_EXSTYLE, GWL_STYLE, GetWindowLongW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
+            SWP_NOSIZE, SWP_NOZORDER, SetWindowLongW, SetWindowPos, WS_EX_NOREDIRECTIONBITMAP,
+            WS_SYSMENU,
+        },
     },
 };
 
@@ -55,14 +60,37 @@ pub(super) fn enable_mica(window: &Window) -> bool {
         cyBottomHeight: -1,
     };
     unsafe {
-        GetWindowLongW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_NOREDIRECTIONBITMAP != 0
-            && DwmSetWindowAttribute(
+        if GetWindowLongW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_NOREDIRECTIONBITMAP == 0
+            || DwmSetWindowAttribute(
                 hwnd,
                 DWMWA_SYSTEMBACKDROP_TYPE as u32,
                 std::ptr::from_ref(&DWMSBT_MAINWINDOW).cast(),
                 size_of_val(&DWMSBT_MAINWINDOW) as u32,
-            ) >= 0
-            && DwmExtendFrameIntoClientArea(hwnd, &margins) >= 0
+            ) < 0
+            || DwmExtendFrameIntoClientArea(hwnd, &margins) < 0
+        {
+            return false;
+        }
+        // Strip WS_SYSMENU so Win11 DWM never paints duplicate behind-the-glass ─ □ ×.
+        let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
+        SetWindowLongW(hwnd, GWL_STYLE, (style & !WS_SYSMENU) as i32);
+        let round = DWMWCP_ROUND as u32;
+        DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE as u32,
+            std::ptr::from_ref(&round).cast(),
+            size_of_val(&round) as u32,
+        );
+        SetWindowPos(
+            hwnd,
+            std::ptr::null_mut(),
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+        );
+        true
     }
 }
 

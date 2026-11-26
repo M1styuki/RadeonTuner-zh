@@ -182,7 +182,8 @@ impl Panel {
             )
             .child(self.update_controls(cx));
 
-        let mut sections: Vec<(&'static str, Div)> = vec![("版本与更新", version)];
+        let mut sections: Vec<(&'static str, Div)> =
+            vec![("版本与更新", controls::card_rows([version], cx))];
         if !self.info.is_empty() {
             let device = controls::card_rows(
                 self.info.iter().cloned().map(|line| {
@@ -197,7 +198,7 @@ impl Panel {
             );
             sections.push(("设备与驱动信息", device));
         }
-        sections.push(("相关链接", links));
+        sections.push(("相关链接", controls::card_rows([links], cx)));
         self.setting_sections_titled(sections, cx)
     }
 }

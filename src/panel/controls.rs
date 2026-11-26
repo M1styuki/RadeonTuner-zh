@@ -2,15 +2,15 @@ use super::{
     Panel,
     layout::nav_icon,
     motion::{pointer_feedback, smooth_spring, smooth_value},
-    shape::{ContinuousCorners as _, paint_fill, paint_outline},
+    shape::{ContinuousCorners as _, paint_outline},
 };
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::{
-    Anchor, Animation, AnimationExt as _, App, Bounds, Context, Div, ElementId, FontWeight, Hsla,
-    InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent,
-    ParentElement as _, PathBuilder, Pixels, Role, SharedString, Stateful,
+    Anchor, Animation, AnimationExt as _, App, BorderStyle, Bounds, Context, Div, ElementId,
+    FontWeight, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton,
+    MouseDownEvent, ParentElement as _, PathBuilder, Pixels, Role, SharedString, Stateful,
     StatefulInteractiveElement as _, Styled as _, Window, anchored, canvas, deferred, div,
-    ease_out_quint, fill, point, prelude::FluentBuilder as _, px, relative, rems, size,
+    ease_out_quint, fill, point, prelude::FluentBuilder as _, px, quad, relative, rems, size,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -92,25 +92,39 @@ pub(super) fn section_card(cx: &App) -> Div {
         .contour(Some(cx.theme().group_box), Some(cx.theme().border), radius)
 }
 
-pub(super) fn row_divider(cx: &App) -> Div {
-    div()
-        .w_full()
-        .h(px(1.))
-        .flex_shrink_0()
-        .bg(cx.theme().border.opacity(0.65))
-}
-
 pub(super) fn card_rows(rows: impl IntoIterator<Item = Div>, cx: &App) -> Div {
-    let mut column = v_flex().w_full();
-    let mut first = true;
-    for row in rows {
-        if !first {
-            column = column.child(row_divider(cx));
-        }
-        column = column.child(row);
-        first = false;
-    }
-    column
+    let rows: Vec<Div> = rows.into_iter().collect();
+    let count = rows.len();
+    let radius = cx.theme().radius_lg;
+    let surface = cx.theme().group_box;
+    let border = cx.theme().border;
+    v_flex()
+        .relative()
+        .w_full()
+        .child(
+            v_flex()
+                .w_full()
+                .gap(px(2.))
+                .children(rows.into_iter().enumerate().map(|(i, row)| {
+                    let tile = row.w_full().bg(surface);
+                    match (i == 0, i + 1 == count) {
+                        (true, true) => tile.rounded(radius),
+                        (true, false) => tile.rounded_t(radius),
+                        (false, true) => tile.rounded_b(radius),
+                        (false, false) => tile,
+                    }
+                })),
+        )
+        .child(
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+                .rounded(radius)
+                .border_1()
+                .border_color(border),
+        )
 }
 
 pub(super) fn animated_chevron(
@@ -452,13 +466,9 @@ impl Panel {
     pub(super) fn setting_sections(
         &self,
         sections: impl IntoIterator<Item = Div>,
-        cx: &App,
+        _cx: &App,
     ) -> Div {
-        v_flex().gap_3().children(
-            sections
-                .into_iter()
-                .map(|section| section_card(cx).child(section)),
-        )
+        v_flex().gap_3().children(sections)
     }
 
     pub(super) fn setting_sections_titled<'a>(
@@ -472,7 +482,7 @@ impl Panel {
                 v_flex()
                     .gap_1p5()
                     .child(section_heading(title, cx))
-                    .child(section_card(cx).child(section))
+                    .child(section)
             }))
     }
 
@@ -922,6 +932,7 @@ fn win11_switch(
     let released = slot.clone();
     let outside = slot.clone();
 
+    let transparent = cx.theme().transparent;
     let off_border = cx.theme().muted_foreground.opacity(0.75);
     let off_border_hover = cx.theme().foreground.opacity(0.65);
     let off_fill_hover = cx.theme().accent;
@@ -993,24 +1004,23 @@ fn win11_switch(
                 },
                 move |bounds, (hover, press, slide, on_mix), window, _| {
                     let radius = f32::from(bounds.size.height) / 2.;
-                    // Off track fill (transparent -> hover tint -> press tint) and border.
-                    if on_mix < 1. {
-                        let off_bg = off_fill_hover
-                            .opacity(hover * (1. - on_mix))
-                            .blend(off_fill_press.opacity(press * (1. - on_mix)));
-                        paint_fill(bounds, off_bg, radius, window);
-                        let off_stroke = off_border.blend(off_border_hover.opacity(hover));
-                        paint_outline(bounds, off_stroke.opacity(1. - on_mix), radius, window);
-                    }
-                    // On track fill + matching border.
-                    if on_mix > 0. {
-                        let active_fill = on_fill
-                            .blend(on_fill_hover.opacity(hover))
-                            .blend(on_fill_press.opacity(press))
-                            .opacity(on_mix);
-                        paint_fill(bounds, active_fill, radius, window);
-                        paint_outline(bounds, active_fill, radius, window);
-                    }
+                    let off_bg = transparent
+                        .blend(off_fill_hover.opacity(hover))
+                        .blend(off_fill_press.opacity(press));
+                    let active_bg = on_fill
+                        .blend(on_fill_hover.opacity(hover))
+                        .blend(on_fill_press.opacity(press));
+                    let track_bg = off_bg.blend(active_bg.opacity(on_mix));
+                    let off_stroke = off_border.blend(off_border_hover.opacity(hover));
+                    let track_border = off_stroke.blend(active_bg.opacity(on_mix));
+                    window.paint_quad(quad(
+                        bounds,
+                        px(radius),
+                        track_bg,
+                        px(1.),
+                        track_border,
+                        BorderStyle::Solid,
+                    ));
 
                     // Win11 thumb: 12px rest -> 14px hover -> 17x14px press stretch.
                     let thumb_h = 12. + 2. * hover.max(press);

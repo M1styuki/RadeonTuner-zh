@@ -255,7 +255,9 @@ impl Panel {
         if !picture_rows.is_empty() {
             sections.push(card_rows(picture_rows, cx));
         }
-        sections.extend(find(Feature::Brightness).map(|i| self.video_number_row(i, cx)));
+        sections.extend(
+            find(Feature::Brightness).map(|i| card_rows([self.video_number_row(i, cx)], cx)),
+        );
         self.setting_sections(sections, cx)
     }
 

@@ -537,7 +537,7 @@ impl Panel {
                 }
             }
         }
-        groups.push(self.tuning_persistence(cx));
+        groups.push(card_rows([self.tuning_persistence(cx)], cx));
         self.setting_sections(groups, cx)
     }
 
