@@ -83,13 +83,13 @@ pub(super) fn section_heading(title: &'static str, cx: &App) -> Div {
 }
 
 pub(super) fn section_card(cx: &App) -> Div {
-    let radius = f32::from(cx.theme().radius_lg);
     v_flex()
         .relative()
         .w_full()
         .overflow_hidden()
         .rounded(cx.theme().radius_lg)
-        .contour(Some(cx.theme().group_box), Some(cx.theme().border), radius)
+        .bg(cx.theme().group_box)
+        .shadow_sm()
 }
 
 pub(super) fn card_rows(rows: impl IntoIterator<Item = Div>, cx: &App) -> Div {
@@ -97,34 +97,18 @@ pub(super) fn card_rows(rows: impl IntoIterator<Item = Div>, cx: &App) -> Div {
     let count = rows.len();
     let radius = cx.theme().radius_lg;
     let surface = cx.theme().group_box;
-    let border = cx.theme().border;
     v_flex()
-        .relative()
         .w_full()
-        .child(
-            v_flex()
-                .w_full()
-                .gap(px(2.))
-                .children(rows.into_iter().enumerate().map(|(i, row)| {
-                    let tile = row.w_full().bg(surface);
-                    match (i == 0, i + 1 == count) {
-                        (true, true) => tile.rounded(radius),
-                        (true, false) => tile.rounded_t(radius),
-                        (false, true) => tile.rounded_b(radius),
-                        (false, false) => tile,
-                    }
-                })),
-        )
-        .child(
-            div()
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-                .rounded(radius)
-                .border_1()
-                .border_color(border),
-        )
+        .gap(px(2.))
+        .children(rows.into_iter().enumerate().map(|(i, row)| {
+            let tile = row.w_full().bg(surface).shadow_sm();
+            match (i == 0, i + 1 == count) {
+                (true, true) => tile.rounded(radius),
+                (true, false) => tile.rounded_t(radius),
+                (false, true) => tile.rounded_b(radius),
+                (false, false) => tile,
+            }
+        }))
 }
 
 pub(super) fn animated_chevron(
@@ -225,8 +209,16 @@ impl Panel {
     ) -> impl IntoElement {
         let id: ElementId = id.into();
         let radius = f32::from(cx.theme().radius);
-        let hover_fill = cx.theme().sidebar_accent.opacity(0.65);
-        let press_fill = cx.theme().sidebar_accent;
+        let hover_fill = if selected {
+            cx.theme().transparent
+        } else {
+            cx.theme().sidebar_accent.opacity(0.65)
+        };
+        let press_fill = if selected {
+            cx.theme().transparent
+        } else {
+            cx.theme().sidebar_accent
+        };
         let text_color = if selected {
             cx.theme().sidebar_accent_foreground
         } else {
@@ -1017,16 +1009,14 @@ fn win11_switch(
                         bounds,
                         px(radius),
                         track_bg,
-                        px(1.),
+                        px(1.35),
                         track_border,
                         BorderStyle::Solid,
                     ));
 
-                    // Win11 thumb: 12px rest -> 14px hover -> 17x14px press stretch.
-                    let thumb_h = 12. + 2. * hover.max(press);
-                    let thumb_w = thumb_h + 3. * press;
-                    let pad = (f32::from(bounds.size.height) - thumb_h) / 2.;
-                    let travel = (f32::from(bounds.size.width) - 2. * pad - thumb_w).max(0.);
+                    let thumb_d = 12.;
+                    let pad = (f32::from(bounds.size.height) - thumb_d) / 2.;
+                    let travel = (f32::from(bounds.size.width) - 2. * pad - thumb_d).max(0.);
                     let thumb_x = f32::from(bounds.origin.x) + pad + travel * slide;
                     let thumb_y = f32::from(bounds.origin.y) + pad;
                     let thumb_color = off_thumb
@@ -1036,11 +1026,11 @@ fn win11_switch(
                         fill(
                             Bounds::new(
                                 point(px(thumb_x), px(thumb_y)),
-                                size(px(thumb_w), px(thumb_h)),
+                                size(px(thumb_d), px(thumb_d)),
                             ),
                             thumb_color,
                         )
-                        .corner_radii(px(thumb_h / 2.)),
+                        .corner_radii(px(thumb_d / 2.)),
                     );
                 },
             )
