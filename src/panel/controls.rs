@@ -190,6 +190,14 @@ pub(super) fn chevron_right(color: Hsla) -> impl IntoElement {
     .flex_shrink_0()
 }
 
+pub(super) fn control_highlight(cx: &App) -> Hsla {
+    if cx.theme().is_dark() {
+        cx.theme().switch_thumb.opacity(0.14)
+    } else {
+        cx.theme().switch_thumb.opacity(0.85)
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum ButtonTone {
     Secondary,
@@ -360,6 +368,11 @@ impl Panel {
             ),
         };
         let is_inline = matches!(tone, ButtonTone::Inline);
+        let highlight = match tone {
+            ButtonTone::Secondary => Some(control_highlight(cx)),
+            ButtonTone::Primary | ButtonTone::Danger => Some(cx.theme().switch_thumb.opacity(0.22)),
+            ButtonTone::Inline => None,
+        };
         let mut btn = h_flex()
             .id(id.clone())
             .relative()
@@ -369,7 +382,7 @@ impl Panel {
             .when(is_inline, |d| d.h_7().px_2p5())
             .when(!is_inline, |d| d.h_8().min_w(rems(4.375)).px_3())
             .rounded(cx.theme().radius)
-            .contour(fill, None, radius)
+            .contour_highlight(fill, highlight, radius)
             .text_sm()
             .font_weight(FontWeight::MEDIUM)
             .text_color(fg)
@@ -697,7 +710,7 @@ impl Panel {
             .justify_between()
             .gap_2()
             .rounded(cx.theme().radius)
-            .contour(Some(cx.theme().button), None, radius)
+            .contour_highlight(Some(cx.theme().button), Some(control_highlight(cx)), radius)
             .when(count == 0, |d| d.opacity(0.45))
             .child(
                 canvas(
@@ -1016,8 +1029,8 @@ fn win11_switch(
     let outside = slot.clone();
 
     let transparent = cx.theme().transparent;
-    let off_border = cx.theme().muted_foreground.opacity(0.75);
-    let off_border_hover = cx.theme().foreground.opacity(0.65);
+    let off_border = cx.theme().foreground.opacity(0.62);
+    let off_border_hover = cx.theme().foreground.opacity(0.80);
     let off_fill_hover = cx.theme().accent;
     let off_fill_press = cx.theme().secondary_active;
     let on_fill = cx.theme().primary;
@@ -1100,7 +1113,7 @@ fn win11_switch(
                         bounds,
                         px(radius),
                         track_bg,
-                        px(1.15),
+                        px(1.0),
                         track_border,
                         BorderStyle::Solid,
                     ));

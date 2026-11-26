@@ -299,7 +299,11 @@ impl Panel {
             .overflow_hidden()
             .text_sm()
             .rounded(cx.theme().radius)
-            .contour(Some(cx.theme().button), None, radius)
+            .contour_highlight(
+                Some(cx.theme().button),
+                Some(super::controls::control_highlight(cx)),
+                radius,
+            )
             .child(
                 canvas(
                     move |_, window, cx| {
