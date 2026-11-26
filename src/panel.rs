@@ -10,12 +10,15 @@ use gpui_kit::component::{
 use gpui_kit::{
     App, AppContext as _, Bounds, Context, Div, FontWeight, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Window, WindowBackgroundAppearance, WindowBounds, WindowOptions, canvas, div,
-    point, px, rems, size,
+    Styled as _, TitlebarOptions, Window, WindowBackgroundAppearance, WindowBounds,
+    WindowDecorations, WindowOptions, canvas, div, point, px, rems, size,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{cell::RefCell, collections::HashMap, time::Duration};
-use windows_sys::Win32::UI::WindowsAndMessaging::IsIconic;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    IsIconic, SW_SHOW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
+    SetForegroundWindow, SetWindowPos, ShowWindow,
+};
 
 pub const TITLE: &str = "RadeonTuner · Rust";
 mod controls;
@@ -42,6 +45,7 @@ struct Panel {
     dropdown: Option<controls::Dropdown>,
     control_glyph_widths: RefCell<HashMap<char, f32>>,
     content_scroll: ScrollHandle,
+    content_smooth_scroll: motion::SmoothScroll,
     applied_theme: Option<(i64, bool, bool)>,
     animations: bool,
     updates: updates::Updates,
@@ -138,7 +142,7 @@ impl Panel {
     }
 
     fn render_info_page(&self, cx: &mut Context<Self>) -> Div {
-        let mut links = h_flex().flex_wrap().gap_2().py_1();
+        let mut links = h_flex().flex_wrap().gap_2().px_4().py_3();
         for (i, (label, url)) in [
             ("访问项目网站", "https://projects.arnoldvink.com"),
             ("打开捐赠页面", "https://donation.arnoldvink.com"),
@@ -165,7 +169,8 @@ impl Panel {
         }
         let version = v_flex()
             .gap_2()
-            .py_1()
+            .px_4()
+            .py_3()
             .child(
                 div()
                     .text_sm()
@@ -179,12 +184,17 @@ impl Panel {
 
         let mut sections: Vec<(&'static str, Div)> = vec![("版本与更新", version)];
         if !self.info.is_empty() {
-            let device = v_flex()
-                .gap_1()
-                .py_1()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
-                .children(self.info.iter().cloned());
+            let device = controls::card_rows(
+                self.info.iter().cloned().map(|line| {
+                    div()
+                        .px_4()
+                        .py_2()
+                        .text_xs()
+                        .text_color(cx.theme().muted_foreground)
+                        .child(line)
+                }),
+                cx,
+            );
             sections.push(("设备与驱动信息", device));
         }
         sections.push(("相关链接", links));
@@ -275,6 +285,7 @@ impl Render for Panel {
                     let was_settings = p.page == 5;
                     p.page = i;
                     p.content_scroll.set_offset(point(px(0.), px(0.)));
+                    p.content_smooth_scroll.reset();
                     if was_settings && i != 5 {
                         p.refresh();
                     } else if i == 2 {
@@ -300,7 +311,6 @@ impl Render for Panel {
             .px_2()
             .pt_2()
             .pb_3()
-            .gap_2()
             .child(
                 v_flex()
                     .id("nav-scroll")
@@ -308,20 +318,7 @@ impl Render for Panel {
                     .min_h_0()
                     .overflow_y_scroll()
                     .child(nav_list),
-            )
-            .child(self.nav_item(
-                "exit",
-                "退出",
-                7,
-                compact,
-                false,
-                |p, _, _| {
-                    if let Err(err) = crate::tray::request_exit() {
-                        p.message = err.to_string();
-                    }
-                },
-                cx,
-            ));
+            );
 
         let content_area = v_flex()
             .relative()
@@ -335,7 +332,10 @@ impl Render for Panel {
                     .min_h_0()
                     .overflow_y_scroll()
                     .track_scroll(&self.content_scroll)
-                    .child(content.flex_shrink_0()),
+                    .child(
+                        self.content_smooth_scroll
+                            .wrap(self.content_scroll.clone(), content.flex_shrink_0()),
+                    ),
             )
             .child(Scrollbar::vertical(&self.content_scroll));
 
@@ -438,6 +438,7 @@ fn build_panel(settings: Settings, initialize: impl FnOnce(&mut Panel)) -> Resul
         dropdown: None,
         control_glyph_widths: Default::default(),
         content_scroll: ScrollHandle::new(),
+        content_smooth_scroll: motion::SmoothScroll::new(),
         applied_theme: None,
         animations: motion::enabled(),
         updates: Default::default(),
@@ -522,14 +523,23 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
             theme::sync_theme(None, panel.style, false, cx);
 
             let bounds = Bounds::centered(None, size(px(860.), px(720.)), cx);
+            let mut hwnd_cell = None;
             cx.open_window(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some(TITLE.into()),
+                        appears_transparent: true,
+                        ..Default::default()
+                    }),
                     window_background: WindowBackgroundAppearance::MicaBackdrop,
-                    ..TitleBar::window_options()
+                    window_decorations: Some(WindowDecorations::Client),
+                    app_owns_titlebar_drag: true,
+                    show: false,
+                    focus: false,
+                    ..Default::default()
                 },
                 |window, cx| {
-                    window.set_window_title(TITLE);
                     set_window_icon(window);
                     let system_light = theme::is_system_light(window.appearance());
                     let dark = !theme::is_light(panel.style, system_light);
@@ -548,6 +558,7 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
                             RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
                             _ => None,
                         });
+                    hwnd_cell = hwnd;
                     if panel.topmost {
                         if let Err(err) = crate::tray::topmost(true) {
                             panel.message = err.to_string();
@@ -594,6 +605,21 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
                 },
             )
             .expect("无法创建 GPUI 面板");
+            if let Some(hwnd) = hwnd_cell {
+                unsafe {
+                    SetWindowPos(
+                        hwnd as _,
+                        std::ptr::null_mut(),
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                    );
+                    ShowWindow(hwnd as _, SW_SHOW);
+                    SetForegroundWindow(hwnd as _);
+                }
+            }
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {
                     cx.quit();

@@ -1,5 +1,5 @@
 pub(super) mod apps;
-use super::Panel;
+use super::{Panel, controls::card_rows};
 use crate::profile_store;
 use anyhow::{Context as _, Result, ensure};
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
@@ -246,13 +246,11 @@ impl Panel {
         ];
         let mut categories = Vec::new();
         for &keys in GROUPS {
-            let mut rows = div().flex().flex_col();
-            let mut has_rows = false;
+            let mut rows = Vec::new();
             for &key in keys {
                 if key == "FsrOvrDLLPath.Current" {
                     if let Some(fsr) = self.fsr_controls(cx) {
-                        rows = rows.child(fsr);
-                        has_rows = true;
+                        rows.push(fsr);
                     }
                     continue;
                 }
@@ -267,10 +265,9 @@ impl Panel {
                     {
                         continue;
                     }
-                    has_rows = true;
                     let label = control.field.label();
                     let mut control_view = if control.min == 0 && control.max == 1 {
-                        rows = rows.child(self.toggle_row(
+                        rows.push(self.toggle_row(
                             ("frame-toggle", i),
                             self.hint_label(label),
                             control.draft != 0,
@@ -327,7 +324,7 @@ impl Panel {
                             )
                             .child(control_view);
                     }
-                    rows = rows.child(self.setting_row(self.hint_label(label), control_view));
+                    rows.push(self.setting_row(self.hint_label(label), control_view));
                 }
                 if let Some((i, s)) = self
                     .graphics
@@ -338,7 +335,6 @@ impl Panel {
                     if s.choice.experimental && !self.experimental {
                         continue;
                     }
-                    has_rows = true;
                     let label = s.choice.label;
                     let set = move |p: &mut Panel, index, _: &mut Context<Panel>| {
                         p.graphics[i].draft = index;
@@ -358,7 +354,7 @@ impl Panel {
                             | "AntiAliasingMorphological.Current"
                             | "SurfaceFormatOptimization.Current"
                     ) {
-                        rows = rows.child(self.toggle_row(
+                        rows.push(self.toggle_row(
                             ("graphics-toggle", i),
                             self.hint_label(label),
                             s.draft != 0,
@@ -367,7 +363,7 @@ impl Panel {
                             cx,
                         ));
                     } else {
-                        rows = rows.child(
+                        rows.push(
                             self.setting_row(
                                 self.hint_label(label),
                                 self.select(
@@ -388,8 +384,8 @@ impl Panel {
                     }
                 }
             }
-            if has_rows {
-                categories.push(rows);
+            if !rows.is_empty() {
+                categories.push(card_rows(rows, cx));
             }
         }
         let page = div()
@@ -507,6 +503,8 @@ impl Panel {
                 div()
                     .id("fsr-library-path")
                     .w_full()
+                    .px_4()
+                    .pb_2p5()
                     .text_xs()
                     .whitespace_nowrap()
                     .overflow_hidden()

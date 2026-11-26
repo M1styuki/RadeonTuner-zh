@@ -1,20 +1,22 @@
 use super::{
     Panel,
     layout::nav_icon,
-    motion::{pointer_feedback, smooth_value},
-    shape::{ContinuousCorners as _, paint_outline},
+    motion::{pointer_feedback, smooth_spring, smooth_value},
+    shape::{ContinuousCorners as _, paint_fill, paint_outline},
 };
-use gpui_kit::component::{
-    ActiveTheme as _, Disableable as _, Sizable as _, h_flex, switch::Switch, v_flex,
-};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::{
     Anchor, Animation, AnimationExt as _, App, Bounds, Context, Div, ElementId, FontWeight, Hsla,
-    InteractiveElement as _, IntoElement, KeyDownEvent, MouseDownEvent, ParentElement as _,
-    PathBuilder, Pixels, Role, SharedString, Stateful, StatefulInteractiveElement as _,
-    Styled as _, Window, anchored, canvas, deferred, div, ease_out_quint, point,
-    prelude::FluentBuilder as _, px, relative, rems,
+    InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent,
+    ParentElement as _, PathBuilder, Pixels, Role, SharedString, Stateful,
+    StatefulInteractiveElement as _, Styled as _, Window, anchored, canvas, deferred, div,
+    ease_out_quint, fill, point, prelude::FluentBuilder as _, px, relative, rems, size,
 };
-use std::{cell::Cell, rc::Rc, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+    time::Duration,
+};
 
 pub(super) const SELECT_MAX_WIDTH: f32 = 340.;
 pub(super) const PROFILE_SELECT_WIDTH: SelectWidth = SelectWidth::FitSelected(340.);
@@ -85,8 +87,30 @@ pub(super) fn section_card(cx: &App) -> Div {
     v_flex()
         .relative()
         .w_full()
+        .overflow_hidden()
         .rounded(cx.theme().radius_lg)
         .contour(Some(cx.theme().group_box), Some(cx.theme().border), radius)
+}
+
+pub(super) fn row_divider(cx: &App) -> Div {
+    div()
+        .w_full()
+        .h(px(1.))
+        .flex_shrink_0()
+        .bg(cx.theme().border.opacity(0.65))
+}
+
+pub(super) fn card_rows(rows: impl IntoIterator<Item = Div>, cx: &App) -> Div {
+    let mut column = v_flex().w_full();
+    let mut first = true;
+    for row in rows {
+        if !first {
+            column = column.child(row_divider(cx));
+        }
+        column = column.child(row);
+        first = false;
+    }
+    column
 }
 
 pub(super) fn animated_chevron(
@@ -409,8 +433,9 @@ impl Panel {
         h_flex()
             .flex_wrap()
             .w_full()
-            .min_h(px(42.))
-            .py_1p5()
+            .min_h(px(46.))
+            .px_4()
+            .py_2p5()
             .items_center()
             .gap_x_4()
             .gap_y_1()
@@ -432,7 +457,7 @@ impl Panel {
         v_flex().gap_3().children(
             sections
                 .into_iter()
-                .map(|section| section_card(cx).px_4().py_2().child(section)),
+                .map(|section| section_card(cx).child(section)),
         )
     }
 
@@ -447,7 +472,7 @@ impl Panel {
                 v_flex()
                     .gap_1p5()
                     .child(section_heading(title, cx))
-                    .child(section_card(cx).px_4().py_2().child(section))
+                    .child(section_card(cx).child(section))
             }))
     }
 
@@ -460,18 +485,20 @@ impl Panel {
         change: impl Fn(&mut Self, &mut Context<Self>) + 'static,
         cx: &mut Context<Self>,
     ) -> Div {
+        let id: ElementId = id.into();
         let entity = cx.entity();
-        let switch = Switch::new(id)
-            .checked(on)
-            .disabled(!enabled)
-            .small()
-            .accessibility_label(if on { "已开启" } else { "已关闭" })
-            .on_change(move |_, _, cx| {
+        let switch = win11_switch(
+            id,
+            on,
+            enabled,
+            move |cx| {
                 entity.update(cx, |p, cx| {
                     change(p, cx);
                     cx.notify();
                 });
-            });
+            },
+            cx,
+        );
         self.setting_row(label, div().child(switch))
     }
 
@@ -869,6 +896,167 @@ fn select_check(color: Hsla) -> impl IntoElement {
         },
     )
     .size_full()
+}
+
+#[derive(Default, Clone, Copy)]
+struct SwitchPointerState {
+    hovered: bool,
+    pressed: bool,
+}
+
+fn win11_switch(
+    id: ElementId,
+    on: bool,
+    enabled: bool,
+    on_toggle: impl Fn(&mut App) + 'static,
+    cx: &App,
+) -> Stateful<Div> {
+    let state_id = ElementId::NamedChild(id.clone().into(), "__win11-switch-state".into());
+    let hover_id = id.clone();
+    let press_id = id.clone();
+    let slide_id = id.clone();
+    let on_id = id.clone();
+    let slot = Rc::new(RefCell::new(None::<gpui_kit::Entity<SwitchPointerState>>));
+    let hovered = slot.clone();
+    let pressed = slot.clone();
+    let released = slot.clone();
+    let outside = slot.clone();
+
+    let off_border = cx.theme().muted_foreground.opacity(0.75);
+    let off_border_hover = cx.theme().foreground.opacity(0.65);
+    let off_fill_hover = cx.theme().accent;
+    let off_fill_press = cx.theme().secondary_active;
+    let on_fill = cx.theme().primary;
+    let on_fill_hover = cx.theme().primary_hover;
+    let on_fill_press = cx.theme().primary_active;
+    let off_thumb = cx.theme().muted_foreground;
+    let off_thumb_hover = cx.theme().foreground.opacity(0.85);
+    let on_thumb = cx.theme().switch_thumb;
+
+    let set_press = |slot: &RefCell<Option<gpui_kit::Entity<SwitchPointerState>>>,
+                     down: bool,
+                     window: &mut Window,
+                     cx: &mut App| {
+        if let Some(state) = slot.borrow().as_ref() {
+            state.update(cx, |s, _| s.pressed = down);
+            window.refresh();
+        }
+    };
+
+    let mut switch = h_flex()
+        .id(id)
+        .relative()
+        .w(px(40.))
+        .h(px(20.))
+        .flex_shrink_0()
+        .items_center()
+        .role(Role::Switch)
+        .aria_selected(on)
+        .aria_label(if on { "已开启" } else { "已关闭" })
+        .when(!enabled, |d| d.opacity(0.45))
+        .child(
+            canvas(
+                move |_, window, cx| {
+                    let state = window.use_keyed_state(state_id.clone(), cx, |_, _| {
+                        SwitchPointerState::default()
+                    });
+                    *slot.borrow_mut() = Some(state.clone());
+                    let s = *state.read(cx);
+                    let hover = smooth_value(
+                        (hover_id.clone(), "sw-hover"),
+                        if enabled && s.hovered { 1. } else { 0. },
+                        Duration::from_millis(120),
+                        window,
+                        cx,
+                    );
+                    let press = smooth_value(
+                        (press_id.clone(), "sw-press"),
+                        if enabled && s.pressed { 1. } else { 0. },
+                        Duration::from_millis(90),
+                        window,
+                        cx,
+                    );
+                    let slide = f32::from(smooth_spring(
+                        (slide_id.clone(), "sw-slide"),
+                        px(if on { 100. } else { 0. }),
+                        window,
+                        cx,
+                    )) / 100.;
+                    let on_mix = smooth_value(
+                        (on_id.clone(), "sw-on"),
+                        if on { 1. } else { 0. },
+                        Duration::from_millis(150),
+                        window,
+                        cx,
+                    );
+                    (hover, press, slide.clamp(0., 1.), on_mix)
+                },
+                move |bounds, (hover, press, slide, on_mix), window, _| {
+                    let radius = f32::from(bounds.size.height) / 2.;
+                    // Off track fill (transparent -> hover tint -> press tint) and border.
+                    if on_mix < 1. {
+                        let off_bg = off_fill_hover
+                            .opacity(hover * (1. - on_mix))
+                            .blend(off_fill_press.opacity(press * (1. - on_mix)));
+                        paint_fill(bounds, off_bg, radius, window);
+                        let off_stroke = off_border.blend(off_border_hover.opacity(hover));
+                        paint_outline(bounds, off_stroke.opacity(1. - on_mix), radius, window);
+                    }
+                    // On track fill + matching border.
+                    if on_mix > 0. {
+                        let active_fill = on_fill
+                            .blend(on_fill_hover.opacity(hover))
+                            .blend(on_fill_press.opacity(press))
+                            .opacity(on_mix);
+                        paint_fill(bounds, active_fill, radius, window);
+                        paint_outline(bounds, active_fill, radius, window);
+                    }
+
+                    // Win11 thumb: 12px rest -> 14px hover -> 17x14px press stretch.
+                    let thumb_h = 12. + 2. * hover.max(press);
+                    let thumb_w = thumb_h + 3. * press;
+                    let pad = (f32::from(bounds.size.height) - thumb_h) / 2.;
+                    let travel = (f32::from(bounds.size.width) - 2. * pad - thumb_w).max(0.);
+                    let thumb_x = f32::from(bounds.origin.x) + pad + travel * slide;
+                    let thumb_y = f32::from(bounds.origin.y) + pad;
+                    let thumb_color = off_thumb
+                        .blend(off_thumb_hover.opacity(hover))
+                        .blend(on_thumb.opacity(on_mix));
+                    window.paint_quad(
+                        fill(
+                            Bounds::new(
+                                point(px(thumb_x), px(thumb_y)),
+                                size(px(thumb_w), px(thumb_h)),
+                            ),
+                            thumb_color,
+                        )
+                        .corner_radii(px(thumb_h / 2.)),
+                    );
+                },
+            )
+            .size_full(),
+        );
+
+    if enabled {
+        switch = switch
+            .on_hover(move |hover, window, cx| {
+                if let Some(state) = hovered.borrow().as_ref() {
+                    state.update(cx, |s, _| s.hovered = *hover);
+                    window.refresh();
+                }
+            })
+            .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                set_press(&pressed, true, window, cx);
+            })
+            .on_mouse_up(MouseButton::Left, move |_, window, cx| {
+                set_press(&released, false, window, cx);
+            })
+            .on_mouse_up_out(MouseButton::Left, move |_, window, cx| {
+                set_press(&outside, false, window, cx);
+            })
+            .on_click(move |_, _, cx| on_toggle(cx));
+    }
+    switch
 }
 
 #[cfg(test)]

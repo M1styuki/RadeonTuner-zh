@@ -1,6 +1,6 @@
 mod custom;
 mod eyefinity;
-use super::Panel;
+use super::{Panel, controls::card_rows};
 use crate::adl::display::gamma::Gamma;
 use crate::adl::display::settings::{Feature, Setting};
 use crate::{
@@ -680,8 +680,7 @@ impl Panel {
     pub(super) fn render_displays(&self, cx: &mut Context<Self>) -> Div {
         let page = &self.display;
         let mut categories = Vec::new();
-        let mut section = div().flex().flex_col();
-        let mut has_modes = false;
+        let mut section_rows = Vec::new();
         if let (Some(mode), Some(current), true) = (
             page.modes.get(page.choice),
             page.current,
@@ -721,7 +720,7 @@ impl Panel {
                         .unwrap_or(*i)
                 })
                 .collect::<Vec<_>>();
-            section = section.child(self.setting_row(
+            section_rows.push(self.setting_row(
                 "显示分辨率",
                 self.select(
                     "resolution",
@@ -733,7 +732,7 @@ impl Panel {
                     cx,
                 ),
             ));
-            section = section.child(
+            section_rows.push(
                 self.setting_row(
                     "显示刷新率",
                     self.select(
@@ -750,7 +749,7 @@ impl Panel {
                 ),
             );
             let angles = [0, 90, 180, 270];
-            section = section.child(self.setting_row(
+            section_rows.push(self.setting_row(
                 "显示方向",
                 self.select(
                     "orientation",
@@ -767,7 +766,7 @@ impl Panel {
                 || current.refresh != mode.refresh
                 || current.orientation != page.angle
             {
-                section = section.child(self.inline_button(
+                section_rows.push(h_flex().px_4().py_2().child(self.inline_button(
                     "preview-mode",
                     "应用显示模式",
                     |panel, _, _| {
@@ -782,13 +781,11 @@ impl Panel {
                         }
                     },
                     cx,
-                ));
+                )));
             }
-            has_modes = true;
         }
         if page.app == "Global" && page.current.is_some() {
-            has_modes = true;
-            section = section.child(self.setting_row(
+            section_rows.push(self.setting_row(
                 self.hint_label("自定义分辨率"),
                 div().child(self.contour_button(
                     "custom-editor",
@@ -804,8 +801,8 @@ impl Panel {
                 )),
             ));
         }
-        if has_modes {
-            categories.push(section);
+        if !section_rows.is_empty() {
+            categories.push(card_rows(section_rows, cx));
         }
         let correction_on = page
             .settings
@@ -855,13 +852,11 @@ impl Panel {
             ],
         ];
         for &features in GROUPS {
-            let mut rows = div().flex().flex_col();
-            let mut has_rows = false;
+            let mut rows = Vec::new();
             for &feature in features {
                 let Some(feature) = feature else {
                     if page.gamma_supported {
-                        has_rows = true;
-                        rows = rows.child(self.toggle_row(
+                        rows.push(self.toggle_row(
                             "gamma-control",
                             self.hint_label("显示伽马控制"),
                             page.gamma.enabled,
@@ -879,7 +874,7 @@ impl Panel {
                             .into_iter()
                             .enumerate()
                             {
-                                rows = rows.child(self.setting_row(
+                                rows.push(self.setting_row(
                                     self.hint_label(label),
                                     self.number(
                                         super::numeric::Field::Gamma(i),
@@ -898,8 +893,7 @@ impl Panel {
                 };
                 if feature == Feature::Scaling {
                     if let Some(row) = self.scaling_mode_row(cx) {
-                        rows = rows.child(row);
-                        has_rows = true;
+                        rows.push(row);
                     }
                     continue;
                 }
@@ -924,9 +918,8 @@ impl Panel {
                 if setting.feature == Feature::VariBrightLevel && !vari_bright_on {
                     continue;
                 }
-                has_rows = true;
                 if setting.min == 0 && setting.max == 1 {
-                    rows = rows.child(self.toggle_row(
+                    rows.push(self.toggle_row(
                         ("display-toggle", i),
                         self.hint_label(setting.label),
                         setting.draft != 0,
@@ -941,7 +934,7 @@ impl Panel {
                     setting.feature,
                     Feature::Color(_) | Feature::Correction(1..=3)
                 ) {
-                    rows = rows.child(self.setting_row(
+                    rows.push(self.setting_row(
                         self.hint_label(setting.label),
                         self.number(
                             super::numeric::Field::Display(i),
@@ -964,7 +957,7 @@ impl Panel {
                     };
                     let min = setting.min;
                     let step = setting.step;
-                    rows = rows.child(self.setting_row(
+                    rows.push(self.setting_row(
                         self.hint_label(setting.label),
                         self.select(
                             ("display-choice", i),
@@ -978,15 +971,13 @@ impl Panel {
                     ));
                 }
             }
-            if has_rows {
-                categories.push(rows);
+            if !rows.is_empty() {
+                categories.push(card_rows(rows, cx));
             }
         }
-        let mut extras = div().flex().flex_col();
-        let mut has_extras = false;
+        let mut extras = Vec::new();
         if page.app == "Global" && !page.displays.is_empty() {
-            has_extras = true;
-            extras = extras.child(self.setting_row(
+            extras.push(self.setting_row(
                 self.hint_label("Eyefinity 操作"),
                 div().child(self.contour_button(
                     "manage-eye",
@@ -1002,8 +993,7 @@ impl Panel {
                 )),
             ));
         } else if page.key.is_some() && page.app != "Global" {
-            has_extras = true;
-            extras = extras.child(self.toggle_row(
+            extras.push(self.toggle_row(
                 "auto-eye",
                 self.hint_label("自动 Eyefinity"),
                 page.auto_eye,
@@ -1012,8 +1002,8 @@ impl Panel {
                 cx,
             ));
         }
-        if has_extras {
-            categories.push(extras);
+        if !extras.is_empty() {
+            categories.push(card_rows(extras, cx));
         }
         v_flex()
             .gap_2()

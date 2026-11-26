@@ -1,4 +1,4 @@
-use super::Panel;
+use super::{Panel, controls::card_rows};
 use crate::{
     adl::multimedia::{Feature, VideoControl, video_draft},
     profile_store, profiles,
@@ -235,10 +235,10 @@ impl Panel {
                 .position(|control| control.feature == feature)
         };
         let mut sections = Vec::new();
-        let mut picture = div().flex().flex_col();
+        let mut picture_rows = Vec::new();
         let upscale_index = find(Feature::Upscale);
         if let Some(i) = upscale_index {
-            picture = picture.child(self.toggle_row(
+            picture_rows.push(self.toggle_row(
                 "video-upscale",
                 self.hint_label(Feature::Upscale.label()),
                 upscale,
@@ -249,10 +249,12 @@ impl Panel {
         }
         if upscale {
             if let Some(i) = find(Feature::Sharpness) {
-                picture = picture.child(self.video_number_row(i, cx));
+                picture_rows.push(self.video_number_row(i, cx));
             }
         }
-        sections.extend(upscale_index.map(|_| picture));
+        if !picture_rows.is_empty() {
+            sections.push(card_rows(picture_rows, cx));
+        }
         sections.extend(find(Feature::Brightness).map(|i| self.video_number_row(i, cx)));
         self.setting_sections(sections, cx)
     }

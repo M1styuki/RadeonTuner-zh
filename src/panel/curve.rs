@@ -1,4 +1,4 @@
-use super::{Panel, shape::ContinuousCorners as _, tuning::FanCurve};
+use super::{Panel, tuning::FanCurve};
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::{
     Bounds, Context, Div, InteractiveElement as _, MouseButton, MouseDownEvent, MouseMoveEvent,
@@ -40,7 +40,6 @@ impl Panel {
         let grid_color = cx.theme().chart_grid;
         let current_color = cx.theme().muted_foreground;
         let target_color = cx.theme().primary;
-        let thumb_center = cx.theme().slider_thumb;
         let geometry = Rc::new(Cell::new(None::<Bounds<Pixels>>));
         let paint_geometry = geometry.clone();
         let entity = cx.entity();
@@ -80,17 +79,10 @@ impl Panel {
                     let p = coord(temp, speed);
                     window.paint_quad(
                         fill(
-                            Bounds::new(point(p.x - px(4.5), p.y - px(4.5)), size(px(9.), px(9.))),
+                            Bounds::new(point(p.x - px(4.), p.y - px(4.)), size(px(8.), px(8.))),
                             target_color,
                         )
-                        .corner_radii(px(4.5)),
-                    );
-                    window.paint_quad(
-                        fill(
-                            Bounds::new(point(p.x - px(2.), p.y - px(2.)), size(px(4.), px(4.))),
-                            thumb_center,
-                        )
-                        .corner_radii(px(2.)),
+                        .corner_radii(px(4.)),
                     );
                 }
 
@@ -120,15 +112,11 @@ impl Panel {
         .w_full()
         .h(px(PLOT_HEIGHT));
 
-        let radius = f32::from(cx.theme().radius);
         let mut graph = div()
             .relative()
-            .rounded(cx.theme().radius)
-            .contour(
-                Some(cx.theme().input_background()),
-                Some(cx.theme().border),
-                radius,
-            )
+            .bg(cx.theme().input_background())
+            .border_1()
+            .border_color(cx.theme().border)
             .child(plot);
         if editable {
             graph = graph.on_mouse_down(

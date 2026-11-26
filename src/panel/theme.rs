@@ -105,7 +105,7 @@ pub(super) fn sync_theme(window: Option<&mut Window>, style: i64, has_mica: bool
         theme.radius = px(6.);
         theme.radius_lg = px(10.);
         theme.shadow = true;
-        theme.focus_ring = true;
+        theme.focus_ring = false;
 
         if light {
             theme.colors.background = if has_mica { a(0x00000000) } else { c(0xf3f3f3) };

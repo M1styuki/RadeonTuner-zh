@@ -1,4 +1,4 @@
-use super::{Panel, shape::ContinuousCorners as _};
+use super::{Panel, controls::card_rows, shape::ContinuousCorners as _};
 use crate::{adl::overdrive::ECC, profile_store, profiles};
 use anyhow::{Context as _, Result, ensure};
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
@@ -464,9 +464,8 @@ impl Panel {
         )
     }
 
-    fn fan_mode_settings(&self, cx: &mut Context<Self>) -> Div {
-        let mut section = div().flex().flex_col();
-        section = section.child(
+    fn fan_mode_settings(&self, cx: &mut Context<Self>) -> Vec<Div> {
+        let mut rows = vec![
             self.setting_row(
                 self.hint_label("风扇控制模式"),
                 self.select(
@@ -484,9 +483,9 @@ impl Panel {
                     cx,
                 ),
             ),
-        );
+        ];
         if self.tuning.mode == 2 {
-            section = section.child(self.setting_row(
+            rows.push(self.setting_row(
                 self.hint_label("范围风扇曲线"),
                 self.select(
                     "fan-shape",
@@ -502,55 +501,58 @@ impl Panel {
                 ),
             ));
         }
-        section
+        rows
     }
 
     pub(super) fn render_tuning_fields(&self, cx: &mut Context<Self>) -> Div {
         let mut groups = Vec::new();
         if self.page == 1 {
-            let mut mode = self.fan_mode_settings(cx);
-            if let Some(zero_rpm) = self.ordered_tuning_group(&[15], cx) {
-                mode = mode.child(zero_rpm);
+            let mut mode_rows = self.fan_mode_settings(cx);
+            mode_rows.extend(self.ordered_tuning_rows(&[15], cx));
+            groups.push(card_rows(mode_rows, cx));
+
+            let mut blocks = Vec::new();
+            if let Some(curve) = self.render_curve(cx) {
+                blocks.push(div().px_4().py_3().child(curve));
             }
-            groups.push(mode);
-            let curve = self.render_curve(cx);
-            let mut adjustments = div().flex().flex_col().gap_3();
-            let has_curve = curve.is_some();
-            adjustments = adjustments.children(curve);
-            let has_points = self.tuning.mode == 3
+            if self.tuning.mode == 2 {
+                blocks.extend(self.ordered_tuning_rows(&[20, 28], cx));
+            }
+            if self.tuning.mode == 3
                 && self
                     .controls
                     .iter()
-                    .any(|control| (19..=28).contains(&control.id));
-            let range = (self.tuning.mode == 2)
-                .then(|| self.ordered_tuning_group(&[20, 28], cx))
-                .flatten();
-            if has_curve || has_points || range.is_some() {
-                adjustments = adjustments.children(range);
-                if has_points {
-                    adjustments = adjustments.child(self.fan_point_card(cx));
-                }
-                groups.push(adjustments);
+                    .any(|control| (19..=28).contains(&control.id))
+            {
+                blocks.push(div().px_4().py_3().child(self.fan_point_card(cx)));
+            }
+            if !blocks.is_empty() {
+                groups.push(card_rows(blocks, cx));
             }
         } else {
             for ids in [&[1, 0, 37][..], &[8, 14, ECC][..], &[9, 47][..]] {
-                groups.extend(self.ordered_tuning_group(ids, cx));
+                let rows = self.ordered_tuning_rows(ids, cx);
+                if !rows.is_empty() {
+                    groups.push(card_rows(rows, cx));
+                }
             }
         }
         groups.push(self.tuning_persistence(cx));
         self.setting_sections(groups, cx)
     }
 
-    fn ordered_tuning_group(&self, ids: &[usize], cx: &mut Context<Self>) -> Option<Div> {
-        let mut indices = ids.iter().filter_map(|&id| {
-            if !self.show_control(id) {
-                return None;
-            }
-            self.controls.iter().position(|control| control.id == id)
-        });
-        let first = indices.next()?;
-        let group = div().flex().flex_col().child(self.tuning_field(first, cx));
-        Some(group.children(indices.map(|index| self.tuning_field(index, cx))))
+    fn ordered_tuning_rows(&self, ids: &[usize], cx: &mut Context<Self>) -> Vec<Div> {
+        ids.iter()
+            .filter_map(|&id| {
+                if !self.show_control(id) {
+                    return None;
+                }
+                self.controls
+                    .iter()
+                    .position(|control| control.id == id)
+                    .map(|index| self.tuning_field(index, cx))
+            })
+            .collect()
     }
 
     fn fan_point_card(&self, cx: &mut Context<Self>) -> impl gpui_kit::IntoElement {
