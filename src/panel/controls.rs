@@ -45,8 +45,7 @@ const ITEM_GAP: f32 = 3.;
 const MENU_PADDING: f32 = 6.;
 const MENU_OFFSET: f32 = 7.;
 const TRIGGER_LABEL_INSET: f32 = 56.;
-const MENU_LABEL_INSET: f32 = 64.;
-const MENU_MAX_WIDTH: f32 = 440.;
+const MENU_LABEL_INSET: f32 = 56.;
 
 pub(super) fn sidebar_width(viewport: Pixels) -> Pixels {
     if viewport < px(680.) {
@@ -89,7 +88,7 @@ pub(super) fn section_card(cx: &App) -> Div {
         .overflow_hidden()
         .rounded(cx.theme().radius_lg)
         .bg(cx.theme().group_box)
-        .shadow_sm()
+        .shadow_xs()
 }
 
 pub(super) fn card_rows(rows: impl IntoIterator<Item = Div>, cx: &App) -> Div {
@@ -101,7 +100,7 @@ pub(super) fn card_rows(rows: impl IntoIterator<Item = Div>, cx: &App) -> Div {
         .w_full()
         .gap(px(2.))
         .children(rows.into_iter().enumerate().map(|(i, row)| {
-            let tile = row.w_full().bg(surface).shadow_sm();
+            let tile = row.w_full().overflow_hidden().bg(surface).shadow_xs();
             match (i == 0, i + 1 == count) {
                 (true, true) => tile.rounded(radius),
                 (true, false) => tile.rounded_t(radius),
@@ -150,6 +149,42 @@ pub(super) fn animated_chevron(
     .flex_shrink_0()
 }
 
+pub(super) fn chevron_right(color: Hsla) -> impl IntoElement {
+    canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            let center = bounds.center();
+            let mut path = PathBuilder::stroke(px(1.35));
+            path.move_to(point(center.x - px(1.6), center.y - px(3.75)));
+            path.line_to(point(center.x + px(1.8), center.y));
+            path.line_to(point(center.x - px(1.6), center.y + px(3.75)));
+            if let Ok(path) = path.build() {
+                window.paint_path(path, color);
+            }
+        },
+    )
+    .size(px(14.))
+    .flex_shrink_0()
+}
+
+pub(super) fn chevron_left(color: Hsla) -> impl IntoElement {
+    canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            let center = bounds.center();
+            let mut path = PathBuilder::stroke(px(1.35));
+            path.move_to(point(center.x + px(1.6), center.y - px(3.75)));
+            path.line_to(point(center.x - px(1.8), center.y));
+            path.line_to(point(center.x + px(1.6), center.y + px(3.75)));
+            if let Ok(path) = path.build() {
+                window.paint_path(path, color);
+            }
+        },
+    )
+    .size(px(14.))
+    .flex_shrink_0()
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum ButtonTone {
     Secondary,
@@ -184,9 +219,11 @@ impl Panel {
                     .rounded(cx.theme().radius_lg)
                     .contour(
                         Some(cx.theme().popover),
-                        Some(cx.theme().border),
+                        None,
                         f32::from(cx.theme().radius_lg),
                     )
+                    .border_t_1()
+                    .border_color(cx.theme().border)
                     .shadow_xl()
                     .child(content)
                     .with_animation(
@@ -293,30 +330,26 @@ impl Panel {
         let id: ElementId = id.into();
         let label: SharedString = label.into();
         let radius = f32::from(cx.theme().radius);
-        let (fill, border, hover, active, fg) = match tone {
+        let (fill, hover, active, fg) = match tone {
             ButtonTone::Secondary => (
                 Some(cx.theme().button),
-                Some(cx.theme().input),
                 cx.theme().button_hover,
                 cx.theme().button_active,
                 cx.theme().button_foreground,
             ),
             ButtonTone::Primary => (
                 Some(cx.theme().button_primary),
-                Some(cx.theme().primary),
                 cx.theme().button_primary_hover,
                 cx.theme().button_primary_active,
                 cx.theme().button_primary_foreground,
             ),
             ButtonTone::Danger => (
                 Some(cx.theme().button_danger),
-                Some(cx.theme().danger),
                 cx.theme().button_danger_hover,
                 cx.theme().button_danger_active,
                 cx.theme().button_danger_foreground,
             ),
             ButtonTone::Inline => (
-                None,
                 None,
                 cx.theme().accent,
                 cx.theme().secondary_active,
@@ -333,7 +366,10 @@ impl Panel {
             .when(is_inline, |d| d.h_7().px_2p5())
             .when(!is_inline, |d| d.h_8().min_w(rems(4.375)).px_3())
             .rounded(cx.theme().radius)
-            .contour(fill, border, radius)
+            .contour(fill, None, radius)
+            .when(!is_inline, |d| {
+                d.border_t_1().border_color(cx.theme().border).shadow_2xs()
+            })
             .text_sm()
             .font_weight(FontWeight::MEDIUM)
             .text_color(fg)
@@ -439,9 +475,9 @@ impl Panel {
         h_flex()
             .flex_wrap()
             .w_full()
-            .min_h(px(46.))
+            .min_h(px(56.))
             .px_4()
-            .py_2p5()
+            .py_3()
             .items_center()
             .gap_x_4()
             .gap_y_1()
@@ -453,6 +489,56 @@ impl Panel {
                     .justify_end()
                     .child(controls),
             )
+    }
+
+    pub(super) fn navigation_row<L: IntoElement>(
+        &self,
+        id: impl Into<ElementId>,
+        label: L,
+        on_click: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let id: ElementId = id.into();
+        let on_click = Rc::new(on_click);
+        let click_cb = on_click.clone();
+        let key_cb = on_click;
+
+        let row = h_flex()
+            .id(id.clone())
+            .relative()
+            .w_full()
+            .min_h(px(56.))
+            .px_4()
+            .py_3()
+            .items_center()
+            .justify_between()
+            .gap_x_4()
+            .focusable()
+            .tab_stop(true)
+            .role(Role::Button);
+
+        let row = pointer_feedback(
+            (id, "nav-row-fb"),
+            row,
+            cx.theme().accent.opacity(0.65),
+            cx.theme().accent,
+            0.,
+        )
+        .child(div().flex_1().min_w(px(96.)).child(label))
+        .child(chevron_right(cx.theme().muted_foreground))
+        .on_click(cx.listener(move |p, _, window, cx| {
+            click_cb(p, window, cx);
+            cx.notify();
+        }))
+        .on_key_down(cx.listener(move |p, e: &KeyDownEvent, window, cx| {
+            if matches!(e.keystroke.key.as_str(), "enter" | "space") {
+                key_cb(p, window, cx);
+                cx.stop_propagation();
+                cx.notify();
+            }
+        }));
+
+        div().w_full().child(row)
     }
 
     pub(super) fn setting_sections(
@@ -595,7 +681,6 @@ impl Panel {
 
         let radius = f32::from(cx.theme().radius);
         let popup_radius = f32::from(cx.theme().radius_lg);
-        let rest_border = cx.theme().input;
         let open_border = cx.theme().ring;
         let outline_id = id.clone();
         let chevron_id = id.clone();
@@ -611,6 +696,9 @@ impl Panel {
             .gap_2()
             .rounded(cx.theme().radius)
             .contour(Some(cx.theme().input_background()), None, radius)
+            .border_t_1()
+            .border_color(cx.theme().border)
+            .shadow_2xs()
             .when(count == 0, |d| d.opacity(0.45))
             .child(
                 canvas(
@@ -624,7 +712,6 @@ impl Panel {
                         )
                     },
                     move |bounds, amount, window, _| {
-                        paint_outline(bounds, rest_border.opacity(1. - amount), radius, window);
                         paint_outline(bounds, open_border.opacity(amount), radius, window);
                     },
                 )
@@ -866,12 +953,17 @@ impl Panel {
 }
 
 fn resolve_select_widths(selected_width: f32, widest_option: f32, spec: SelectWidth) -> (f32, f32) {
-    let trigger = match spec {
-        SelectWidth::Fit(max) => (widest_option + TRIGGER_LABEL_INSET).clamp(84., max),
-        SelectWidth::FitSelected(max) => (selected_width + TRIGGER_LABEL_INSET).clamp(84., max),
-    };
-    let menu = trigger.max((widest_option + MENU_LABEL_INSET).clamp(84., MENU_MAX_WIDTH));
-    (trigger, menu)
+    match spec {
+        SelectWidth::Fit(max) => {
+            let width = (widest_option + TRIGGER_LABEL_INSET).clamp(84., max);
+            (width, width)
+        }
+        SelectWidth::FitSelected(max) => {
+            let trigger = (selected_width + TRIGGER_LABEL_INSET).clamp(84., max);
+            let menu = trigger.max((widest_option + MENU_LABEL_INSET).clamp(84., max));
+            (trigger, menu)
+        }
+    }
 }
 
 fn option_tip(label: &str, detail: Option<&str>, clipped: bool) -> Option<String> {
@@ -1009,7 +1101,7 @@ fn win11_switch(
                         bounds,
                         px(radius),
                         track_bg,
-                        px(1.35),
+                        px(1.15),
                         track_border,
                         BorderStyle::Solid,
                     ));
@@ -1078,17 +1170,17 @@ mod tests {
         let (global_trigger, global_menu) =
             resolve_select_widths(31., 230., SelectWidth::FitSelected(340.));
         assert!((84.0..=96.0).contains(&global_trigger));
-        assert!(global_menu >= 294.);
+        assert!(global_menu >= 286.);
 
         // "跟随系统" (4 CJK chars * 14.5 * 1.06 ~= 61.5px) must never clip inside trigger or menu.
         let (theme_trigger, theme_menu) = resolve_select_widths(61.5, 61.5, SelectWidth::Fit(340.));
         assert!(theme_trigger >= 115.);
-        assert!(theme_menu >= theme_trigger);
+        assert_eq!(theme_menu, theme_trigger);
 
         // Long GPU name such as "AMD Radeon RX 9070 XT" (~175px) fits without ellipsis.
         let (gpu_trigger, gpu_menu) =
             resolve_select_widths(175., 175., SelectWidth::FitSelected(440.));
         assert!(gpu_trigger >= 230.);
-        assert!(gpu_menu >= 239.);
+        assert_eq!(gpu_menu, gpu_trigger);
     }
 }

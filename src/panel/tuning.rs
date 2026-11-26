@@ -464,7 +464,7 @@ impl Panel {
         )
     }
 
-    fn fan_mode_settings(&self, cx: &mut Context<Self>) -> Vec<Div> {
+    fn fan_mode_settings(&self, window: &mut gpui_kit::Window, cx: &mut Context<Self>) -> Vec<Div> {
         let mut rows = vec![
             self.setting_row(
                 self.hint_label("风扇控制模式"),
@@ -484,39 +484,81 @@ impl Panel {
                 ),
             ),
         ];
-        if self.tuning.mode == 2 {
-            rows.push(self.setting_row(
-                self.hint_label("范围风扇曲线"),
-                self.select(
-                    "fan-shape",
-                    ["线性", "静音"].map(str::to_owned).into(),
-                    Some(usize::from(self.tuning.quiet)),
-                    "范围风扇曲线",
-                    crate::panel::controls::SELECT_MAX_WIDTH,
-                    |p, i, _| {
-                        p.tuning.quiet = i == 1;
-                        p.tuning.dirty = true;
-                    },
-                    cx,
+        let range_reveal = super::motion::expand_progress(
+            "tuning-fan-range-reveal",
+            self.tuning.mode == 2,
+            window,
+            cx,
+        );
+        if self.tuning.mode == 2 || range_reveal > 0.001 {
+            rows.push(super::motion::reveal_row(
+                self.setting_row(
+                    self.hint_label("范围风扇曲线"),
+                    self.select(
+                        "fan-shape",
+                        ["线性", "静音"].map(str::to_owned).into(),
+                        Some(usize::from(self.tuning.quiet)),
+                        "范围风扇曲线",
+                        crate::panel::controls::SELECT_MAX_WIDTH,
+                        |p, i, _| {
+                            p.tuning.quiet = i == 1;
+                            p.tuning.dirty = true;
+                        },
+                        cx,
+                    ),
                 ),
+                range_reveal,
+                76.,
             ));
         }
         rows
     }
 
-    pub(super) fn render_tuning_fields(&self, cx: &mut Context<Self>) -> Div {
+    pub(super) fn render_tuning_fields(
+        &self,
+        window: &mut gpui_kit::Window,
+        cx: &mut Context<Self>,
+    ) -> Div {
         let mut groups = Vec::new();
         if self.page == 1 {
-            let mut mode_rows = self.fan_mode_settings(cx);
-            mode_rows.extend(self.ordered_tuning_rows(&[15], cx));
+            let mut mode_rows = self.fan_mode_settings(window, cx);
+            let zrpm_reveal = super::motion::expand_progress(
+                "tuning-zero-rpm-reveal",
+                self.tuning.mode != 0,
+                window,
+                cx,
+            );
+            if self.tuning.mode != 0 || zrpm_reveal > 0.001 {
+                if let Some(index) = self.controls.iter().position(|control| control.id == 15) {
+                    mode_rows.push(super::motion::reveal_row(
+                        self.tuning_field(index, cx),
+                        zrpm_reveal,
+                        76.,
+                    ));
+                }
+            }
             groups.push(card_rows(mode_rows, cx));
 
             let mut blocks = Vec::new();
             if let Some(curve) = self.render_curve(cx) {
                 blocks.push(div().px_4().py_3().child(curve));
             }
-            if self.tuning.mode == 2 {
-                blocks.extend(self.ordered_tuning_rows(&[20, 28], cx));
+            let minmax_reveal = super::motion::expand_progress(
+                "tuning-fan-minmax-reveal",
+                self.tuning.mode == 2,
+                window,
+                cx,
+            );
+            if self.tuning.mode == 2 || minmax_reveal > 0.001 {
+                for id in [20usize, 28usize] {
+                    if let Some(index) = self.controls.iter().position(|control| control.id == id) {
+                        blocks.push(super::motion::reveal_row(
+                            self.tuning_field(index, cx),
+                            minmax_reveal,
+                            76.,
+                        ));
+                    }
+                }
             }
             if self.tuning.mode == 3
                 && self
@@ -601,9 +643,11 @@ impl Panel {
             .rounded(cx.theme().radius)
             .contour(
                 Some(cx.theme().input_background()),
-                Some(cx.theme().border),
+                None,
                 f32::from(cx.theme().radius),
             )
+            .border_t_1()
+            .border_color(cx.theme().border)
             .child(
                 div()
                     .id("fan-point-editor")

@@ -1,11 +1,12 @@
 use super::{
     PAGES, Panel,
-    controls::{SelectWidth, section_card, sidebar_width},
+    controls::{SelectWidth, chevron_left, section_card, sidebar_width},
+    motion::pointer_feedback,
 };
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, alert::Alert, h_flex, v_flex};
 use gpui_kit::{
-    Context, Div, FontWeight, Hsla, InteractiveElement as _, ParentElement as _, PathBuilder,
-    Pixels, StatefulInteractiveElement as _, Styled as _, canvas, div, point,
+    Context, Div, FontWeight, Hsla, InteractiveElement as _, KeyDownEvent, ParentElement as _,
+    PathBuilder, Pixels, Role, StatefulInteractiveElement as _, Styled as _, canvas, div, point,
     prelude::FluentBuilder as _, px,
 };
 use std::collections::HashSet;
@@ -153,6 +154,92 @@ impl Panel {
                         .font_weight(FontWeight::SEMIBOLD)
                         .child("应用设置"),
                 );
+        }
+        if self.page == 3 {
+            if let Some(subpage) = self.display_subpage() {
+                let title = if subpage == "custom" {
+                    "自定义分辨率"
+                } else {
+                    "管理 Eyefinity"
+                };
+                let back = pointer_feedback(
+                    "display-subpage-back",
+                    h_flex()
+                        .id("display-subpage-back")
+                        .relative()
+                        .h_8()
+                        .px_2()
+                        .gap_1()
+                        .items_center()
+                        .focusable()
+                        .tab_stop(true)
+                        .role(Role::Button)
+                        .on_click(cx.listener(|p, _, _, _| p.exit_display_subpage()))
+                        .on_key_down(cx.listener(|p, e: &KeyDownEvent, _, cx| {
+                            if matches!(e.keystroke.key.as_str(), "enter" | "space") {
+                                p.exit_display_subpage();
+                                cx.stop_propagation();
+                            }
+                        })),
+                    cx.theme().accent.opacity(0.65),
+                    cx.theme().accent,
+                    f32::from(cx.theme().radius),
+                )
+                .child(chevron_left(cx.theme().muted_foreground))
+                .child(
+                    div()
+                        .text_xl()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(cx.theme().muted_foreground)
+                        .child("显示"),
+                );
+
+                let breadcrumb = h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(back)
+                    .child(
+                        div()
+                            .text_base()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("›"),
+                    )
+                    .child(
+                        div()
+                            .text_xl()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child(title),
+                    );
+
+                let (actions, status) = if subpage == "custom" {
+                    (self.render_custom_actions(cx), self.custom_status())
+                } else {
+                    (self.render_eyefinity_actions(cx), self.eyefinity_status())
+                };
+
+                return v_flex()
+                    .flex_shrink_0()
+                    .bg(cx.theme().title_bar)
+                    .px_6()
+                    .pt_2()
+                    .pb_3()
+                    .gap_3()
+                    .child(breadcrumb)
+                    .child(actions)
+                    .when(!status.is_empty(), |view| {
+                        let is_err = status.contains("失败")
+                            || status.contains("无效")
+                            || status.contains("不可用")
+                            || status.contains("断开")
+                            || status.contains("错误");
+                        let alert = if is_err {
+                            Alert::warning("subpage-status", status.to_owned()).small()
+                        } else {
+                            Alert::info("subpage-status", status.to_owned()).small()
+                        };
+                        view.child(alert)
+                    });
+            }
         }
 
         let mut header = v_flex()

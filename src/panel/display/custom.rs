@@ -1,8 +1,9 @@
 use super::{Panel, Preview};
 use crate::adl::display::custom::{STANDARDS, Timing};
+use crate::panel::controls::card_rows;
 use anyhow::{Context as _, Result, ensure};
-use gpui_kit::component::{h_flex, v_flex};
-use gpui_kit::{Context, Div, FontWeight, ParentElement as _, Styled as _, div, px};
+use gpui_kit::component::{ActiveTheme as _, Sizable as _, alert::Alert, h_flex, v_flex};
+use gpui_kit::{Context, Div, FontWeight, ParentElement as _, Styled as _, div};
 
 pub(super) struct Editor {
     basic: [i32; 3],
@@ -108,47 +109,82 @@ impl Panel {
         editor.status = "已删除自定义分辨率".into();
         Ok(())
     }
+    pub(in crate::panel) fn render_custom_actions(&self, cx: &mut Context<Self>) -> Div {
+        let valid_timing = self
+            .display
+            .custom
+            .as_ref()
+            .and_then(|editor| editor.timing)
+            .filter(|t| t.validate().is_ok());
+        h_flex().flex_wrap().gap_2().child(self.primary_button(
+            "create-custom-mode",
+            "创建并预览",
+            valid_timing.is_some(),
+            Some("创建并预览自定义分辨率。"),
+            move |p, _, _| {
+                if let (Some(t), Some(d)) = (
+                    valid_timing,
+                    p.display.displays.get(p.display.display_index),
+                ) {
+                    match Preview::custom(d, p.display.key.as_deref(), t) {
+                        Ok(preview) => p.display.preview = Some(preview),
+                        Err(e) => {
+                            if let Some(editor) = &mut p.display.custom {
+                                editor.status = e.to_string();
+                            }
+                        }
+                    }
+                }
+            },
+            cx,
+        ))
+    }
+
+    pub(in crate::panel) fn custom_status(&self) -> &str {
+        self.display
+            .custom
+            .as_ref()
+            .map_or("", |editor| editor.status.as_str())
+    }
+
     pub(super) fn render_custom(&self, editor: &Editor, cx: &mut Context<Self>) -> Div {
-        let mut section = v_flex().gap_2().child(
-            div()
-                .text_size(px(16.))
-                .font_weight(FontWeight::SEMIBOLD)
-                .child("自定义分辨率"),
-        );
-        section = section.child(self.setting_row(
-            self.hint_label("时序标准"),
-            self.select(
-                "timing-standard",
-                STANDARDS.iter().map(|(name, _)| name.to_string()).collect(),
-                Some(editor.standard),
-                "时序标准",
-                crate::panel::controls::SELECT_MAX_WIDTH,
-                |p, i, _| {
-                    if let Some(e) = &mut p.display.custom {
-                        e.standard = i;
-                        p.calculate_custom();
-                    }
-                },
-                cx,
+        let mut basic_rows = vec![
+            self.setting_row(
+                self.hint_label("时序标准"),
+                self.select(
+                    "timing-standard",
+                    STANDARDS.iter().map(|(name, _)| name.to_string()).collect(),
+                    Some(editor.standard),
+                    "时序标准",
+                    crate::panel::controls::SELECT_MAX_WIDTH,
+                    |p, i, _| {
+                        if let Some(e) = &mut p.display.custom {
+                            e.standard = i;
+                            p.calculate_custom();
+                        }
+                    },
+                    cx,
+                ),
             ),
-        ));
-        section = section.child(self.setting_row(
-            self.hint_label("扫描方式"),
-            self.select(
-                "scan-type",
-                ["逐行", "隔行"].map(str::to_owned).into(),
-                Some(usize::from(editor.interlaced)),
-                "扫描方式",
-                crate::panel::controls::SELECT_MAX_WIDTH,
-                |p, i, _| {
-                    if let Some(e) = &mut p.display.custom {
-                        e.interlaced = i == 1;
-                        p.calculate_custom();
-                    }
-                },
-                cx,
+            self.setting_row(
+                self.hint_label("扫描方式"),
+                self.select(
+                    "scan-type",
+                    ["逐行", "隔行"].map(str::to_owned).into(),
+                    Some(usize::from(editor.interlaced)),
+                    "扫描方式",
+                    crate::panel::controls::SELECT_MAX_WIDTH,
+                    |p, i, _| {
+                        if let Some(e) = &mut p.display.custom {
+                            e.interlaced = i == 1;
+                            p.calculate_custom();
+                        }
+                    },
+                    cx,
+                ),
             ),
-        ));
+        ];
+
         let mut fields = Vec::from(editor.basic);
         if let Some(t) = editor.timing {
             let d = t.detail;
@@ -174,35 +210,40 @@ impl Panel {
             "水平同步宽度",
             "垂直同步宽度",
         ];
+        let mut timing_rows = Vec::new();
         for (i, val) in fields.into_iter().enumerate() {
             let unit = match i {
                 2 => "Hz",
                 3 => "×10 kHz",
                 _ => "",
             };
-            section = section.child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .child(self.hint_label(names[i]))
-                    .child(self.number(
-                        super::super::numeric::Field::Custom(i),
-                        val,
-                        if matches!(i, 6 | 7) { 0 } else { 1 },
-                        i32::MAX,
-                        1,
-                        unit,
-                        cx,
-                    )),
+            let row = self.setting_row(
+                self.hint_label(names[i]),
+                self.number(
+                    super::super::numeric::Field::Custom(i),
+                    val,
+                    if matches!(i, 6 | 7) { 0 } else { 1 },
+                    i32::MAX,
+                    1,
+                    unit,
+                    cx,
+                ),
             );
+            if i < 3 {
+                basic_rows.push(row);
+            } else {
+                timing_rows.push(row);
+            }
         }
+
+        let mut sections: Vec<(&'static str, Div)> = vec![("基本参数", card_rows(basic_rows, cx))];
+        let mut validation_error = None;
         if let Some(t) = editor.timing {
             for (i, (label, bit)) in [("水平同步极性", 4), ("垂直同步极性", 8)]
                 .into_iter()
                 .enumerate()
             {
-                section = section.child(self.setting_row(
+                timing_rows.push(self.setting_row(
                     self.hint_label(label),
                     self.select(
                         ("sync-polarity", i),
@@ -222,85 +263,78 @@ impl Panel {
                     ),
                 ));
             }
-            if let Err(e) = t.validate() {
-                section = section.child(e.to_string());
-            } else {
-                section = section
-                    .child(format!("实际刷新率：{:.3} Hz", t.rate()))
-                    .child(self.primary_button(
-                        "create-custom-mode",
-                        "创建并预览",
-                        true,
-                        None,
-                        move |p, _, _| {
-                            if let Some(d) = p.display.displays.get(p.display.display_index) {
-                                match Preview::custom(d, p.display.key.as_deref(), t) {
-                                    Ok(preview) => p.display.preview = Some(preview),
-                                    Err(e) => {
+            match t.validate() {
+                Ok(()) => timing_rows.push(
+                    self.setting_row(
+                        "实际刷新率",
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(cx.theme().foreground)
+                            .child(format!("{:.3} Hz", t.rate())),
+                    ),
+                ),
+                Err(e) => validation_error = Some(e.to_string()),
+            }
+            sections.push(("高级时序", card_rows(timing_rows, cx)));
+        }
+
+        if !editor.existing.is_empty() {
+            let saved_rows: Vec<_> = editor
+                .existing
+                .iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    let controls = if editor.remove == Some(i) {
+                        h_flex()
+                            .gap_2()
+                            .child(self.danger_button(
+                                ("confirm-timing-remove", i),
+                                "确认删除",
+                                None,
+                                move |p, _, _| {
+                                    if let Err(e) = p.remove_custom(i) {
                                         if let Some(editor) = &mut p.display.custom {
                                             editor.status = e.to_string();
                                         }
                                     }
+                                },
+                                cx,
+                            ))
+                            .child(self.inline_button(
+                                "cancel-timing-remove",
+                                "取消",
+                                |p, _, _| {
+                                    if let Some(e) = &mut p.display.custom {
+                                        e.remove = None;
+                                    }
+                                },
+                                cx,
+                            ))
+                    } else {
+                        h_flex().child(self.inline_button(
+                            ("remove-timing", i),
+                            "删除",
+                            move |p, _, _| {
+                                if let Some(e) = &mut p.display.custom {
+                                    e.remove = Some(i);
                                 }
-                            }
-                        },
-                        cx,
-                    ));
-            }
+                            },
+                            cx,
+                        ))
+                    };
+                    self.setting_row(t.label(), controls)
+                })
+                .collect();
+            sections.push(("已保存的自定义分辨率", card_rows(saved_rows, cx)));
         }
-        if !editor.existing.is_empty() {
-            section = section.child("已保存的自定义分辨率");
+
+        let mut view = v_flex()
+            .gap_3()
+            .child(self.setting_sections_titled(sections, cx));
+        if let Some(err) = validation_error {
+            view = view.child(Alert::warning("custom-timing-invalid", err).small());
         }
-        for (i, t) in editor.existing.iter().enumerate() {
-            let mut row = h_flex().gap_2().child(t.label());
-            if editor.remove == Some(i) {
-                row = row
-                    .child(self.danger_button(
-                        ("confirm-timing-remove", i),
-                        "确认删除",
-                        None,
-                        move |p, _, _| {
-                            if let Err(e) = p.remove_custom(i) {
-                                if let Some(editor) = &mut p.display.custom {
-                                    editor.status = e.to_string();
-                                }
-                            }
-                        },
-                        cx,
-                    ))
-                    .child(self.inline_button(
-                        "cancel-timing-remove",
-                        "取消",
-                        |p, _, _| {
-                            if let Some(e) = &mut p.display.custom {
-                                e.remove = None;
-                            }
-                        },
-                        cx,
-                    ));
-            } else {
-                row = row.child(self.inline_button(
-                    ("remove-timing", i),
-                    "删除",
-                    move |p, _, _| {
-                        if let Some(e) = &mut p.display.custom {
-                            e.remove = Some(i);
-                        }
-                    },
-                    cx,
-                ));
-            }
-            section = section.child(row);
-        }
-        section
-            .child(editor.status.clone())
-            .child(self.contour_button(
-                "close-timing",
-                "关闭",
-                true,
-                None,
-                |p, _, _| p.read_modes(),
-                cx,
-            ))
+        view
     }
 }

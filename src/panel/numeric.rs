@@ -284,7 +284,6 @@ impl Panel {
         let edit = self.edit.as_ref().filter(|e| e.field == field);
         let is_editing = edit.is_some();
         let radius = f32::from(cx.theme().radius);
-        let rest_border = cx.theme().input;
         let focus_border = cx.theme().ring;
         let focus_id = id.clone();
 
@@ -301,6 +300,9 @@ impl Panel {
             .text_sm()
             .rounded(cx.theme().radius)
             .contour(Some(cx.theme().input_background()), None, radius)
+            .border_t_1()
+            .border_color(cx.theme().border)
+            .shadow_2xs()
             .child(
                 canvas(
                     move |_, window, cx| {
@@ -313,7 +315,6 @@ impl Panel {
                         )
                     },
                     move |bounds, amount, window, _| {
-                        paint_outline(bounds, rest_border.opacity(1. - amount), radius, window);
                         paint_outline(bounds, focus_border.opacity(amount), radius, window);
                     },
                 )

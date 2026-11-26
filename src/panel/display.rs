@@ -1,6 +1,10 @@
 mod custom;
 mod eyefinity;
-use super::{Panel, controls::card_rows};
+use super::{
+    Panel,
+    controls::card_rows,
+    motion::{expand_progress, reveal_row},
+};
 use crate::adl::display::gamma::Gamma;
 use crate::adl::display::settings::{Feature, Setting};
 use crate::{
@@ -9,8 +13,11 @@ use crate::{
 };
 use crate::{profile_store, profiles};
 use anyhow::{Context as _, Result};
-use gpui_kit::component::{h_flex, v_flex};
-use gpui_kit::{Context, Div, ParentElement as _, Styled as _, div, prelude::FluentBuilder as _};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::{
+    Context, Div, FontWeight, ParentElement as _, Styled as _, Window, div,
+    prelude::FluentBuilder as _,
+};
 use serde_json::{Value, json};
 
 #[derive(Default)]
@@ -579,52 +586,84 @@ impl Panel {
         true
     }
 
+    pub(super) fn display_subpage(&self) -> Option<&'static str> {
+        if self.display.custom.is_some() {
+            Some("custom")
+        } else if self.display.eyefinity.is_some() {
+            Some("eyefinity")
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn exit_display_subpage(&mut self) {
+        if self.display.custom.is_some() {
+            self.read_modes();
+        } else {
+            self.display.eyefinity = None;
+        }
+    }
+
+    pub(super) fn close_display_subpages(&mut self) {
+        self.display.custom = None;
+        self.display.eyefinity = None;
+    }
+
+    pub(super) fn has_display_preview(&self) -> bool {
+        self.display.preview.is_some()
+    }
+
     pub(super) fn display_dialog(&self, cx: &mut Context<Self>) -> Option<Div> {
         let page = &self.display;
-        let mut section = div().flex().flex_col().gap_2();
-        if let Some(preview) = &page.preview {
-            section = section.child(format!(
-                "将在 {} 秒后{}",
-                TIMEOUT
-                    .as_secs()
-                    .saturating_sub(preview.started.elapsed().as_secs()),
-                if preview.custom {
-                    "撤销自定义时序"
-                } else {
-                    "还原显示模式"
-                }
-            ));
-            for (id, text, keep) in [("keep-mode", "保留", true), ("revert-mode", "还原", false)]
-            {
-                section = section.child(if keep {
-                    self.primary_button(
-                        id,
-                        text,
-                        true,
-                        None,
-                        move |panel, _, _| panel.finish_preview(keep),
-                        cx,
-                    )
-                } else {
-                    self.contour_button(
-                        id,
-                        text,
-                        true,
-                        None,
-                        move |panel, _, _| panel.finish_preview(keep),
-                        cx,
-                    )
-                });
+        let preview = page.preview.as_ref()?;
+        let countdown = format!(
+            "将在 {} 秒后{}",
+            TIMEOUT
+                .as_secs()
+                .saturating_sub(preview.started.elapsed().as_secs()),
+            if preview.custom {
+                "撤销自定义时序"
+            } else {
+                "还原显示模式"
             }
-            return Some(section);
-        }
-        if let Some(editor) = &page.eyefinity {
-            return Some(self.render_eyefinity(editor, cx));
-        }
-        if let Some(editor) = &page.custom {
-            return Some(self.render_custom(editor, cx));
-        }
-        None
+        );
+        Some(
+            v_flex()
+                .gap_3()
+                .child(
+                    div()
+                        .text_base()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child("确认显示模式"),
+                )
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(cx.theme().muted_foreground)
+                        .child(countdown),
+                )
+                .child(
+                    h_flex()
+                        .justify_end()
+                        .gap_2()
+                        .child(self.contour_button(
+                            "revert-mode",
+                            "还原",
+                            true,
+                            None,
+                            |panel, _, _| panel.finish_preview(false),
+                            cx,
+                        ))
+                        .child(self.primary_button(
+                            "keep-mode",
+                            "保留",
+                            true,
+                            None,
+                            |panel, _, _| panel.finish_preview(true),
+                            cx,
+                        )),
+                ),
+        )
     }
     fn scaling_mode_row(&self, cx: &mut Context<Self>) -> Option<Div> {
         let page = &self.display;
@@ -677,8 +716,14 @@ impl Panel {
         ))
     }
 
-    pub(super) fn render_displays(&self, cx: &mut Context<Self>) -> Div {
+    pub(super) fn render_displays(&self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let page = &self.display;
+        if let Some(editor) = &page.custom {
+            return self.render_custom(editor, cx);
+        }
+        if let Some(editor) = &page.eyefinity {
+            return self.render_eyefinity(editor, cx);
+        }
         let mut categories = Vec::new();
         let mut section_rows = Vec::new();
         if let (Some(mode), Some(current), true) = (
@@ -761,44 +806,45 @@ impl Panel {
                     cx,
                 ),
             ));
-            if current.width != mode.width
+            let mode_changed = current.width != mode.width
                 || current.height != mode.height
                 || current.refresh != mode.refresh
-                || current.orientation != page.angle
-            {
-                section_rows.push(h_flex().px_4().py_2().child(self.inline_button(
-                    "preview-mode",
-                    "应用显示模式",
-                    |panel, _, _| {
-                        let page = &mut panel.display;
-                        match Preview::start(
-                            &page.displays[page.display_index],
-                            page.modes[page.choice],
-                            page.angle,
-                        ) {
-                            Ok(preview) => page.preview = Some(preview),
-                            Err(err) => page.status = err.to_string(),
-                        }
-                    },
-                    cx,
-                )));
+                || current.orientation != page.angle;
+            let preview_reveal =
+                expand_progress("display-preview-btn-reveal", mode_changed, window, cx);
+            if mode_changed || preview_reveal > 0.001 {
+                section_rows.push(reveal_row(
+                    h_flex().px_4().py_2p5().child(self.inline_button(
+                        "preview-mode",
+                        "应用显示模式",
+                        |panel, _, _| {
+                            let page = &mut panel.display;
+                            match Preview::start(
+                                &page.displays[page.display_index],
+                                page.modes[page.choice],
+                                page.angle,
+                            ) {
+                                Ok(preview) => page.preview = Some(preview),
+                                Err(err) => page.status = err.to_string(),
+                            }
+                        },
+                        cx,
+                    )),
+                    preview_reveal,
+                    56.,
+                ));
             }
         }
         if page.app == "Global" && page.current.is_some() {
-            section_rows.push(self.setting_row(
+            section_rows.push(self.navigation_row(
+                "custom-editor",
                 self.hint_label("自定义分辨率"),
-                div().child(self.contour_button(
-                    "custom-editor",
-                    "管理自定义分辨率…",
-                    true,
-                    None,
-                    |p, _, _| {
-                        if let Err(err) = p.open_custom() {
-                            p.display.status = err.to_string();
-                        }
-                    },
-                    cx,
-                )),
+                |p, _, _| {
+                    if let Err(err) = p.open_custom() {
+                        p.display.status = err.to_string();
+                    }
+                },
+                cx,
             ));
         }
         if !section_rows.is_empty() {
@@ -864,7 +910,9 @@ impl Panel {
                             |p, _| p.display.gamma.enabled = !p.display.gamma.enabled,
                             cx,
                         ));
-                        if page.gamma.enabled {
+                        let gamma_reveal =
+                            expand_progress("display-gamma-reveal", page.gamma.enabled, window, cx);
+                        if page.gamma.enabled || gamma_reveal > 0.001 {
                             for (i, label) in [
                                 "显示伽马基准",
                                 "显示伽马红色",
@@ -874,17 +922,21 @@ impl Panel {
                             .into_iter()
                             .enumerate()
                             {
-                                rows.push(self.setting_row(
-                                    self.hint_label(label),
-                                    self.number(
-                                        super::numeric::Field::Gamma(i),
-                                        page.gamma.values[i],
-                                        50,
-                                        300,
-                                        1,
-                                        "",
-                                        cx,
+                                rows.push(reveal_row(
+                                    self.setting_row(
+                                        self.hint_label(label),
+                                        self.number(
+                                            super::numeric::Field::Gamma(i),
+                                            page.gamma.values[i],
+                                            50,
+                                            300,
+                                            1,
+                                            "",
+                                            cx,
+                                        ),
                                     ),
+                                    gamma_reveal,
+                                    76.,
                                 ));
                             }
                         }
@@ -909,17 +961,34 @@ impl Panel {
                 if page.app != "Global" && !setting.feature.per_app() {
                     continue;
                 }
-                if matches!(setting.feature, Feature::Correction(1..=3)) && !correction_on {
+                let reveal = match setting.feature {
+                    Feature::Correction(1..=3) => Some((
+                        correction_on,
+                        expand_progress(
+                            (
+                                "display-corr-reveal",
+                                gpui_kit::SharedString::from(i.to_string()),
+                            ),
+                            correction_on,
+                            window,
+                            cx,
+                        ),
+                    )),
+                    Feature::Color(16) => Some((
+                        temperature_on,
+                        expand_progress("display-temp-reveal", temperature_on, window, cx),
+                    )),
+                    Feature::VariBrightLevel => Some((
+                        vari_bright_on,
+                        expand_progress("display-varibright-reveal", vari_bright_on, window, cx),
+                    )),
+                    _ => None,
+                };
+                if reveal.is_some_and(|(active, p)| !active && p <= 0.001) {
                     continue;
                 }
-                if setting.feature == Feature::Color(16) && !temperature_on {
-                    continue;
-                }
-                if setting.feature == Feature::VariBrightLevel && !vari_bright_on {
-                    continue;
-                }
-                if setting.min == 0 && setting.max == 1 {
-                    rows.push(self.toggle_row(
+                let row = if setting.min == 0 && setting.max == 1 {
+                    self.toggle_row(
                         ("display-toggle", i),
                         self.hint_label(setting.label),
                         setting.draft != 0,
@@ -929,12 +998,12 @@ impl Panel {
                                 i32::from(p.display.settings[i].draft == 0)
                         },
                         cx,
-                    ));
+                    )
                 } else if matches!(
                     setting.feature,
                     Feature::Color(_) | Feature::Correction(1..=3)
                 ) {
-                    rows.push(self.setting_row(
+                    self.setting_row(
                         self.hint_label(setting.label),
                         self.number(
                             super::numeric::Field::Display(i),
@@ -945,7 +1014,7 @@ impl Panel {
                             "",
                             cx,
                         ),
-                    ));
+                    )
                 } else {
                     let labels = if setting.choices().is_empty() {
                         (setting.min..=setting.max)
@@ -957,7 +1026,7 @@ impl Panel {
                     };
                     let min = setting.min;
                     let step = setting.step;
-                    rows.push(self.setting_row(
+                    self.setting_row(
                         self.hint_label(setting.label),
                         self.select(
                             ("display-choice", i),
@@ -968,8 +1037,12 @@ impl Panel {
                             move |p, n, _| p.display.settings[i].draft = min + n as i32 * step,
                             cx,
                         ),
-                    ));
-                }
+                    )
+                };
+                rows.push(match reveal {
+                    Some((_, p)) => reveal_row(row, p, 76.),
+                    None => row,
+                });
             }
             if !rows.is_empty() {
                 categories.push(card_rows(rows, cx));
@@ -977,20 +1050,15 @@ impl Panel {
         }
         let mut extras = Vec::new();
         if page.app == "Global" && !page.displays.is_empty() {
-            extras.push(self.setting_row(
+            extras.push(self.navigation_row(
+                "manage-eye",
                 self.hint_label("Eyefinity 操作"),
-                div().child(self.contour_button(
-                    "manage-eye",
-                    "管理 Eyefinity",
-                    true,
-                    None,
-                    |p, _, _| {
-                        if let Err(e) = p.open_eyefinity() {
-                            p.display.status = e.to_string();
-                        }
-                    },
-                    cx,
-                )),
+                |p, _, _| {
+                    if let Err(e) = p.open_eyefinity() {
+                        p.display.status = e.to_string();
+                    }
+                },
+                cx,
             ));
         } else if page.key.is_some() && page.app != "Global" {
             extras.push(self.toggle_row(

@@ -9,9 +9,10 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     App, AppContext as _, Bounds, Context, Div, FontWeight, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _,
-    Styled as _, TitlebarOptions, Window, WindowBackgroundAppearance, WindowBounds,
-    WindowDecorations, WindowOptions, canvas, div, point, px, rems, size,
+    KeyDownEvent, ParentElement as _, Render, ScrollHandle, SharedString,
+    StatefulInteractiveElement as _, Styled as _, TitlebarOptions, Window,
+    WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowOptions, canvas, div, point,
+    px, rems, size,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{cell::RefCell, collections::HashMap, time::Duration};
@@ -233,11 +234,11 @@ impl Render for Panel {
             content = content.child(Alert::warning("panel-msg", self.message.clone()).small());
         }
         if matches!(self.page, 0 | 1) && !self.controls.is_empty() {
-            content = content.child(self.render_tuning_fields(cx));
+            content = content.child(self.render_tuning_fields(window, cx));
         }
         match self.page {
-            2 => content = content.child(self.render_graphics(cx)),
-            3 => content = content.child(self.render_displays(cx)),
+            2 => content = content.child(self.render_graphics(window, cx)),
+            3 => content = content.child(self.render_displays(window, cx)),
             4 => content = content.child(self.render_video(cx)),
             5 => content = content.child(self.render_settings(cx)),
             6 => content = content.child(self.render_info_page(cx)),
@@ -279,8 +280,11 @@ impl Render for Panel {
                 compact,
                 i == self.page,
                 move |p, _, _| {
-                    if p.page == 3 && i != 3 {
+                    if p.page == 3 && i == 3 && p.display_subpage().is_some() {
+                        p.exit_display_subpage();
+                    } else if p.page == 3 && i != 3 {
                         p.finish_preview(false);
+                        p.close_display_subpages();
                     }
                     p.dropdown = None;
                     let was_settings = p.page == 5;
@@ -340,12 +344,36 @@ impl Render for Panel {
             )
             .child(Scrollbar::vertical(&self.content_scroll));
 
+        let entrance_key = if self.page == 3 {
+            if let Some(sub) = self.display_subpage() {
+                format!("page-entrance-3-{sub}")
+            } else {
+                "page-entrance-3".to_owned()
+            }
+        } else {
+            format!("page-entrance-{}", self.page)
+        };
+
         let mut window_content = v_flex()
             .relative()
             .size_full()
             .text_sm()
             .text_color(cx.theme().foreground)
             .font_family("Microsoft YaHei UI")
+            .on_key_down(cx.listener(|p, e: &KeyDownEvent, _, cx| {
+                if e.keystroke.key == "escape"
+                    && p.picker.is_none()
+                    && p.dropdown.is_none()
+                    && p.edit.is_none()
+                    && p.page == 3
+                    && p.display_subpage().is_some()
+                    && !p.has_display_preview()
+                {
+                    p.exit_display_subpage();
+                    cx.stop_propagation();
+                    cx.notify();
+                }
+            }))
             .child(
                 TitleBar::new()
                     .border_b_0()
@@ -372,7 +400,7 @@ impl Render for Panel {
                             .min_w_0()
                             .child(self.render_header(viewport.width, cx))
                             .child(v_flex().flex_1().min_h_0().w_full().child(motion::entrance(
-                                SharedString::from(format!("page-entrance-{}", self.page)),
+                                SharedString::from(entrance_key),
                                 content_area,
                             ))),
                     ),

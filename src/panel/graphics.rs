@@ -193,7 +193,12 @@ impl Panel {
         }
         self.graphics_dirty = true;
     }
-    pub(super) fn render_graphics(&self, cx: &mut Context<Self>) -> Div {
+    pub(super) fn render_graphics(
+        &self,
+        window: &mut gpui_kit::Window,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        use super::motion::{expand_progress, reveal_row};
         use crate::adl::graphics::frames::Field;
         const GROUPS: &[&[&str]] = &[
             &[
@@ -260,71 +265,84 @@ impl Panel {
                     .enumerate()
                     .find(|(_, c)| c.field.name() == key)
                 {
-                    if !control.field.enabled(&self.frames)
-                        || (control.field.experimental() && !self.experimental)
-                    {
+                    if control.field.experimental() && !self.experimental {
+                        continue;
+                    }
+                    let enabled = control.field.enabled(&self.frames);
+                    let reveal = expand_progress(
+                        (
+                            "graphics-frame-reveal",
+                            gpui_kit::SharedString::from(i.to_string()),
+                        ),
+                        enabled,
+                        window,
+                        cx,
+                    );
+                    if !enabled && reveal <= 0.001 {
                         continue;
                     }
                     let label = control.field.label();
-                    let mut control_view = if control.min == 0 && control.max == 1 {
-                        rows.push(self.toggle_row(
+                    let row = if control.min == 0 && control.max == 1 {
+                        self.toggle_row(
                             ("frame-toggle", i),
                             self.hint_label(label),
                             control.draft != 0,
                             true,
                             move |p, _| p.change_frame(i, i32::from(p.frames[i].draft == 0)),
                             cx,
-                        ));
-                        continue;
-                    } else if !control.field.entries().is_empty() {
-                        self.select(
-                            ("frame-choice", i),
-                            control
-                                .field
-                                .entries()
-                                .iter()
-                                .map(|s| s.to_string())
-                                .collect(),
-                            Some(control.draft as usize),
-                            label,
-                            crate::panel::controls::SELECT_MAX_WIDTH,
-                            move |p, value, _| p.change_frame(i, value as i32),
-                            cx,
                         )
-                    } else if self.chill_linked && control.field == Field::Low {
-                        div().child(format!("{} FPS", control.draft)).opacity(0.5)
                     } else {
-                        self.number(
-                            super::numeric::Field::Frame(i),
-                            control.draft,
-                            control.min,
-                            control.max,
-                            control.step,
-                            control.field.unit(),
-                            cx,
-                        )
-                    };
-                    if control.field == Field::High {
-                        control_view = h_flex()
-                            .gap_2()
-                            .child(
-                                self.contour_button(
-                                    "chill-link",
-                                    if self.chill_linked {
-                                        "取消联动"
-                                    } else {
-                                        "联动"
-                                    },
-                                    true,
-                                    None,
-                                    |p, _, _| p.chill_linked = !p.chill_linked,
-                                    cx,
-                                )
-                                .min_w(px(44.)),
+                        let mut control_view = if !control.field.entries().is_empty() {
+                            self.select(
+                                ("frame-choice", i),
+                                control
+                                    .field
+                                    .entries()
+                                    .iter()
+                                    .map(|s| s.to_string())
+                                    .collect(),
+                                Some(control.draft as usize),
+                                label,
+                                crate::panel::controls::SELECT_MAX_WIDTH,
+                                move |p, value, _| p.change_frame(i, value as i32),
+                                cx,
                             )
-                            .child(control_view);
-                    }
-                    rows.push(self.setting_row(self.hint_label(label), control_view));
+                        } else if self.chill_linked && control.field == Field::Low {
+                            div().child(format!("{} FPS", control.draft)).opacity(0.5)
+                        } else {
+                            self.number(
+                                super::numeric::Field::Frame(i),
+                                control.draft,
+                                control.min,
+                                control.max,
+                                control.step,
+                                control.field.unit(),
+                                cx,
+                            )
+                        };
+                        if control.field == Field::High {
+                            control_view = h_flex()
+                                .gap_2()
+                                .child(
+                                    self.contour_button(
+                                        "chill-link",
+                                        if self.chill_linked {
+                                            "取消联动"
+                                        } else {
+                                            "联动"
+                                        },
+                                        true,
+                                        None,
+                                        |p, _, _| p.chill_linked = !p.chill_linked,
+                                        cx,
+                                    )
+                                    .min_w(px(44.)),
+                                )
+                                .child(control_view);
+                        }
+                        self.setting_row(self.hint_label(label), control_view)
+                    };
+                    rows.push(reveal_row(row, reveal, 76.));
                 }
                 if let Some((i, s)) = self
                     .graphics
