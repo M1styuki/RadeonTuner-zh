@@ -182,7 +182,7 @@ impl SmoothScroll {
         let state = self.state.clone();
         v_flex()
             .w_full()
-            .min_h_full()
+            .flex_shrink_0()
             .on_scroll(move |event: &ScrollEvent, window, cx| {
                 if event.delta.precise() || !enabled() {
                     return;
