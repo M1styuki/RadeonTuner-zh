@@ -725,7 +725,7 @@ impl Panel {
             return self.render_eyefinity(editor, cx);
         }
         let mut categories = Vec::new();
-        let mut section_rows = Vec::new();
+        let mut section_rows: Vec<super::controls::CardItem> = Vec::new();
         if let (Some(mode), Some(current), true) = (
             page.modes.get(page.choice),
             page.current,
@@ -765,18 +765,21 @@ impl Panel {
                         .unwrap_or(*i)
                 })
                 .collect::<Vec<_>>();
-            section_rows.push(self.setting_row(
-                "显示分辨率",
-                self.select(
-                    "resolution",
-                    sizes.iter().map(|(_, w, h)| format!("{w} × {h}")).collect(),
-                    Some(size_pos),
+            section_rows.push(
+                self.setting_row(
                     "显示分辨率",
-                    crate::panel::controls::SELECT_MAX_WIDTH,
-                    move |p, i, _| p.display.choice = preferred[i],
-                    cx,
-                ),
-            ));
+                    self.select(
+                        "resolution",
+                        sizes.iter().map(|(_, w, h)| format!("{w} × {h}")).collect(),
+                        Some(size_pos),
+                        "显示分辨率",
+                        crate::panel::controls::SELECT_MAX_WIDTH,
+                        move |p, i, _| p.display.choice = preferred[i],
+                        cx,
+                    ),
+                )
+                .into(),
+            );
             section_rows.push(
                 self.setting_row(
                     "显示刷新率",
@@ -791,21 +794,25 @@ impl Panel {
                         move |p, i, _| p.display.choice = same[i],
                         cx,
                     ),
-                ),
+                )
+                .into(),
             );
             let angles = [0, 90, 180, 270];
-            section_rows.push(self.setting_row(
-                "显示方向",
-                self.select(
-                    "orientation",
-                    angles.map(|a| format!("{a}°")).into(),
-                    angles.iter().position(|&a| a == page.angle),
+            section_rows.push(
+                self.setting_row(
                     "显示方向",
-                    crate::panel::controls::SELECT_MAX_WIDTH,
-                    move |p, i, _| p.display.angle = angles[i],
-                    cx,
-                ),
-            ));
+                    self.select(
+                        "orientation",
+                        angles.map(|a| format!("{a}°")).into(),
+                        angles.iter().position(|&a| a == page.angle),
+                        "显示方向",
+                        crate::panel::controls::SELECT_MAX_WIDTH,
+                        move |p, i, _| p.display.angle = angles[i],
+                        cx,
+                    ),
+                )
+                .into(),
+            );
             let mode_changed = current.width != mode.width
                 || current.height != mode.height
                 || current.refresh != mode.refresh
@@ -813,26 +820,29 @@ impl Panel {
             let preview_reveal =
                 expand_progress("display-preview-btn-reveal", mode_changed, window, cx);
             if mode_changed || preview_reveal > 0.001 {
-                section_rows.push(reveal_row(
-                    h_flex().px_4().py_2p5().child(self.inline_button(
-                        "preview-mode",
-                        "应用显示模式",
-                        |panel, _, _| {
-                            let page = &mut panel.display;
-                            match Preview::start(
-                                &page.displays[page.display_index],
-                                page.modes[page.choice],
-                                page.angle,
-                            ) {
-                                Ok(preview) => page.preview = Some(preview),
-                                Err(err) => page.status = err.to_string(),
-                            }
-                        },
-                        cx,
-                    )),
-                    preview_reveal,
-                    56.,
-                ));
+                section_rows.push(
+                    reveal_row(
+                        h_flex().px_4().py_2p5().child(self.inline_button(
+                            "preview-mode",
+                            "应用显示模式",
+                            |panel, _, _| {
+                                let page = &mut panel.display;
+                                match Preview::start(
+                                    &page.displays[page.display_index],
+                                    page.modes[page.choice],
+                                    page.angle,
+                                ) {
+                                    Ok(preview) => page.preview = Some(preview),
+                                    Err(err) => page.status = err.to_string(),
+                                }
+                            },
+                            cx,
+                        )),
+                        preview_reveal,
+                        56.,
+                    )
+                    .into(),
+                );
             }
         }
         if page.app == "Global" && page.current.is_some() {
@@ -1048,7 +1058,7 @@ impl Panel {
                 categories.push(card_rows(rows, cx));
             }
         }
-        let mut extras = Vec::new();
+        let mut extras: Vec<super::controls::CardItem> = Vec::new();
         if page.app == "Global" && !page.displays.is_empty() {
             extras.push(self.navigation_row(
                 "manage-eye",
@@ -1061,14 +1071,17 @@ impl Panel {
                 cx,
             ));
         } else if page.key.is_some() && page.app != "Global" {
-            extras.push(self.toggle_row(
-                "auto-eye",
-                self.hint_label("自动 Eyefinity"),
-                page.auto_eye,
-                true,
-                |p, _| p.display.auto_eye = !p.display.auto_eye,
-                cx,
-            ));
+            extras.push(
+                self.toggle_row(
+                    "auto-eye",
+                    self.hint_label("自动 Eyefinity"),
+                    page.auto_eye,
+                    true,
+                    |p, _| p.display.auto_eye = !p.display.auto_eye,
+                    cx,
+                )
+                .into(),
+            );
         }
         if !extras.is_empty() {
             categories.push(card_rows(extras, cx));

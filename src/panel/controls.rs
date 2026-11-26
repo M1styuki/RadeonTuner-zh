@@ -1,13 +1,13 @@
 use super::{
     Panel,
     layout::nav_icon,
-    motion::{pointer_feedback, smooth_spring, smooth_value},
+    motion::{pointer_feedback, pointer_feedback_corners, smooth_spring, smooth_value},
     shape::{ContinuousCorners as _, paint_outline},
 };
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::{
-    Anchor, Animation, AnimationExt as _, App, BorderStyle, Bounds, Context, Div, ElementId,
-    FontWeight, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton,
+    Anchor, Animation, AnimationExt as _, App, BorderStyle, Bounds, Context, Corners, Div,
+    ElementId, FontWeight, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton,
     MouseDownEvent, ParentElement as _, PathBuilder, Pixels, Role, SharedString, Stateful,
     StatefulInteractiveElement as _, Styled as _, Window, anchored, canvas, deferred, div,
     ease_out_quint, fill, point, prelude::FluentBuilder as _, px, quad, relative, rems, size,
@@ -91,17 +91,39 @@ pub(super) fn section_card(cx: &App) -> Div {
         .shadow_xs()
 }
 
-pub(super) fn card_rows(rows: impl IntoIterator<Item = Div>, cx: &App) -> Div {
-    let rows: Vec<Div> = rows.into_iter().collect();
+pub(super) enum CardItem {
+    Static(Div),
+    Interactive(Box<dyn FnOnce(Corners<Pixels>) -> Div>),
+}
+
+impl From<Div> for CardItem {
+    fn from(row: Div) -> Self {
+        Self::Static(row)
+    }
+}
+
+pub(super) fn card_rows<I: Into<CardItem>>(rows: impl IntoIterator<Item = I>, cx: &App) -> Div {
+    let rows: Vec<CardItem> = rows.into_iter().map(Into::into).collect();
     let count = rows.len();
     let radius = cx.theme().radius_lg;
     let surface = cx.theme().group_box;
     v_flex()
         .w_full()
         .gap(px(2.))
-        .children(rows.into_iter().enumerate().map(|(i, row)| {
+        .children(rows.into_iter().enumerate().map(|(i, item)| {
+            let (top, bottom) = (i == 0, i + 1 == count);
+            let corners = Corners {
+                top_left: if top { radius } else { px(0.) },
+                top_right: if top { radius } else { px(0.) },
+                bottom_right: if bottom { radius } else { px(0.) },
+                bottom_left: if bottom { radius } else { px(0.) },
+            };
+            let row = match item {
+                CardItem::Static(row) => row,
+                CardItem::Interactive(build) => build(corners),
+            };
             let tile = row.w_full().overflow_hidden().bg(surface).shadow_xs();
-            match (i == 0, i + 1 == count) {
+            match (top, bottom) {
                 (true, true) => tile.rounded(radius),
                 (true, false) => tile.rounded_t(radius),
                 (false, true) => tile.rounded_b(radius),
@@ -155,33 +177,16 @@ pub(super) fn chevron_right(color: Hsla) -> impl IntoElement {
         move |bounds, _, window, _| {
             let center = bounds.center();
             let mut path = PathBuilder::stroke(px(1.35));
-            path.move_to(point(center.x - px(1.6), center.y - px(3.75)));
-            path.line_to(point(center.x + px(1.8), center.y));
-            path.line_to(point(center.x - px(1.6), center.y + px(3.75)));
+            path.move_to(point(center.x - px(2.), center.y - px(4.)));
+            path.line_to(point(center.x + px(2.), center.y));
+            path.line_to(point(center.x - px(2.), center.y + px(4.)));
             if let Ok(path) = path.build() {
                 window.paint_path(path, color);
             }
         },
     )
-    .size(px(14.))
-    .flex_shrink_0()
-}
-
-pub(super) fn chevron_left(color: Hsla) -> impl IntoElement {
-    canvas(
-        |_, _, _| (),
-        move |bounds, _, window, _| {
-            let center = bounds.center();
-            let mut path = PathBuilder::stroke(px(1.35));
-            path.move_to(point(center.x + px(1.6), center.y - px(3.75)));
-            path.line_to(point(center.x - px(1.8), center.y));
-            path.line_to(point(center.x + px(1.6), center.y + px(3.75)));
-            if let Ok(path) = path.build() {
-                window.paint_path(path, color);
-            }
-        },
-    )
-    .size(px(14.))
+    .w(px(10.))
+    .h(px(14.))
     .flex_shrink_0()
 }
 
@@ -486,54 +491,56 @@ impl Panel {
             )
     }
 
-    pub(super) fn navigation_row<L: IntoElement>(
+    pub(super) fn navigation_row<L: IntoElement + 'static>(
         &self,
         id: impl Into<ElementId>,
         label: L,
         on_click: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
         cx: &mut Context<Self>,
-    ) -> Div {
+    ) -> CardItem {
         let id: ElementId = id.into();
         let on_click = Rc::new(on_click);
         let click_cb = on_click.clone();
         let key_cb = on_click;
-
-        let row = h_flex()
-            .id(id.clone())
-            .relative()
-            .w_full()
-            .min_h(px(56.))
-            .px_4()
-            .py_3()
-            .items_center()
-            .justify_between()
-            .gap_x_4()
-            .focusable()
-            .tab_stop(true)
-            .role(Role::Button);
-
-        let row = pointer_feedback(
-            (id, "nav-row-fb"),
-            row,
-            cx.theme().accent.opacity(0.65),
-            cx.theme().accent,
-            0.,
-        )
-        .child(div().flex_1().min_w(px(96.)).child(label))
-        .child(chevron_right(cx.theme().muted_foreground))
-        .on_click(cx.listener(move |p, _, window, cx| {
+        let hover_fill = cx.theme().accent.opacity(0.65);
+        let press_fill = cx.theme().accent;
+        let chevron_color = cx.theme().muted_foreground;
+        let click_listener = cx.listener(move |p, _, window, cx| {
             click_cb(p, window, cx);
             cx.notify();
-        }))
-        .on_key_down(cx.listener(move |p, e: &KeyDownEvent, window, cx| {
+        });
+        let key_listener = cx.listener(move |p, e: &KeyDownEvent, window, cx| {
             if matches!(e.keystroke.key.as_str(), "enter" | "space") {
                 key_cb(p, window, cx);
                 cx.stop_propagation();
                 cx.notify();
             }
-        }));
+        });
 
-        div().w_full().child(row)
+        CardItem::Interactive(Box::new(move |corners| {
+            let row = h_flex()
+                .id(id.clone())
+                .relative()
+                .w_full()
+                .min_h(px(56.))
+                .px_4()
+                .py_3()
+                .items_center()
+                .justify_between()
+                .gap_x_4()
+                .focusable()
+                .tab_stop(true)
+                .role(Role::Button);
+
+            let row =
+                pointer_feedback_corners((id, "nav-row-fb"), row, hover_fill, press_fill, corners)
+                    .child(div().flex_1().min_w(px(96.)).child(label))
+                    .child(chevron_right(chevron_color))
+                    .on_click(click_listener)
+                    .on_key_down(key_listener);
+
+            div().w_full().child(row)
+        }))
     }
 
     pub(super) fn setting_sections(

@@ -344,14 +344,20 @@ impl Render for Panel {
             )
             .child(Scrollbar::vertical(&self.content_scroll));
 
-        let entrance_key = if self.page == 3 {
-            if let Some(sub) = self.display_subpage() {
-                format!("page-entrance-3-{sub}")
-            } else {
-                "page-entrance-3".to_owned()
-            }
+        let is_display_subpage = self.page == 3 && self.display_subpage().is_some();
+        let entrance_key = if is_display_subpage {
+            format!(
+                "page-entrance-3-{}",
+                self.display_subpage().unwrap_or_default()
+            )
         } else {
             format!("page-entrance-{}", self.page)
+        };
+        let entered_content = if is_display_subpage {
+            motion::slide_entrance(SharedString::from(entrance_key), -24., content_area)
+                .into_any_element()
+        } else {
+            motion::entrance(SharedString::from(entrance_key), content_area).into_any_element()
         };
 
         let mut window_content = v_flex()
@@ -399,10 +405,7 @@ impl Render for Panel {
                             .h_full()
                             .min_w_0()
                             .child(self.render_header(viewport.width, cx))
-                            .child(v_flex().flex_1().min_h_0().w_full().child(motion::entrance(
-                                SharedString::from(entrance_key),
-                                content_area,
-                            ))),
+                            .child(v_flex().flex_1().min_h_0().w_full().child(entered_content)),
                     ),
             );
         if self.picker.is_some() {

@@ -1,15 +1,16 @@
 use super::{
     PAGES, Panel,
-    controls::{SelectWidth, chevron_left, section_card, sidebar_width},
-    motion::pointer_feedback,
+    controls::{SelectWidth, chevron_right, section_card, sidebar_width},
 };
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, alert::Alert, h_flex, v_flex};
 use gpui_kit::{
-    Context, Div, FontWeight, Hsla, InteractiveElement as _, KeyDownEvent, ParentElement as _,
-    PathBuilder, Pixels, Role, StatefulInteractiveElement as _, Styled as _, canvas, div, point,
+    Animation, AnimationExt as _, Context, Div, FontWeight, Hsla, InteractiveElement as _,
+    KeyDownEvent, ParentElement as _, PathBuilder, Pixels, Role, SharedString,
+    StatefulInteractiveElement as _, Styled as _, canvas, div, ease_out_quint, point,
     prelude::FluentBuilder as _, px,
 };
 use std::collections::HashSet;
+use std::time::Duration;
 
 pub(super) fn nav_icon(index: usize, color: Hsla) -> Div {
     div().size(px(18.)).flex_shrink_0().child(
@@ -162,54 +163,50 @@ impl Panel {
                 } else {
                     "管理 Eyefinity"
                 };
-                let back = pointer_feedback(
-                    "display-subpage-back",
-                    h_flex()
-                        .id("display-subpage-back")
-                        .relative()
-                        .h_8()
-                        .px_2()
-                        .gap_1()
-                        .items_center()
-                        .focusable()
-                        .tab_stop(true)
-                        .role(Role::Button)
-                        .on_click(cx.listener(|p, _, _, _| p.exit_display_subpage()))
-                        .on_key_down(cx.listener(|p, e: &KeyDownEvent, _, cx| {
-                            if matches!(e.keystroke.key.as_str(), "enter" | "space") {
-                                p.exit_display_subpage();
-                                cx.stop_propagation();
-                            }
-                        })),
-                    cx.theme().accent.opacity(0.65),
-                    cx.theme().accent,
-                    f32::from(cx.theme().radius),
-                )
-                .child(chevron_left(cx.theme().muted_foreground))
-                .child(
-                    div()
-                        .text_xl()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(cx.theme().muted_foreground)
-                        .child("显示"),
-                );
+                let muted = cx.theme().muted_foreground;
+                let fg = cx.theme().foreground;
+                let back = div()
+                    .id("display-subpage-back")
+                    .text_xl()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(muted)
+                    .hover(move |s| s.text_color(fg))
+                    .focusable()
+                    .tab_stop(true)
+                    .role(Role::Button)
+                    .on_click(cx.listener(|p, _, _, _| p.exit_display_subpage()))
+                    .on_key_down(cx.listener(|p, e: &KeyDownEvent, _, cx| {
+                        if matches!(e.keystroke.key.as_str(), "enter" | "space") {
+                            p.exit_display_subpage();
+                            cx.stop_propagation();
+                        }
+                    }))
+                    .child("显示");
 
-                let breadcrumb = h_flex()
+                let crumb = h_flex()
+                    .relative()
                     .items_center()
-                    .gap_2()
-                    .child(back)
+                    .gap_3()
                     .child(
-                        div()
-                            .text_base()
-                            .text_color(cx.theme().muted_foreground)
-                            .child("›"),
+                        h_flex()
+                            .items_center()
+                            .justify_center()
+                            .pt(px(1.))
+                            .child(chevron_right(muted)),
                     )
                     .child(
                         div()
                             .text_xl()
                             .font_weight(FontWeight::SEMIBOLD)
                             .child(title),
+                    )
+                    .with_animation(
+                        SharedString::from(format!("subpage-crumb-{subpage}")),
+                        Animation::new(Duration::from_millis(220)).with_easing(ease_out_quint()),
+                        |d, t| d.opacity(t).left(px(-14. * (1. - t))),
                     );
+
+                let breadcrumb = h_flex().items_center().gap_3().child(back).child(crumb);
 
                 let (actions, status) = if subpage == "custom" {
                     (self.render_custom_actions(cx), self.custom_status())
