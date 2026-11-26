@@ -2,9 +2,12 @@ pub(super) mod apps;
 use super::Panel;
 use crate::profile_store;
 use anyhow::{Context as _, Result, ensure};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::{
+    Context, Div, InteractiveElement as _, ParentElement as _, PathPromptOptions,
+    StatefulInteractiveElement as _, Styled as _, div, prelude::FluentBuilder as _, px,
+};
 use serde_json::{Value, json};
-
-use gpui::{Context, Div, div, prelude::*};
 impl Panel {
     pub(super) fn graphics_target(&self) -> Option<(String, String)> {
         Some((
@@ -305,24 +308,22 @@ impl Panel {
                         )
                     };
                     if control.field == Field::High {
-                        control_view = div()
-                            .flex()
-                            .items_center()
+                        control_view = h_flex()
                             .gap_2()
                             .child(
-                                self.button_style(true)
-                                    .min_w(gpui::px(44.))
-                                    .id("chill-link")
-                                    .cursor_pointer()
-                                    .child(if self.chill_linked {
+                                self.contour_button(
+                                    "chill-link",
+                                    if self.chill_linked {
                                         "取消联动"
                                     } else {
                                         "联动"
-                                    })
-                                    .on_click(cx.listener(|p, _, _, cx| {
-                                        p.chill_linked = !p.chill_linked;
-                                        cx.notify();
-                                    })),
+                                    },
+                                    true,
+                                    None,
+                                    |p, _, _| p.chill_linked = !p.chill_linked,
+                                    cx,
+                                )
+                                .min_w(px(44.)),
                             )
                             .child(control_view);
                     }
@@ -407,86 +408,82 @@ impl Panel {
             return page.child("当前显卡没有可读取的图形设置");
         }
         page.when(!categories.is_empty(), |page| {
-            page.child(self.setting_sections(categories))
+            page.child(self.setting_sections(categories, cx))
         })
     }
 
     fn fsr_controls(&self, cx: &mut Context<Self>) -> Option<Div> {
         let fsr = self.fsr_library.as_ref()?;
-        let mut section = div().flex().flex_col();
-        let mut row = div().flex().items_center().gap_2();
-        row = row.child(
-            self.button_style(true)
-                .id("fsr-pick")
-                .cursor_pointer()
-                .px_2()
-                .child("选择 DLL…")
-                .on_click(cx.listener(|p, _, _, cx| {
-                    let device = p.devices[p.selected].index;
-                    let game = p.games.selected.clone();
-                    let picker = cx.prompt_for_paths(gpui::PathPromptOptions {
-                        files: true,
-                        directories: false,
-                        multiple: false,
-                        prompt: Some("选择 AMD FSR 库".into()),
-                    });
-                    cx.spawn(async move |view, cx| {
-                        let selected = async { Ok::<_, anyhow::Error>(picker.await??) }.await;
-                        let _ = view.update(cx, |p, cx| {
-                            if p.games.selected != game
-                                || p.devices.get(p.selected).is_none_or(|d| d.index != device)
-                            {
-                                return;
-                            }
-                            match selected {
-                                Ok(Some(paths)) => {
-                                    if let (Some(path), Some(fsr)) =
-                                        (paths.first(), &mut p.fsr_library)
-                                    {
-                                        if path.file_name().and_then(|s| s.to_str()).is_some_and(
-                                            |s| {
-                                                let name = s.to_ascii_lowercase();
-                                                name.starts_with("amdxcff")
-                                                    && name.ends_with(".dll")
-                                            },
-                                        ) {
-                                            fsr.select(path.to_string_lossy().into_owned());
-                                            p.graphics_dirty = true;
-                                        } else {
-                                            p.graphics_status =
-                                                "请选择 amdxcff 开头的 AMD FSR DLL 文件".into();
-                                        }
+        let mut section = v_flex();
+        let mut row = h_flex().gap_2();
+        row = row.child(self.contour_button(
+            "fsr-pick",
+            "选择 DLL…",
+            true,
+            None,
+            |p, _, cx| {
+                let device = p.devices[p.selected].index;
+                let game = p.games.selected.clone();
+                let picker = cx.prompt_for_paths(PathPromptOptions {
+                    files: true,
+                    directories: false,
+                    multiple: false,
+                    prompt: Some("选择 AMD FSR 库".into()),
+                });
+                cx.spawn(async move |view, cx| {
+                    let selected = async { Ok::<_, anyhow::Error>(picker.await??) }.await;
+                    let _ = view.update(cx, |p, cx| {
+                        if p.games.selected != game
+                            || p.devices.get(p.selected).is_none_or(|d| d.index != device)
+                        {
+                            return;
+                        }
+                        match selected {
+                            Ok(Some(paths)) => {
+                                if let (Some(path), Some(fsr)) =
+                                    (paths.first(), &mut p.fsr_library)
+                                {
+                                    if path.file_name().and_then(|s| s.to_str()).is_some_and(
+                                        |s| {
+                                            let name = s.to_ascii_lowercase();
+                                            name.starts_with("amdxcff") && name.ends_with(".dll")
+                                        },
+                                    ) {
+                                        fsr.select(path.to_string_lossy().into_owned());
+                                        p.graphics_dirty = true;
+                                    } else {
+                                        p.graphics_status =
+                                            "请选择 amdxcff 开头的 AMD FSR DLL 文件".into();
                                     }
                                 }
-                                Err(err) => p.graphics_status = err.to_string(),
-                                Ok(None) => {}
                             }
-                            cx.notify();
-                        });
-                    })
-                    .detach();
-                })),
-        );
-        row = row.child(
-            self.button_style(true)
-                .id("fsr-default")
-                .cursor_pointer()
-                .px_2()
-                .child("驱动默认库")
-                .on_click(cx.listener(|p, _, _, cx| {
-                    if let Some(fsr) = &mut p.fsr_library {
-                        fsr.select(String::new());
-                        p.graphics_dirty = true;
-                    }
-                    cx.notify();
-                })),
-        );
+                            Err(err) => p.graphics_status = err.to_string(),
+                            Ok(None) => {}
+                        }
+                        cx.notify();
+                    });
+                })
+                .detach();
+            },
+            cx,
+        ));
+        row = row.child(self.contour_button(
+            "fsr-default",
+            "驱动默认库",
+            true,
+            None,
+            |p, _, _| {
+                if let Some(fsr) = &mut p.fsr_library {
+                    fsr.select(String::new());
+                    p.graphics_dirty = true;
+                }
+            },
+            cx,
+        ));
         section = section.child(
             self.setting_row(
-                div()
-                    .flex()
+                h_flex()
                     .min_w_0()
-                    .items_center()
                     .gap_2()
                     .child(
                         self.hint_label("FSR 覆盖库")
@@ -499,7 +496,8 @@ impl Panel {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_color(gpui::rgb(self.palette.muted_text))
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
                             .tooltip(self.tooltip_owned(fsr.description.clone().into()))
                             .child(fsr.description.clone()),
                     ),
@@ -515,7 +513,7 @@ impl Panel {
                     .text_xs()
                     .whitespace_nowrap()
                     .overflow_hidden()
-                    .text_color(gpui::rgb(self.palette.muted_text))
+                    .text_color(cx.theme().muted_foreground)
                     .tooltip(self.tooltip_owned(path.clone().into()))
                     .child(path),
             );
@@ -524,7 +522,7 @@ impl Panel {
     }
 
     pub(super) fn graphics_actions(&self, cx: &mut Context<Self>) -> Div {
-        let mut actions = div().flex().flex_wrap().items_center().gap_2();
+        let mut actions = h_flex().flex_wrap().gap_2();
         if self.graphics.is_empty() && self.fsr_library.is_none() && self.frames.is_empty() {
             return actions;
         }
@@ -538,103 +536,95 @@ impl Panel {
                 .fsr_library
                 .as_ref()
                 .is_some_and(|f| f.current != f.draft);
-        let apply = self
-            .button_style(changed)
-            .id("graphics-apply")
-            .tooltip(self.tooltip("应用显卡设置。"))
-            .child("应用");
-        actions = actions.child(if changed {
-            apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+        actions = actions.child(self.primary_button(
+            "graphics-apply",
+            "应用",
+            changed,
+            Some("应用显卡设置。"),
+            |p, _, _| {
                 p.graphics_status = p
                     .save_graphics(false)
                     .map(|()| "图形设置已应用".into())
                     .unwrap_or_else(|e| e.to_string());
-                cx.notify();
-            }))
-        } else {
-            apply
-        });
+            },
+            cx,
+        ));
         if !self.graphics.is_empty() || !self.frames.is_empty() || self.fsr_library.is_some() {
             if self.confirm_graphics_reset {
                 actions = actions.child(
-                    div()
-                        .flex()
+                    h_flex()
                         .gap_2()
                         .child(if self.games.selected.is_some() {
                             "恢复所选游戏的图形默认设置？"
                         } else {
                             "恢复这张显卡的全局图形默认设置？"
                         })
-                        .child(
-                            self.inline_action()
-                                .id("confirm-graphics-reset")
-                                .child("重置")
-                                .on_click(cx.listener(|p, _, _, cx| {
-                                    p.graphics_status = match p.reset_graphics() {
-                                        Ok(()) => "图形设置已重置".into(),
-                                        Err(err) => err.to_string(),
-                                    };
-                                    cx.notify();
-                                })),
-                        )
-                        .child(
-                            self.inline_action()
-                                .id("cancel-graphics-reset")
-                                .child("取消")
-                                .on_click(cx.listener(|p, _, _, cx| {
-                                    p.confirm_graphics_reset = false;
-                                    cx.notify();
-                                })),
-                        ),
+                        .child(self.danger_button(
+                            "confirm-graphics-reset",
+                            "确认重置",
+                            None,
+                            |p, _, _| {
+                                p.graphics_status = match p.reset_graphics() {
+                                    Ok(()) => "图形设置已重置".into(),
+                                    Err(err) => err.to_string(),
+                                };
+                            },
+                            cx,
+                        ))
+                        .child(self.contour_button(
+                            "cancel-graphics-reset",
+                            "取消",
+                            true,
+                            None,
+                            |p, _, _| p.confirm_graphics_reset = false,
+                            cx,
+                        )),
                 );
             } else {
-                actions = actions.child(
-                    self.button_style(true)
-                        .id("graphics-reset")
-                        .tooltip(self.tooltip("将显卡设置恢复为默认值。"))
-                        .cursor_pointer()
-                        .child("重置")
-                        .on_click(cx.listener(|p, _, _, cx| {
-                            p.confirm_graphics_reset = true;
-                            cx.notify();
-                        })),
-                );
+                actions = actions.child(self.contour_button(
+                    "graphics-reset",
+                    "重置",
+                    true,
+                    Some("将显卡设置恢复为默认值。"),
+                    |p, _, _| p.confirm_graphics_reset = true,
+                    cx,
+                ));
             }
         }
         actions = actions.child(self.transfer_buttons(super::transfer::Kind::Graphics, cx));
         if self.devices.get(self.selected).is_some() {
-            actions = actions.child(
-                self.button_style(true)
-                    .id("clear-shaders")
-                    .tooltip(self.tooltip("清除基于磁盘的着色器缓存内容。"))
-                    .cursor_pointer()
-                    .child(if self.confirm_cache {
-                        "确认清除着色器缓存"
-                    } else {
-                        "清除着色器缓存"
-                    })
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        if p.confirm_cache {
-                            p.confirm_cache = false;
-                            p.graphics_status = crate::integration::cache::clear_shader_cache()
-                                .map(|()| "已清除着色器缓存".to_owned())
-                                .unwrap_or_else(|e| e.to_string());
-                        } else {
-                            p.confirm_cache = true;
-                        }
-                        cx.notify();
-                    })),
-            );
+            actions = actions.child(if self.confirm_cache {
+                self.danger_button(
+                    "clear-shaders",
+                    "确认清除着色器缓存",
+                    Some("清除基于磁盘的着色器缓存内容。"),
+                    |p, _, _| {
+                        p.confirm_cache = false;
+                        p.graphics_status = crate::integration::cache::clear_shader_cache()
+                            .map(|()| "已清除着色器缓存".to_owned())
+                            .unwrap_or_else(|e| e.to_string());
+                    },
+                    cx,
+                )
+            } else {
+                self.contour_button(
+                    "clear-shaders",
+                    "清除着色器缓存",
+                    true,
+                    Some("清除基于磁盘的着色器缓存内容。"),
+                    |p, _, _| p.confirm_cache = true,
+                    cx,
+                )
+            });
             if self.confirm_cache {
-                actions = actions.child(
-                    self.inline_action()
-                        .id("cancel-clear-shaders")
-                        .child("取消")
-                        .on_click(cx.listener(|p, _, _, cx| {
-                            p.confirm_cache = false;
-                            cx.notify();
-                        })),
-                );
+                actions = actions.child(self.contour_button(
+                    "cancel-clear-shaders",
+                    "取消",
+                    true,
+                    None,
+                    |p, _, _| p.confirm_cache = false,
+                    cx,
+                ));
             }
         }
         actions

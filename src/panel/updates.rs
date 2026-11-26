@@ -1,15 +1,18 @@
 use super::Panel;
 use crate::update;
-use gpui::{Context, Div, div, prelude::*};
+use gpui_kit::component::{ActiveTheme as _, Sizable as _, alert::Alert, h_flex, v_flex};
+use gpui_kit::{Context, Div, ParentElement as _, Styled as _, div};
+
 #[derive(Default)]
 pub(super) struct Updates {
-    busy: bool,
-    status: String,
-    found: Option<update::Update>,
+    pub(super) busy: bool,
+    pub(super) found: Option<update::Update>,
+    pub(super) status: String,
 }
+
 impl Updates {
     pub(super) fn has_notice(&self) -> bool {
-        self.found.is_some() || !self.status.is_empty()
+        self.found.is_some()
     }
 }
 
@@ -43,76 +46,76 @@ impl Panel {
         })
         .detach();
     }
+
     pub(super) fn update_controls(&self, cx: &mut Context<Self>) -> Div {
-        let mut row = div().flex().flex_col().gap_2();
+        let mut container = v_flex().gap_2();
+        let mut row = h_flex().flex_wrap().gap_2();
         if let Some(update) = &self.updates.found {
             let release = update.clone();
-            let action = self
-                .button_style(!self.updates.busy)
-                .id("install-update")
-                .child(format!("更新至 {} 并重新启动", release.version));
-            row = row.child(if self.updates.busy {
-                action
-            } else {
-                action
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |p, _, _, cx| {
-                        if p.updates.busy {
-                            return;
-                        }
-                        p.updates.busy = true;
-                        p.updates.status = "正在下载并校验更新…".into();
-                        let release = release.clone();
-                        let install = cx
-                            .background_executor()
-                            .spawn(async move { update::install(&release) });
-                        cx.spawn(async move |view, cx| {
-                            let result = install
-                                .await
-                                .and_then(|()| crate::tray::restart_after_update());
-                            let _ = view.update(cx, |p, cx| {
-                                p.updates.busy = false;
-                                p.updates.status = match result {
-                                    Ok(()) => "已安装，正在重新启动".into(),
-                                    Err(e) => e.to_string(),
-                                };
-                                cx.notify();
-                            });
-                        })
-                        .detach();
-                        cx.notify();
-                    }))
-            });
+            row = row.child(self.primary_button(
+                "install-update",
+                format!("更新至 {} 并重新启动", release.version),
+                !self.updates.busy,
+                None,
+                move |p, _, cx| {
+                    if p.updates.busy {
+                        return;
+                    }
+                    p.updates.busy = true;
+                    p.updates.status = "正在下载并校验更新…".into();
+                    let release = release.clone();
+                    let install = cx
+                        .background_executor()
+                        .spawn(async move { update::install(&release) });
+                    cx.spawn(async move |view, cx| {
+                        let result = install
+                            .await
+                            .and_then(|()| crate::tray::restart_after_update());
+                        let _ = view.update(cx, |p, cx| {
+                            p.updates.busy = false;
+                            p.updates.status = match result {
+                                Ok(()) => "已安装，正在重新启动".into(),
+                                Err(e) => e.to_string(),
+                            };
+                            cx.notify();
+                        });
+                    })
+                    .detach();
+                },
+                cx,
+            ));
         }
         if self.page == 6 {
-            let check = self
-                .button_style(!self.updates.busy)
-                .id("check-update")
-                .child("检查 Rust 版更新");
-            row = row.child(if self.updates.busy {
-                check
-            } else {
-                check.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
-                    p.check_updates(true, cx);
-                    cx.notify();
-                }))
-            });
-            row = row.child(
-                self.button_style(true)
-                    .id("update-page")
-                    .cursor_pointer()
-                    .child("打开 GitHub 下载页")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        if let Err(e) = crate::integration::open(update::RELEASES) {
-                            p.updates.status = e.to_string();
-                        }
-                        cx.notify();
-                    })),
+            row = row.child(self.contour_button(
+                "check-update",
+                "检查 Rust 版更新",
+                !self.updates.busy,
+                None,
+                |p, _, cx| p.check_updates(true, cx),
+                cx,
+            ));
+            row = row.child(self.contour_button(
+                "update-page",
+                "打开 GitHub 下载页",
+                true,
+                None,
+                |p, _, _| {
+                    if let Err(e) = crate::integration::open(update::RELEASES) {
+                        p.updates.status = e.to_string();
+                    }
+                },
+                cx,
+            ));
+        }
+        container = container.child(row);
+        if (self.page == 6 || self.updates.found.is_some()) && !self.updates.status.is_empty() {
+            container = container.child(
+                div()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(Alert::info("update-status", self.updates.status.clone()).small()),
             );
         }
-        if self.page == 6 || self.updates.found.is_some() {
-            row = row.child(self.updates.status.clone());
-        }
-        row
+        container
     }
 }

@@ -1,16 +1,27 @@
 use super::{
-    NAV_WIDTH, Panel, motion,
-    shape::{self, ContinuousCorners},
+    Panel,
+    controls::{section_card, sidebar_width},
 };
-use gpui::{Context, Div, PathBuilder, Pixels, canvas, div, point, prelude::*, px, rgb};
+use gpui_kit::component::{ActiveTheme as _, Sizable as _, alert::Alert, h_flex, v_flex};
+use gpui_kit::{
+    Context, Div, FontWeight, Hsla, InteractiveElement as _, ParentElement as _, PathBuilder, Pixels,
+    StatefulInteractiveElement as _, Styled as _, canvas, div, point,
+    prelude::FluentBuilder as _, px,
+};
 use std::collections::HashSet;
 
-pub(super) fn nav_icon(index: usize, color: u32) -> Div {
-    div().size(px(20.)).child(
+pub(super) fn nav_icon(index: usize, color: Hsla) -> Div {
+    div().size(px(18.)).flex_shrink_0().child(
         canvas(
             |_, _, _| (),
             move |bounds, _, window, _| {
-                let at = |x, y| point(bounds.origin.x + px(x), bounds.origin.y + px(y));
+                let scale = 18. / 20.;
+                let at = |x, y| {
+                    point(
+                        bounds.origin.x + px(x * scale),
+                        bounds.origin.y + px(y * scale),
+                    )
+                };
                 let mut path = PathBuilder::stroke(px(1.5));
                 let line = |path: &mut PathBuilder, points: &[(f32, f32)], closed: bool| {
                     let (&(x, y), tail) = points.split_first().expect("nonempty icon path");
@@ -24,7 +35,7 @@ pub(super) fn nav_icon(index: usize, color: u32) -> Div {
                 };
                 let arc = |path: &mut PathBuilder, radius, large, sweep, x, y| {
                     path.arc_to(
-                        point(px(radius), px(radius)),
+                        point(px(radius * scale), px(radius * scale)),
                         px(0.),
                         large,
                         sweep,
@@ -118,7 +129,7 @@ pub(super) fn nav_icon(index: usize, color: u32) -> Div {
                     _ => return,
                 }
                 if let Ok(path) = path.build() {
-                    window.paint_path(path, rgb(color));
+                    window.paint_path(path, color);
                 }
             },
         )
@@ -128,27 +139,33 @@ pub(super) fn nav_icon(index: usize, color: u32) -> Div {
 
 impl Panel {
     pub(super) fn render_header(&self, viewport: Pixels, cx: &mut Context<Self>) -> Div {
-        let mut header = div()
-            .flex_shrink_0()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .px_4()
-            .pt_3()
-            .pb_2()
-            .bg(self.layer_color(self.palette.canvas, 0.60));
         if self.page == 5 {
-            return header;
+            return v_flex()
+                .flex_shrink_0()
+                .px_5()
+                .pt_4()
+                .pb_2()
+                .border_b_1()
+                .border_color(cx.theme().border)
+                .bg(cx.theme().title_bar)
+                .child(
+                    div()
+                        .text_lg()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child("应用设置"),
+                );
         }
-        header = header
-            .bg(self.layer_color(
-                motion::mix(self.palette.canvas, self.palette.sidebar, 0.55),
-                0.44,
-            ))
+
+        let mut header = v_flex()
+            .flex_shrink_0()
+            .bg(cx.theme().title_bar)
             .border_b_1()
-            .border_color(rgb(self.palette.border))
-            .gap_3()
-            .pb_3();
+            .border_color(cx.theme().border)
+            .px_5()
+            .pt_3p5()
+            .pb_3()
+            .gap_2p5();
+
         let mut locations = HashSet::new();
         let devices = self
             .devices
@@ -173,29 +190,24 @@ impl Panel {
                 }
             })
             .collect();
-        let mut toolbar = div()
-            .flex()
-            .items_center()
-            .flex_wrap()
-            .gap_2()
-            .child(self.select(
-                "select-gpu",
-                labels,
-                selected,
-                "选择显卡",
-                208.,
-                move |p, i, _| {
-                    p.finish_preview(false);
-                    p.selected = indices[i];
-                    p.reset_tuning_editor();
-                    p.video_app = "Global".into();
-                    p.read_device_details();
-                    p.read_displays();
-                    p.read_controls();
-                    p.refresh();
-                },
-                cx,
-            ));
+        let mut toolbar = h_flex().flex_wrap().gap_2().child(self.select(
+            "select-gpu",
+            labels,
+            selected,
+            "选择显卡",
+            208.,
+            move |p, i, _| {
+                p.finish_preview(false);
+                p.selected = indices[i];
+                p.reset_tuning_editor();
+                p.video_app = "Global".into();
+                p.read_device_details();
+                p.read_displays();
+                p.read_controls();
+                p.refresh();
+            },
+            cx,
+        ));
         toolbar = match self.page {
             0 | 1 => toolbar.child(self.tuning_profiles(cx)),
             2 => toolbar.child(self.game_controls(cx)),
@@ -204,63 +216,66 @@ impl Panel {
             _ => toolbar,
         };
         header = header.child(toolbar);
+
         if !self.metrics.is_empty() {
-            let stats_width = viewport - px(NAV_WIDTH + 32. + 24.);
+            let nav_w = sidebar_width(viewport);
+            let stats_width = viewport - nav_w - px(40. + 28.);
             let columns = (((stats_width + px(16.)) / px(146.)).floor() as u16).clamp(1, 5);
-            let card_color = motion::mix(self.palette.canvas, self.palette.selected, 0.75);
-            let mut stats = div()
-                .w_full()
-                .grid()
-                .grid_cols(columns)
-                .gap_x_4()
-                .gap_y_2()
-                .px_3()
-                .py_2()
-                .smooth_background(card_color)
-                .child(shape::outline(self.palette.border));
-            for (i, item) in self.metrics.iter().enumerate() {
-                let reading = item
-                    .value
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|| "—".into());
-                stats = stats.child(
+            let mut stats = section_card(cx)
+                .px_3p5()
+                .py_2p5()
+                .child(
                     div()
-                        .id(("metric", i))
-                        .min_w_0()
-                        .flex()
-                        .items_baseline()
-                        .justify_between()
-                        .gap_2()
-                        .tooltip(self.tooltip(item.label))
-                        .child(
-                            div()
+                        .w_full()
+                        .grid()
+                        .grid_cols(columns)
+                        .gap_x_4()
+                        .gap_y_1p5()
+                        .children(self.metrics.iter().enumerate().map(|(i, item)| {
+                            let reading = item
+                                .value
+                                .map(|value| value.to_string())
+                                .unwrap_or_else(|| "—".into());
+                            h_flex()
+                                .id(("metric", i))
                                 .min_w_0()
-                                .text_xs()
-                                .truncate()
-                                .text_color(rgb(self.palette.muted_text))
-                                .child(item.label),
-                        )
-                        .child(
-                            div()
-                                .flex()
-                                .flex_shrink_0()
                                 .items_baseline()
-                                .gap_1()
-                                .whitespace_nowrap()
-                                .child(reading)
-                                .when(item.value.is_some(), |value| {
-                                    value.child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(rgb(self.palette.muted_text))
-                                            .child(item.unit),
-                                    )
-                                }),
-                        ),
+                                .justify_between()
+                                .gap_2()
+                                .tooltip(self.tooltip(item.label))
+                                .child(
+                                    div()
+                                        .min_w_0()
+                                        .text_xs()
+                                        .truncate()
+                                        .text_color(cx.theme().muted_foreground)
+                                        .child(item.label),
+                                )
+                                .child(
+                                    h_flex()
+                                        .flex_shrink_0()
+                                        .items_baseline()
+                                        .gap_1()
+                                        .whitespace_nowrap()
+                                        .text_sm()
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .child(reading)
+                                        .when(item.value.is_some(), |value| {
+                                            value.child(
+                                                div()
+                                                    .text_xs()
+                                                    .font_weight(FontWeight::NORMAL)
+                                                    .text_color(cx.theme().muted_foreground)
+                                                    .child(item.unit),
+                                            )
+                                        }),
+                                )
+                        })),
                 );
-            }
+            let _ = &mut stats;
             header = header.child(stats);
         }
+
         let (actions, status) = match self.page {
             0 | 1 => (
                 (!self.controls.is_empty()).then(|| self.tuning_actions(cx)),
@@ -275,13 +290,17 @@ impl Panel {
             _ => return header,
         };
         header.children(actions).when(!status.is_empty(), |view| {
-            view.child(
-                div()
-                    .id("action-status")
-                    .truncate()
-                    .tooltip(self.tooltip_owned(status.clone().into()))
-                    .child(status.clone()),
-            )
+            let is_err = status.contains("失败")
+                || status.contains("无效")
+                || status.contains("不可用")
+                || status.contains("断开")
+                || status.contains("错误");
+            let alert = if is_err {
+                Alert::warning("action-status", status.clone()).small()
+            } else {
+                Alert::info("action-status", status.clone()).small()
+            };
+            view.child(alert)
         })
     }
 }

@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 anyhow = "1"
-gpui = "=0.2.2"
+gpui-kit = { version = "0.11", default-features = false, features = ["component", "assets"] }
 libc = "0.2"
 libloading = "0.8"
 raw-window-handle = "0.6"
@@ -19,6 +19,9 @@ windows-sys = { version = "0.59", features = ["Win32_Foundation","Win32_Graphics
 self-replace = "1.5.1"
 sha2 = "0.10.9"
 semver = "1.0.28"
+
+[dev-dependencies]
+gpui-kit = { version = "0.11", default-features = false, features = ["component", "assets", "test-support"] }
 
 [build-dependencies]
 embed-resource = "3.0"

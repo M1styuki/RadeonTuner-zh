@@ -1,11 +1,18 @@
-use super::Panel;
-use crate::panel::shape::ContinuousCorners;
-use gpui::{
-    Bounds, Context, Div, FocusHandle, KeyDownEvent, Pixels, Size, Stateful, Subscription, div,
-    fill, point, prelude::*, px, rgb, size,
+use super::{
+    Panel,
+    motion::{pointer_feedback, smooth_value},
+    shape::{ContinuousCorners as _, paint_outline},
 };
+use gpui_kit::component::{ActiveTheme as _, h_flex};
+use gpui_kit::{
+    Bounds, Context, Div, ElementId, FocusHandle, InteractiveElement as _, KeyDownEvent,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, Pixels, Size,
+    Stateful, StatefulInteractiveElement as _, Styled as _, Subscription, canvas, div, fill,
+    point, prelude::FluentBuilder as _, px, size,
+};
+use std::{cell::Cell, rc::Rc, time::Duration};
 
-const THUMB_RADIUS: f32 = 7.;
+const THUMB_RADIUS: f32 = 8.;
 const SLIDER_HEIGHT: f32 = 28.;
 
 fn slider_fraction(bounds: Bounds<Pixels>, x: Pixels) -> f32 {
@@ -76,6 +83,7 @@ impl Edit {
         Some(snapped.clamp(self.min as i64, self.max as i64) as i32)
     }
 }
+
 impl Panel {
     fn finish_edit(&mut self, commit: bool) {
         let Some(edit) = self.edit.take() else {
@@ -146,7 +154,7 @@ impl Panel {
             size(px(width), px(height)),
             cx,
         );
-        let input = div().flex().items_center().gap_2();
+        let input = h_flex().gap_2();
         if !has_slider {
             return input.child(text);
         }
@@ -164,41 +172,56 @@ impl Panel {
                     * step)
                 .clamp(i64::from(min), i64::from(max)) as i32
         };
-        let slot = std::rc::Rc::new(std::cell::Cell::new(None::<gpui::Bounds<gpui::Pixels>>));
+        let slot = Rc::new(Cell::new(None::<Bounds<Pixels>>));
         let geometry = slot.clone();
-        let palette = self.palette;
+        let slider_bar = cx.theme().slider_bar;
+        let slider_track = slider_bar.opacity(0.22);
+        let slider_thumb = cx.theme().slider_thumb;
+        let thumb_ring = slider_bar.opacity(0.65);
         let entity = cx.entity();
-        let track = gpui::canvas(
+        let slider_id = field_id(field);
+        let track = canvas(
             |_, _, _| (),
             move |bounds, _, window, _| {
                 geometry.set(Some(bounds));
                 let ratio =
                     ((value as f64 - min as f64) / (max as f64 - min as f64)).clamp(0., 1.) as f32;
                 let inset = px(THUMB_RADIUS);
+                let inner_inset = px(THUMB_RADIUS - 2.5);
                 let left = bounds.origin.x + inset;
                 let width = (bounds.size.width - inset * 2.).max(px(1.));
                 let x = left + width * ratio;
                 let y = bounds.origin.y + bounds.size.height * 0.5;
                 let rail = |length, color| {
                     fill(
-                        Bounds::new(point(left, y - px(2.)), size(length, px(4.))),
-                        rgb(color),
+                        Bounds::new(point(left, y - px(3.)), size(length, px(6.))),
+                        color,
                     )
-                    .corner_radii(px(2.))
+                    .corner_radii(px(3.))
                 };
-                window.paint_quad(rail(width, palette.grid));
+                window.paint_quad(rail(width, slider_track));
                 if x > left {
-                    window.paint_quad(rail(x - left, palette.accent));
+                    window.paint_quad(rail(x - left, slider_bar));
                 }
                 window.paint_quad(
                     fill(
                         Bounds::new(point(x - inset, y - inset), size(inset * 2., inset * 2.)),
-                        rgb(palette.accent),
+                        thumb_ring,
                     )
                     .corner_radii(inset),
                 );
+                window.paint_quad(
+                    fill(
+                        Bounds::new(
+                            point(x - inner_inset, y - inner_inset),
+                            size(inner_inset * 2., inner_inset * 2.),
+                        ),
+                        slider_thumb,
+                    )
+                    .corner_radii(inner_inset),
+                );
                 let dragged = entity.clone();
-                window.on_mouse_event(move |ev: &gpui::MouseMoveEvent, phase, _, cx| {
+                window.on_mouse_event(move |ev: &MouseMoveEvent, phase, _, cx| {
                     if !phase.bubble() || !ev.dragging() || dragged.read(cx).slider != Some(field) {
                         return;
                     }
@@ -208,41 +231,44 @@ impl Panel {
                         cx.notify();
                     });
                 });
-                window.on_mouse_event(move |ev: &gpui::MouseUpEvent, _, _, cx| {
-                    if ev.button == gpui::MouseButton::Left && entity.read(cx).slider == Some(field)
-                    {
+                window.on_mouse_event(move |ev: &MouseUpEvent, _, _, cx| {
+                    if ev.button == MouseButton::Left && entity.read(cx).slider == Some(field) {
                         entity.update(cx, |p, _| p.slider = None);
                     }
                 });
             },
         )
         .size_full();
-        input
-            .child(
-                div()
-                    .flex_1()
-                    .min_w(px(20.))
-                    .h(px(SLIDER_HEIGHT))
-                    .smooth_hover_background(None, palette.hover, super::shape::CONTROL_CORNER)
-                    .cursor_pointer()
-                    .on_mouse_down(
-                        gpui::MouseButton::Left,
-                        cx.listener(move |p, ev: &gpui::MouseDownEvent, _, cx| {
-                            if let Some(bounds) = slot.get() {
-                                p.finish_edit(true);
-                                p.slider = Some(field);
-                                p.set_number(
-                                    field,
-                                    position(slider_fraction(bounds, ev.position.x)),
-                                );
-                                cx.notify();
-                            }
-                        }),
-                    )
-                    .child(track),
-            )
-            .child(text)
+
+        let track_wrap = pointer_feedback(
+            (slider_id, "slider-fb"),
+            div()
+                .id(("slider-track", slider_index(field)))
+                .relative()
+                .flex_1()
+                .min_w(px(20.))
+                .h(px(SLIDER_HEIGHT)),
+            cx.theme().accent.opacity(0.55),
+            cx.theme().accent,
+            f32::from(cx.theme().radius),
+        )
+        .on_mouse_down(
+            MouseButton::Left,
+            cx.listener(move |p, ev: &MouseDownEvent, _, cx| {
+                if let Some(bounds) = slot.get() {
+                    p.finish_edit(true);
+                    p.slider = Some(field);
+                    p.set_number(field, position(slider_fraction(bounds, ev.position.x)));
+                    cx.notify();
+                }
+            }),
+        )
+        .child(track);
+
+        input.child(track_wrap).child(text)
     }
+
+    #[allow(clippy::too_many_arguments)]
     fn number_text(
         &self,
         field: Field,
@@ -254,49 +280,57 @@ impl Panel {
         input_size: Size<Pixels>,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let id = match field {
-            Field::Tuning(i) => ("tuning-number", i),
-            Field::Video(i) => ("video-number", i),
-            Field::Display(i) => ("display-number", i),
-            Field::Custom(i) => ("custom-number", i),
-            Field::Gamma(i) => ("gamma-number", i),
-            Field::Frame(i) => ("frame-number", i),
-        };
-        let palette = self.palette;
+        let id = field_id(field);
         let edit = self.edit.as_ref().filter(|e| e.field == field);
-        let base = div()
-            .id(id)
+        let is_editing = edit.is_some();
+        let radius = f32::from(cx.theme().radius);
+        let rest_border = cx.theme().input;
+        let focus_border = cx.theme().ring;
+        let focus_id = id.clone();
+
+        let mut base = h_flex()
+            .id(id.clone())
+            .relative()
             .w(input_size.width)
             .h(input_size.height)
-            .px_1()
+            .px_1p5()
             .flex_shrink_0()
-            .flex()
             .justify_center()
-            .items_center()
             .whitespace_nowrap()
             .overflow_hidden()
-            .relative()
-            .when(edit.is_none(), |input| {
-                input.smooth_hover_background(
-                    Some(palette.control),
-                    palette.hover,
-                    super::shape::CONTROL_CORNER,
+            .text_sm()
+            .rounded(cx.theme().radius)
+            .contour(Some(cx.theme().input_background()), None, radius)
+            .child(
+                canvas(
+                    move |_, window, cx| {
+                        smooth_value(
+                            (focus_id.clone(), "num-focus"),
+                            if is_editing { 1. } else { 0. },
+                            Duration::from_millis(130),
+                            window,
+                            cx,
+                        )
+                    },
+                    move |bounds, amount, window, _| {
+                        paint_outline(bounds, rest_border.opacity(1. - amount), radius, window);
+                        paint_outline(bounds, focus_border.opacity(amount), radius, window);
+                    },
                 )
-            })
-            .when(edit.is_some(), |input| {
-                input.child(super::shape::surface_radius(
-                    palette.control,
-                    super::shape::CONTROL_CORNER,
-                ))
-            })
-            .child(super::shape::outline_radius(
-                if edit.is_some() {
-                    palette.accent
-                } else {
-                    palette.border
-                },
-                super::shape::CONTROL_CORNER,
-            ));
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            );
+        if !is_editing {
+            base = pointer_feedback(
+                (id, "num-fb"),
+                base,
+                cx.theme().secondary_hover,
+                cx.theme().secondary_active,
+                radius,
+            );
+        }
         if let Some(edit) = edit {
             let (l, r) = (edit.anchor.min(edit.cursor), edit.anchor.max(edit.cursor));
             return base
@@ -304,11 +338,11 @@ impl Panel {
                 .child(edit.text[..l].to_owned())
                 .child(
                     div()
-                        .bg(rgb(self.palette.selection))
+                        .bg(cx.theme().selection)
                         .child(edit.text[l..r].to_owned()),
                 )
                 .when(l == r, |d| {
-                    d.child(div().w(px(1.)).h(px(17.)).bg(rgb(self.palette.text)))
+                    d.child(div().w(px(1.)).h(px(17.)).bg(cx.theme().caret))
                 })
                 .child(edit.text[r..].to_owned())
                 .on_mouse_down_out(cx.listener(|p, _, _, cx| {
@@ -379,7 +413,7 @@ impl Panel {
                         cx.notify();
                     }
                 });
-                focus.focus(window);
+                focus.focus(window, cx);
                 let text = formatted.clone();
                 let cursor = text.len();
                 p.edit = Some(Edit {
@@ -395,6 +429,28 @@ impl Panel {
                 });
                 cx.notify();
             }))
+    }
+}
+
+fn field_id(field: Field) -> ElementId {
+    match field {
+        Field::Tuning(i) => ("tuning-number", i).into(),
+        Field::Video(i) => ("video-number", i).into(),
+        Field::Display(i) => ("display-number", i).into(),
+        Field::Custom(i) => ("custom-number", i).into(),
+        Field::Gamma(i) => ("gamma-number", i).into(),
+        Field::Frame(i) => ("frame-number", i).into(),
+    }
+}
+
+fn slider_index(field: Field) -> usize {
+    match field {
+        Field::Tuning(i) => i,
+        Field::Video(i) => 1_000 + i,
+        Field::Display(i) => 2_000 + i,
+        Field::Custom(i) => 3_000 + i,
+        Field::Gamma(i) => 4_000 + i,
+        Field::Frame(i) => 5_000 + i,
     }
 }
 

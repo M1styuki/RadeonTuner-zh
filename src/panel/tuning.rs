@@ -1,8 +1,11 @@
-use super::Panel;
-use crate::panel::shape::ContinuousCorners;
+use super::{Panel, shape::ContinuousCorners as _};
 use crate::{adl::overdrive::ECC, profile_store, profiles};
 use anyhow::{Context as _, Result, ensure};
-use gpui::{Context, Div, div, prelude::*, px};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::{
+    Context, Div, InteractiveElement as _, ParentElement as _, StatefulInteractiveElement as _,
+    Styled as _, div, px,
+};
 use serde_json::{Value, json};
 
 pub(super) struct Editor {
@@ -388,69 +391,63 @@ impl Panel {
     }
     pub(super) fn tuning_actions(&self, cx: &mut Context<Self>) -> Div {
         let changed = self.tuning_changed();
-        let apply = self
-            .button_style(changed)
-            .id("apply-tuning")
-            .tooltip(self.tooltip("应用调校与风扇设置。"))
-            .child("应用");
-        let apply = if changed {
-            apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+        let apply = self.primary_button(
+            "apply-tuning",
+            "应用",
+            changed,
+            Some("应用调校与风扇设置。"),
+            |p, _, _| {
                 p.tuning_status = p
                     .save_tuning()
                     .map(|()| "已应用调校配置".to_owned())
                     .unwrap_or_else(|err| err.to_string());
-                cx.notify();
-            }))
-        } else {
-            apply
-        };
-        let mut actions = div().flex().flex_wrap().items_center().gap_2().child(apply);
-        actions = actions.child(
-            self.button_style(true)
-                .id("reset-tuning-profile")
-                .tooltip(self.tooltip("将调校与风扇设置恢复为默认值。"))
-                .cursor_pointer()
-                .child(if self.tuning.confirm_reset {
-                    "确认重置"
-                } else {
-                    "重置"
-                })
-                .on_click(cx.listener(|p, _, _, cx| {
-                    if p.tuning.confirm_reset {
-                        p.tuning.confirm_reset = false;
-                        p.tuning_status = p
-                            .reset_tuning_profile()
-                            .map(|()| "调校与风扇设置已重置".to_owned())
-                            .unwrap_or_else(|e| e.to_string());
-                    } else {
-                        p.tuning.confirm_reset = true;
-                    }
-                    cx.notify();
-                })),
+            },
+            cx,
         );
+        let mut actions = h_flex().flex_wrap().gap_2().child(apply);
+        actions = actions.child(if self.tuning.confirm_reset {
+            self.danger_button(
+                "reset-tuning-profile",
+                "确认重置",
+                Some("将调校与风扇设置恢复为默认值。"),
+                |p, _, _| {
+                    p.tuning.confirm_reset = false;
+                    p.tuning_status = p
+                        .reset_tuning_profile()
+                        .map(|()| "调校与风扇设置已重置".to_owned())
+                        .unwrap_or_else(|e| e.to_string());
+                },
+                cx,
+            )
+        } else {
+            self.contour_button(
+                "reset-tuning-profile",
+                "重置",
+                true,
+                Some("将调校与风扇设置恢复为默认值。"),
+                |p, _, _| p.tuning.confirm_reset = true,
+                cx,
+            )
+        });
         actions = actions.child(self.transfer_buttons(super::transfer::Kind::Tuning, cx));
         if self.tuning.confirm_reset {
-            actions = actions.child(
-                self.button_style(true)
-                    .id("cancel-tuning-reset")
-                    .cursor_pointer()
-                    .child("取消")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        p.tuning.confirm_reset = false;
-                        cx.notify();
-                    })),
-            );
+            actions = actions.child(self.contour_button(
+                "cancel-tuning-reset",
+                "取消",
+                true,
+                None,
+                |p, _, _| p.tuning.confirm_reset = false,
+                cx,
+            ));
         }
-        actions.child(
-            self.button_style(true)
-                .id("reload-tuning")
-                .cursor_pointer()
-                .child("读取驱动")
-                .on_click(cx.listener(|p, _, _, cx| {
-                    p.read_controls();
-                    cx.notify();
-                })),
-        )
+        actions.child(self.contour_button(
+            "reload-tuning",
+            "读取驱动",
+            true,
+            None,
+            |p, _, _| p.read_controls(),
+            cx,
+        ))
     }
 
     fn tuning_persistence(&self, cx: &mut Context<Self>) -> Div {
@@ -541,7 +538,7 @@ impl Panel {
             }
         }
         groups.push(self.tuning_persistence(cx));
-        self.setting_sections(groups)
+        self.setting_sections(groups, cx)
     }
 
     fn ordered_tuning_group(&self, ids: &[usize], cx: &mut Context<Self>) -> Option<Div> {
@@ -556,24 +553,22 @@ impl Panel {
         Some(group.children(indices.map(|index| self.tuning_field(index, cx))))
     }
 
-    fn fan_point_card(&self, cx: &mut Context<Self>) -> impl gpui::IntoElement {
+    fn fan_point_card(&self, cx: &mut Context<Self>) -> impl gpui_kit::IntoElement {
         const CARD_PADDING: f32 = 12.;
         const SCROLL_EDGE_GUTTER: f32 = 2.;
-        let palette = self.palette;
+        let muted = cx.theme().muted_foreground;
         let point_column = || div().w(px(40.)).flex_shrink_0();
         let value_column = || div().min_w_0().flex_1();
         let row = || div().flex().items_center().gap_4();
-        let mut rows = div()
+        let mut rows = v_flex()
             .w_full()
             .min_w(px(320. + SCROLL_EDGE_GUTTER))
             .pr(px(SCROLL_EDGE_GUTTER))
-            .flex()
-            .flex_col()
             .gap_2()
             .child(
                 row()
                     .text_xs()
-                    .text_color(gpui::rgb(palette.muted_text))
+                    .text_color(muted)
                     .child(point_column())
                     .child(value_column().child("温度（°C）"))
                     .child(value_column().child("转速（%）")),
@@ -585,7 +580,7 @@ impl Panel {
                     .iter()
                     .position(|control| control.id == id)
                     .map(|index| self.tuning_number_input(index, cx))
-                    .unwrap_or_else(|| div().text_color(gpui::rgb(palette.muted_text)).child("—"));
+                    .unwrap_or_else(|| div().text_color(muted).child("—"));
                 value_column().child(value)
             });
             rows = rows.child(
@@ -595,13 +590,18 @@ impl Panel {
             );
         }
         div()
+            .relative()
             .w_full()
             .p(px(CARD_PADDING))
             // Keep part of the right padding inside the scroll viewport so the
             // last input outline never sits directly on the clipping edge.
             .pr(px(CARD_PADDING - SCROLL_EDGE_GUTTER))
-            .smooth_background(palette.sidebar)
-            .child(super::shape::outline(palette.border))
+            .rounded(cx.theme().radius)
+            .contour(
+                Some(cx.theme().input_background()),
+                Some(cx.theme().border),
+                f32::from(cx.theme().radius),
+            )
             .child(
                 div()
                     .id("fan-point-editor")

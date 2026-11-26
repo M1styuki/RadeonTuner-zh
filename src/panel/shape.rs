@@ -1,80 +1,75 @@
-use gpui::{
-    Bounds, InteractiveElement, ParentElement, PathBuilder, Pixels, Styled, canvas, div, point, px,
-    rgb,
+use gpui_kit::{
+    AnyElement, Bounds, Hsla, IntoElement, ParentElement, PathBuilder, Pixels, Styled, Window,
+    canvas, fill, point, px,
 };
 
-pub(super) const OUTLINE_WIDTH: f32 = 1.;
-pub(super) const CONTROL_CORNER: f32 = 11.;
-pub(super) const PANEL_CORNER: f32 = 15.;
-pub(super) const NAV_CORNER: f32 = 18.;
-
-pub(super) trait ContinuousCorners: Styled + ParentElement + Sized {
-    fn smooth_background(self, color: u32) -> Self {
-        self.relative().child(surface_radius(color, PANEL_CORNER))
-    }
-
-    fn smooth_hover_background(self, normal: Option<u32>, hover: u32, radius: f32) -> Self
-    where
-        Self: InteractiveElement,
-    {
-        let layer = || div().absolute().top_0().left_0().size_full();
-        self.relative()
-            .group("continuous-hover")
-            .children(normal.map(|color| {
-                layer()
-                    .group_hover("continuous-hover", |style| style.opacity(0.))
-                    .child(surface_radius(color, radius))
-            }))
-            .child(
-                layer()
-                    .opacity(0.)
-                    .group_hover("continuous-hover", |layer| layer.opacity(1.))
-                    .child(surface_radius(hover, radius)),
-            )
-    }
-}
-
-impl<T: Styled + ParentElement> ContinuousCorners for T {}
-
-fn draw(bounds: Bounds<Pixels>, radius: f32, mut path: PathBuilder) -> PathBuilder {
-    let left = bounds.origin.x;
-    let top = bounds.origin.y;
-    let right = bounds.right();
-    let bottom = bounds.bottom();
-    let radius = [
-        px(radius),
-        bounds.size.width * 0.5,
-        bounds.size.height * 0.5,
-    ]
-    .into_iter()
-    .reduce(|a, b| if a < b { a } else { b })
-    .unwrap_or_default();
-    // The first two handles sit on the incoming edge, giving it zero
-    // curvature at the join. Reflection gives the other edge the same
-    // join and matches tangent and curvature at the corner's diagonal.
-    path.move_to(point(left + radius, top));
-    let mut corner = |x, y, dx, dy| {
+fn path(bounds: Bounds<Pixels>, radius: f32, mut path: PathBuilder) -> PathBuilder {
+    let left = f32::from(bounds.origin.x);
+    let top = f32::from(bounds.origin.y);
+    let right = f32::from(bounds.right());
+    let bottom = f32::from(bounds.bottom());
+    let r = (radius * 1.65)
+        .min((right - left) / 2.)
+        .min((bottom - top) / 2.)
+        .max(0.);
+    let corner = |x: f32, y: f32, dx: f32, dy: f32, path: &mut PathBuilder, start: bool| {
         let at = |along: f32, across: f32| {
-            point(x + dx * along - dy * across, y + dy * along + dx * across)
+            point(
+                px(x + dx * along - dy * across),
+                px(y + dy * along + dx * across),
+            )
         };
-        path.line_to(at(0., 0.));
+        if start {
+            path.move_to(at(0., 0.));
+        } else {
+            path.line_to(at(0., 0.));
+        }
         path.cubic_bezier_to(at(0.8, 0.2), at(0.275, 0.), at(0.6, 0.));
         path.cubic_bezier_to(at(1., 1.), at(1., 0.4), at(1., 0.725));
     };
-    corner(right - radius, top, radius, px(0.));
-    corner(right, bottom - radius, px(0.), radius);
-    corner(left + radius, bottom, -radius, px(0.));
-    corner(left, top + radius, px(0.), -radius);
+    corner(right - r, top, r, 0., &mut path, true);
+    corner(right, bottom - r, 0., r, &mut path, false);
+    corner(left + r, bottom, -r, 0., &mut path, false);
+    corner(left, top + r, 0., -r, &mut path, false);
     path.close();
     path
 }
 
-pub(super) fn surface_radius(color: u32, radius: f32) -> impl gpui::IntoElement {
+pub fn paint_fill(bounds: Bounds<Pixels>, color: Hsla, radius: f32, window: &mut Window) {
+    if color.a == 0. || bounds.size.width <= px(0.) || bounds.size.height <= px(0.) {
+        return;
+    }
+    if radius <= 0. {
+        window.paint_quad(fill(bounds, color));
+    } else if let Ok(shape) = path(bounds, radius, PathBuilder::fill()).build() {
+        window.paint_path(shape, color);
+    }
+}
+
+pub fn paint_outline(bounds: Bounds<Pixels>, color: Hsla, radius: f32, window: &mut Window) {
+    if color.a > 0.
+        && bounds.size.width > px(1.)
+        && bounds.size.height > px(1.)
+        && let Ok(shape) = path(
+            bounds.dilate(px(-0.5)),
+            (radius - 0.5).max(0.),
+            PathBuilder::stroke(px(1.)),
+        )
+        .build()
+    {
+        window.paint_path(shape, color);
+    }
+}
+
+pub fn layer(fill: Option<Hsla>, stroke: Option<Hsla>, radius: f32) -> AnyElement {
     canvas(
         |_, _, _| (),
         move |bounds, _, window, _| {
-            if let Ok(path) = draw(bounds, radius, PathBuilder::fill()).build() {
-                window.paint_path(path, rgb(color));
+            if let Some(fill) = fill {
+                paint_fill(bounds, fill, radius, window);
+            }
+            if let Some(stroke) = stroke {
+                paint_outline(bounds, stroke, radius, window);
             }
         },
     )
@@ -82,30 +77,13 @@ pub(super) fn surface_radius(color: u32, radius: f32) -> impl gpui::IntoElement 
     .top_0()
     .left_0()
     .size_full()
+    .into_any_element()
 }
 
-pub(super) fn outline(color: u32) -> impl gpui::IntoElement {
-    outline_radius(color, PANEL_CORNER)
+pub trait ContinuousCorners: Styled + ParentElement + Sized {
+    fn contour(self, fill: Option<Hsla>, stroke: Option<Hsla>, radius: f32) -> Self {
+        self.child(layer(fill, stroke, radius))
+    }
 }
 
-pub(super) fn outline_radius(color: u32, radius: f32) -> impl gpui::IntoElement {
-    canvas(
-        |_, _, _| (),
-        move |bounds, _, window, _| {
-            let inset = OUTLINE_WIDTH / 2.;
-            if let Ok(path) = draw(
-                bounds.dilate(px(-inset)),
-                radius - inset,
-                PathBuilder::stroke(px(OUTLINE_WIDTH)),
-            )
-            .build()
-            {
-                window.paint_path(path, rgb(color));
-            }
-        },
-    )
-    .absolute()
-    .top_0()
-    .left_0()
-    .size_full()
-}
+impl<T: Styled + ParentElement> ContinuousCorners for T {}

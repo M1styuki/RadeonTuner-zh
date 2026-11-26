@@ -1,16 +1,11 @@
-use gpui::{
-    Animation, AnimationExt, AnyElement, App, Bounds, Element, ElementId, GlobalElementId,
-    InspectorElementId, IntoElement, LayoutId, Pixels, Styled, Window,
+use gpui_kit::base::{Transition, TransitionId, spring, transition};
+use gpui_kit::component::{ActiveTheme as _, v_flex};
+use gpui_kit::{
+    Animation, AnimationExt as _, App, Div, ElementId, Entity, Hsla, InteractiveElement as _,
+    IntoElement, MouseButton, ParentElement as _, Pixels, Stateful,
+    StatefulInteractiveElement as _, Styled as _, Window, canvas, div, ease_out_quint, px,
 };
-use std::time::{Duration, Instant};
-
-const DURATION: Duration = Duration::from_millis(210);
-
-fn spring(t: f32) -> f32 {
-    let t = t.clamp(0., 1.);
-    let decay = 7. * t;
-    (1. - (1. + decay) * (-decay).exp()) / (1. - 8. * (-7_f32).exp())
-}
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 pub(super) fn enabled() -> bool {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -28,153 +23,128 @@ pub(super) fn enabled() -> bool {
     animate != 0
 }
 
-pub(super) fn reveal<E>(
-    element: E,
+pub fn smooth_value(
+    id: impl Into<TransitionId>,
+    target: f32,
+    duration: Duration,
+    window: &mut Window,
+    cx: &mut App,
+) -> f32 {
+    let policy = Transition::new(duration).easing(cx.theme().motion_tokens().easing_move.clone());
+    transition(id, target, policy, window, cx)
+}
+
+pub fn smooth_spring(
+    id: impl Into<TransitionId>,
+    target: Pixels,
+    window: &mut Window,
+    cx: &mut App,
+) -> Pixels {
+    spring(
+        id,
+        target,
+        cx.theme().motion_tokens().spring_move,
+        window,
+        cx,
+    )
+}
+
+#[derive(Default, Clone, Copy)]
+struct PointerState {
+    hovered: bool,
+    pressed: bool,
+}
+
+pub fn pointer_feedback(
     id: impl Into<ElementId>,
-    enabled: bool,
-    offset_y: f32,
-) -> AnyElement
-where
-    E: IntoElement + Styled + 'static,
-{
-    if enabled {
-        element
-            .with_animation(
-                id,
-                Animation::new(DURATION).with_easing(spring),
-                move |elem, t| {
-                    elem.relative()
-                        .top(gpui::px(offset_y * (1. - t)))
-                        .opacity(0.18 + 0.82 * t)
+    control: Stateful<Div>,
+    hover_fill: Hsla,
+    press_fill: Hsla,
+    radius: f32,
+) -> Stateful<Div> {
+    let id: ElementId = id.into();
+    let state_id = ElementId::NamedChild(id.clone().into(), "__pointer-state".into());
+    let hover_id = id.clone();
+    let press_id = id;
+    let slot = Rc::new(RefCell::new(None::<Entity<PointerState>>));
+    let hovered = slot.clone();
+    let pressed = slot.clone();
+    let released = slot.clone();
+    let outside = slot.clone();
+
+    let set_press = |slot: &RefCell<Option<Entity<PointerState>>>,
+                     down: bool,
+                     window: &mut Window,
+                     cx: &mut App| {
+        if let Some(state) = slot.borrow().as_ref() {
+            state.update(cx, |s, _| s.pressed = down);
+            window.refresh();
+        }
+    };
+
+    control
+        .child(
+            canvas(
+                move |_, window, cx| {
+                    let state = window.use_keyed_state(state_id.clone(), cx, |_, _| {
+                        PointerState::default()
+                    });
+                    *slot.borrow_mut() = Some(state.clone());
+                    let s = *state.read(cx);
+                    let hover = smooth_value(
+                        (hover_id.clone(), "hover"),
+                        if s.hovered { 1. } else { 0. },
+                        Duration::from_millis(120),
+                        window,
+                        cx,
+                    );
+                    let press = smooth_value(
+                        (press_id.clone(), "press"),
+                        if s.pressed { 1. } else { 0. },
+                        Duration::from_millis(90),
+                        window,
+                        cx,
+                    );
+                    (hover, press)
+                },
+                move |bounds, (hover, press), window, _| {
+                    super::shape::paint_fill(bounds, hover_fill.opacity(hover), radius, window);
+                    super::shape::paint_fill(bounds, press_fill.opacity(press), radius, window);
                 },
             )
-            .into_any_element()
-    } else {
-        element.into_any_element()
-    }
-}
-
-struct State {
-    from: f32,
-    to: f32,
-    changed: Instant,
-}
-
-impl State {
-    fn stationary(value: f32) -> Self {
-        Self {
-            from: value,
-            to: value,
-            changed: Instant::now(),
-        }
-    }
-
-    fn sample(&self, now: Instant) -> f32 {
-        let t = now.duration_since(self.changed).as_secs_f32() / DURATION.as_secs_f32();
-        self.from + (self.to - self.from) * spring(t)
-    }
-}
-
-pub(super) fn transition<E: IntoElement + 'static>(
-    id: impl Into<ElementId>,
-    target: f32,
-    enabled: bool,
-    draw: impl FnOnce(f32) -> E + 'static,
-) -> AnyElement {
-    if !enabled {
-        return draw(target).into_any_element();
-    }
-    Transition {
-        id: id.into(),
-        target,
-        draw: Some(Box::new(move |value| draw(value).into_any_element())),
-    }
-    .into_any_element()
-}
-
-struct Transition {
-    id: ElementId,
-    target: f32,
-    draw: Option<Box<dyn FnOnce(f32) -> AnyElement>>,
-}
-
-impl IntoElement for Transition {
-    type Element = Self;
-    fn into_element(self) -> Self {
-        self
-    }
-}
-
-impl Element for Transition {
-    type RequestLayoutState = AnyElement;
-    type PrepaintState = ();
-
-    fn id(&self) -> Option<ElementId> {
-        Some(self.id.clone())
-    }
-    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
-        None
-    }
-
-    fn request_layout(
-        &mut self,
-        id: Option<&GlobalElementId>,
-        _: Option<&InspectorElementId>,
-        window: &mut Window,
-        cx: &mut App,
-    ) -> (LayoutId, Self::RequestLayoutState) {
-        window.with_element_state(
-            id.expect("transition has an ID"),
-            |state: Option<State>, window| {
-                let mut state = state.unwrap_or_else(|| State::stationary(self.target));
-                let now = Instant::now();
-                if state.to != self.target {
-                    state = State {
-                        from: state.sample(now),
-                        to: self.target,
-                        changed: now,
-                    };
-                }
-                let value = state.sample(now);
-                if state.from != state.to && now.duration_since(state.changed) < DURATION {
-                    window.request_animation_frame();
-                }
-                let mut child = self.draw.take().expect("transition draws once")(value);
-                ((child.request_layout(window, cx), child), state)
-            },
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full(),
         )
-    }
-
-    fn prepaint(
-        &mut self,
-        _: Option<&GlobalElementId>,
-        _: Option<&InspectorElementId>,
-        _: Bounds<Pixels>,
-        child: &mut AnyElement,
-        window: &mut Window,
-        cx: &mut App,
-    ) {
-        child.prepaint(window, cx);
-    }
-
-    fn paint(
-        &mut self,
-        _: Option<&GlobalElementId>,
-        _: Option<&InspectorElementId>,
-        _: Bounds<Pixels>,
-        child: &mut AnyElement,
-        _: &mut (),
-        window: &mut Window,
-        cx: &mut App,
-    ) {
-        child.paint(window, cx);
-    }
+        .on_hover(move |hover, window, cx| {
+            if let Some(state) = hovered.borrow().as_ref() {
+                state.update(cx, |s, _| s.hovered = *hover);
+                window.refresh();
+            }
+        })
+        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+            set_press(&pressed, true, window, cx);
+        })
+        .on_mouse_up(MouseButton::Left, move |_, window, cx| {
+            set_press(&released, false, window, cx);
+        })
+        .on_mouse_up_out(MouseButton::Left, move |_, window, cx| {
+            set_press(&outside, false, window, cx);
+        })
 }
 
-pub(super) fn mix(a: u32, b: u32, t: f32) -> u32 {
-    [0u32, 8, 16].into_iter().fold(0, |color, shift| {
-        let from = ((a >> shift) & 0xff) as f32;
-        let to = ((b >> shift) & 0xff) as f32;
-        color | (((from + (to - from) * t).round() as u32) << shift)
-    })
+pub fn entrance(id: impl Into<ElementId>, content: impl IntoElement) -> impl IntoElement {
+    div().relative().size_full().overflow_hidden().child(
+        v_flex()
+            .absolute()
+            .left_0()
+            .size_full()
+            .child(content)
+            .with_animation(
+                id,
+                Animation::new(Duration::from_millis(190)).with_easing(ease_out_quint()),
+                |div, t| div.opacity(t).top(px(6. * (1. - t))),
+            ),
+    )
 }

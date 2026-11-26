@@ -1,7 +1,8 @@
 use super::{Panel, Preview};
 use crate::adl::display::custom::{STANDARDS, Timing};
 use anyhow::{Context as _, Result, ensure};
-use gpui::{Context, Div, div, prelude::*};
+use gpui_kit::component::{h_flex, v_flex};
+use gpui_kit::{Context, Div, FontWeight, ParentElement as _, Styled as _, div, px};
 
 pub(super) struct Editor {
     basic: [i32; 3],
@@ -108,10 +109,10 @@ impl Panel {
         Ok(())
     }
     pub(super) fn render_custom(&self, editor: &Editor, cx: &mut Context<Self>) -> Div {
-        let mut section = div().flex().flex_col().gap_2().child(
+        let mut section = v_flex().gap_2().child(
             div()
-                .text_size(gpui::px(16.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_size(px(16.))
+                .font_weight(FontWeight::SEMIBOLD)
                 .child("自定义分辨率"),
         );
         section = section.child(self.setting_row(
@@ -226,80 +227,78 @@ impl Panel {
             } else {
                 section = section
                     .child(format!("实际刷新率：{:.3} Hz", t.rate()))
-                    .child(
-                        self.inline_action()
-                            .id("create-custom-mode")
-                            .child("创建并预览")
-                            .on_click(cx.listener(move |p, _, _, cx| {
-                                if let Some(d) = p.display.displays.get(p.display.display_index) {
-                                    match Preview::custom(d, p.display.key.as_deref(), t) {
-                                        Ok(preview) => p.display.preview = Some(preview),
-                                        Err(e) => {
-                                            if let Some(editor) = &mut p.display.custom {
-                                                editor.status = e.to_string();
-                                            }
+                    .child(self.primary_button(
+                        "create-custom-mode",
+                        "创建并预览",
+                        true,
+                        None,
+                        move |p, _, _| {
+                            if let Some(d) = p.display.displays.get(p.display.display_index) {
+                                match Preview::custom(d, p.display.key.as_deref(), t) {
+                                    Ok(preview) => p.display.preview = Some(preview),
+                                    Err(e) => {
+                                        if let Some(editor) = &mut p.display.custom {
+                                            editor.status = e.to_string();
                                         }
                                     }
                                 }
-                                cx.notify();
-                            })),
-                    );
+                            }
+                        },
+                        cx,
+                    ));
             }
         }
         if !editor.existing.is_empty() {
             section = section.child("已保存的自定义分辨率");
         }
         for (i, t) in editor.existing.iter().enumerate() {
-            let mut row = div().flex().gap_2().child(t.label());
+            let mut row = h_flex().gap_2().child(t.label());
             if editor.remove == Some(i) {
                 row = row
-                    .child(
-                        self.inline_action()
-                            .id(("confirm-timing-remove", i))
-                            .child("确认删除")
-                            .on_click(cx.listener(move |p, _, _, cx| {
-                                if let Err(e) = p.remove_custom(i) {
-                                    if let Some(editor) = &mut p.display.custom {
-                                        editor.status = e.to_string();
-                                    }
+                    .child(self.danger_button(
+                        ("confirm-timing-remove", i),
+                        "确认删除",
+                        None,
+                        move |p, _, _| {
+                            if let Err(e) = p.remove_custom(i) {
+                                if let Some(editor) = &mut p.display.custom {
+                                    editor.status = e.to_string();
                                 }
-                                cx.notify();
-                            })),
-                    )
-                    .child(
-                        self.inline_action()
-                            .id("cancel-timing-remove")
-                            .child("取消")
-                            .on_click(cx.listener(|p, _, _, cx| {
-                                if let Some(e) = &mut p.display.custom {
-                                    e.remove = None;
-                                }
-                                cx.notify();
-                            })),
-                    );
-            } else {
-                row = row.child(
-                    self.inline_action()
-                        .id(("remove-timing", i))
-                        .child("删除")
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            if let Some(e) = &mut p.display.custom {
-                                e.remove = Some(i);
                             }
-                            cx.notify();
-                        })),
-                );
+                        },
+                        cx,
+                    ))
+                    .child(self.inline_button(
+                        "cancel-timing-remove",
+                        "取消",
+                        |p, _, _| {
+                            if let Some(e) = &mut p.display.custom {
+                                e.remove = None;
+                            }
+                        },
+                        cx,
+                    ));
+            } else {
+                row = row.child(self.inline_button(
+                    ("remove-timing", i),
+                    "删除",
+                    move |p, _, _| {
+                        if let Some(e) = &mut p.display.custom {
+                            e.remove = Some(i);
+                        }
+                    },
+                    cx,
+                ));
             }
             section = section.child(row);
         }
-        section.child(editor.status.clone()).child(
-            self.inline_action()
-                .id("close-timing")
-                .child("关闭")
-                .on_click(cx.listener(|p, _, _, cx| {
-                    p.read_modes();
-                    cx.notify();
-                })),
-        )
+        section.child(editor.status.clone()).child(self.contour_button(
+            "close-timing",
+            "关闭",
+            true,
+            None,
+            |p, _, _| p.read_modes(),
+            cx,
+        ))
     }
 }

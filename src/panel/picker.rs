@@ -1,8 +1,11 @@
-use super::Panel;
+use super::{Panel, motion::pointer_feedback, shape::ContinuousCorners as _};
 use crate::integration::games::{self, Entry};
-use crate::panel::shape::ContinuousCorners;
 use anyhow::{Context as _, Result, ensure};
-use gpui::{Context, Div, PathPromptOptions, div, prelude::*, rgb};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::{
+    Context, Div, FontWeight, InteractiveElement as _, ParentElement as _, PathPromptOptions,
+    StatefulInteractiveElement as _, Styled as _, div, px,
+};
 use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -45,26 +48,23 @@ impl Panel {
         });
     }
     pub(super) fn app_picker_buttons(&self, target: Target, cx: &mut Context<Self>) -> Div {
-        let mut row = div().flex().gap_2();
+        let mut row = h_flex().gap_2();
         for (id, label, remove) in [
             ("profile-picker-add", "添加应用…", false),
             ("profile-picker-remove", "移除应用…", true),
         ] {
-            row = row.child(
-                self.button_style(true)
-                    .id(id)
-                    .cursor_pointer()
-                    .tooltip(self.tooltip(if remove {
-                        "移除应用程序"
-                    } else {
-                        "添加应用程序"
-                    }))
-                    .child(label)
-                    .on_click(cx.listener(move |p, _, _, cx| {
-                        p.open_picker(target, remove);
-                        cx.notify();
-                    })),
-            );
+            row = row.child(self.contour_button(
+                id,
+                label,
+                true,
+                Some(if remove {
+                    "移除应用程序"
+                } else {
+                    "添加应用程序"
+                }),
+                move |p, _, _| p.open_picker(target, remove),
+                cx,
+            ));
         }
         row
     }
@@ -141,16 +141,14 @@ impl Panel {
     }
     pub(super) fn render_picker(&self, cx: &mut Context<Self>) -> Div {
         let picker = self.picker.as_ref().unwrap();
-        let mut view = div()
-            .flex()
-            .flex_col()
+        let mut view = v_flex()
             .w_full()
-            .gap_2()
-            .text_color(rgb(self.palette.text))
+            .gap_3()
+            .text_color(cx.theme().popover_foreground)
             .child(
                 div()
-                    .text_size(gpui::px(16.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_base()
+                    .font_weight(FontWeight::SEMIBOLD)
                     .child(if picker.remove {
                         "移除应用配置"
                     } else {
@@ -158,164 +156,187 @@ impl Panel {
                     }),
             );
         if !picker.remove {
-            let mut sources = div().flex().gap_3();
+            let mut sources = h_flex().flex_wrap().gap_2();
             for (id, label, steam) in [
                 ("picker-processes", "运行中的进程", false),
                 ("picker-steam", "Steam 游戏", true),
             ] {
-                sources = sources.child(
-                    self.button_style(true)
-                        .id(id)
-                        .cursor_pointer()
-                        .child(label)
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            p.picker_generation += 1;
-                            let generation = p.picker_generation;
-                            if let Some(v) = &mut p.picker {
-                                v.status = "正在读取…".into();
-                                v.choices.clear();
-                                v.selected.clear();
-                            }
-                            let read = cx.background_executor().spawn(async move {
-                                if steam {
-                                    games::launcher()
-                                } else {
-                                    games::running()
-                                }
-                            });
-                            cx.spawn(async move |view, cx| {
-                                let result = read.await;
-                                let _ = view.update(cx, |p, cx| {
-                                    p.show_picker_entries(generation, result);
-                                    cx.notify();
-                                });
-                            })
-                            .detach();
-                            cx.notify();
-                        })),
-                );
-            }
-            sources = sources.child(
-                self.button_style(true)
-                    .id("picker-files")
-                    .cursor_pointer()
-                    .child("选择 EXE 或 BIN 文件…")
-                    .on_click(cx.listener(|p, _, _, cx| {
+                sources = sources.child(self.contour_button(
+                    id,
+                    label,
+                    true,
+                    None,
+                    move |p, _, cx| {
                         p.picker_generation += 1;
                         let generation = p.picker_generation;
-                        let files = cx.prompt_for_paths(PathPromptOptions {
-                            files: true,
-                            directories: false,
-                            multiple: true,
-                            prompt: Some("选择应用程序".into()),
+                        if let Some(v) = &mut p.picker {
+                            v.status = "正在读取…".into();
+                            v.choices.clear();
+                            v.selected.clear();
+                        }
+                        let read = cx.background_executor().spawn(async move {
+                            if steam {
+                                games::launcher()
+                            } else {
+                                games::running()
+                            }
                         });
                         cx.spawn(async move |view, cx| {
-                            let result = async {
-                                let Some(paths) = files.await?? else {
-                                    return Ok::<_, anyhow::Error>(None);
-                                };
-                                let mut rows = Vec::new();
-                                for file in paths {
-                                    ensure!(
-                                        file.extension()
-                                            .is_some_and(|s| s.eq_ignore_ascii_case("exe")
-                                                || s.eq_ignore_ascii_case("bin")),
-                                        "请选择 EXE 或 BIN 文件"
-                                    );
-                                    let name = file
-                                        .file_name()
-                                        .context("文件名无效")?
-                                        .to_string_lossy()
-                                        .into_owned();
-                                    rows.push((file.display().to_string(), name));
-                                }
-                                Ok(Some(rows))
-                            }
-                            .await;
+                            let result = read.await;
                             let _ = view.update(cx, |p, cx| {
-                                if p.picker_generation != generation {
-                                    return;
-                                }
-                                match result {
-                                    Ok(Some(rows)) => {
-                                        p.show_picker_entries(generation, Ok(rows));
-                                        if let Some(p) = &mut p.picker {
-                                            p.selected.extend(0..p.choices.len());
-                                        }
-                                    }
-                                    Ok(None) => (),
-                                    Err(e) => p.show_picker_entries(generation, Err(e)),
-                                }
+                                p.show_picker_entries(generation, result);
                                 cx.notify();
                             });
                         })
                         .detach();
-                    })),
-            );
+                    },
+                    cx,
+                ));
+            }
+            sources = sources.child(self.contour_button(
+                "picker-files",
+                "选择 EXE 或 BIN 文件…",
+                true,
+                None,
+                |p, _, cx| {
+                    p.picker_generation += 1;
+                    let generation = p.picker_generation;
+                    let files = cx.prompt_for_paths(PathPromptOptions {
+                        files: true,
+                        directories: false,
+                        multiple: true,
+                        prompt: Some("选择应用程序".into()),
+                    });
+                    cx.spawn(async move |view, cx| {
+                        let result = async {
+                            let Some(paths) = files.await?? else {
+                                return Ok::<_, anyhow::Error>(None);
+                            };
+                            let mut rows = Vec::new();
+                            for file in paths {
+                                ensure!(
+                                    file.extension()
+                                        .is_some_and(|s| s.eq_ignore_ascii_case("exe")
+                                            || s.eq_ignore_ascii_case("bin")),
+                                    "请选择 EXE 或 BIN 文件"
+                                );
+                                let name = file
+                                    .file_name()
+                                    .context("文件名无效")?
+                                    .to_string_lossy()
+                                    .into_owned();
+                                rows.push((file.display().to_string(), name));
+                            }
+                            Ok(Some(rows))
+                        }
+                        .await;
+                        let _ = view.update(cx, |p, cx| {
+                            if p.picker_generation != generation {
+                                return;
+                            }
+                            match result {
+                                Ok(Some(rows)) => {
+                                    p.show_picker_entries(generation, Ok(rows));
+                                    if let Some(p) = &mut p.picker {
+                                        p.selected.extend(0..p.choices.len());
+                                    }
+                                }
+                                Ok(None) => (),
+                                Err(e) => p.show_picker_entries(generation, Err(e)),
+                            }
+                            cx.notify();
+                        });
+                    })
+                    .detach();
+                },
+                cx,
+            ));
             view = view.child(sources);
         }
-        let mut list = div()
+        let mut list = v_flex()
             .id("picker-list")
-            .max_h(gpui::px(420.))
+            .max_h(px(420.))
+            .gap_0p5()
             .overflow_y_scroll();
+        let radius = f32::from(cx.theme().radius);
         for (i, (title, file)) in picker.choices.iter().enumerate() {
             let label = if title == file {
                 title.clone()
             } else {
                 format!("{title}　{file}")
             };
-            list = list.child(
-                div()
-                    .id(("picker-choice", i))
-                    .tooltip(self.tooltip_owned(label.clone().into()))
-                    .cursor_pointer()
-                    .p_1()
-                    .smooth_hover_background(
-                        picker
-                            .selected
-                            .contains(&i)
-                            .then_some(self.palette.selected),
-                        self.palette.hover,
-                        super::shape::CONTROL_CORNER,
-                    )
-                    .child(label)
-                    .on_click(cx.listener(move |p, _, _, cx| {
-                        if let Some(v) = &mut p.picker {
-                            if !v.selected.remove(&i) {
-                                v.selected.insert(i);
-                            }
-                        }
-                        cx.notify();
-                    })),
-            );
+            let chosen = picker.selected.contains(&i);
+            let mut row = div()
+                .id(("picker-choice", i))
+                .relative()
+                .px_2p5()
+                .py_1p5()
+                .text_sm()
+                .tooltip(self.tooltip_owned(label.clone().into()));
+            if chosen {
+                row = row.contour(Some(cx.theme().accent), None, radius);
+            }
+            let row = pointer_feedback(
+                ("picker-choice-fb", i),
+                row,
+                cx.theme().accent.opacity(0.65),
+                cx.theme().accent,
+                radius,
+            )
+            .child(label)
+            .on_click(cx.listener(move |p, _, _, cx| {
+                if let Some(v) = &mut p.picker {
+                    if !v.selected.remove(&i) {
+                        v.selected.insert(i);
+                    }
+                }
+                cx.notify();
+            }));
+            list = list.child(row);
         }
-        let mut footer = div().flex().gap_3().child(
-            self.button_style(true)
-                .id("picker-cancel")
-                .cursor_pointer()
-                .child("取消")
-                .on_click(cx.listener(|p, _, _, cx| {
-                    p.picker = None;
-                    p.picker_generation += 1;
-                    cx.notify();
-                })),
-        );
+        let mut footer = h_flex().justify_end().gap_2().child(self.contour_button(
+            "picker-cancel",
+            "取消",
+            true,
+            None,
+            |p, _, _| {
+                p.picker = None;
+                p.picker_generation += 1;
+            },
+            cx,
+        ));
         if !picker.selected.is_empty() {
-            footer = footer.child(
-                self.button_style(true)
-                    .id("picker-apply")
-                    .cursor_pointer()
-                    .child(format!(
-                        "{}所选项目（{}）",
-                        if picker.remove { "移除" } else { "添加" },
-                        picker.selected.len()
-                    ))
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        p.apply_picker();
-                        cx.notify();
-                    })),
+            let action_label = format!(
+                "{}所选项目（{}）",
+                if picker.remove { "移除" } else { "添加" },
+                picker.selected.len()
             );
+            footer = footer.child(if picker.remove {
+                self.danger_button(
+                    "picker-apply",
+                    action_label,
+                    None,
+                    |p, _, _| p.apply_picker(),
+                    cx,
+                )
+            } else {
+                self.primary_button(
+                    "picker-apply",
+                    action_label,
+                    true,
+                    None,
+                    |p, _, _| p.apply_picker(),
+                    cx,
+                )
+            });
         }
-        view.child(list).child(picker.status.clone()).child(footer)
+        view.child(list)
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(picker.status.clone()),
+            )
+            .child(footer)
     }
 }

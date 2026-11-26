@@ -1,13 +1,17 @@
-use crate::panel::shape::ContinuousCorners;
 use crate::{
     adl::{Device, Driver, Metric},
     integration::services,
     settings::Settings,
 };
 use anyhow::Result;
-use gpui::{
-    App, Application, Bounds, Context, Div, Timer, Window, WindowBounds, WindowOptions, div,
-    prelude::*, px, rgb, size,
+use gpui_kit::component::{
+    ActiveTheme as _, Root, Sizable as _, alert::Alert, h_flex, scroll::Scrollbar, v_flex,
+};
+use gpui_kit::{
+    App, AppContext as _, Bounds, Context, Div, InteractiveElement as _, IntoElement,
+    ParentElement as _, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _,
+    Styled as _, Window, WindowBackgroundAppearance, WindowBounds, WindowOptions, canvas, div,
+    point, px, rems, size,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{cell::RefCell, collections::HashMap, time::Duration};
@@ -29,20 +33,22 @@ mod theme;
 mod tooltips;
 mod transfer;
 mod updates;
-const NAV_WIDTH: f32 = 82.;
+
 const PAGES: [&str; 7] = ["调校", "风扇", "显卡", "显示", "多媒体", "设置", "信息"];
 mod tuning;
+
 struct Panel {
     picker: Option<picker::Picker>,
     dropdown: Option<controls::Dropdown>,
     control_glyph_widths: RefCell<HashMap<char, f32>>,
+    content_scroll: ScrollHandle,
+    applied_theme: Option<(i64, bool, bool)>,
     animations: bool,
     updates: updates::Updates,
     start_check_update: bool,
     picker_generation: u64,
     pending_import: Option<transfer::Pending>,
     style: i64,
-    palette: theme::Palette,
     mica: bool,
     frame_dark: Option<bool>,
     mpo: bool,
@@ -107,42 +113,7 @@ impl Panel {
             }
         }
     }
-    fn nav_tile(&self, i: usize, label: &str, selected: bool) -> Div {
-        let palette = self.palette;
-        div()
-            .relative()
-            .flex_shrink_0()
-            .flex()
-            .flex_col()
-            .items_center()
-            .justify_center()
-            .h(px(58.))
-            .gap_1()
-            .smooth_hover_background(
-                selected.then_some(palette.selected),
-                palette.hover,
-                shape::NAV_CORNER,
-            )
-            .child(motion::transition(
-                "nav-marker",
-                if selected { 1. } else { 0. },
-                self.animations,
-                move |t| {
-                    div()
-                        .absolute()
-                        .left_0()
-                        .top(px(29. - 14. * t))
-                        .w(px(2.))
-                        .h(px(28. * t))
-                        .opacity(t)
-                        .when(t > 0., |marker| {
-                            marker.child(shape::surface_radius(palette.accent, 1.))
-                        })
-                },
-            ))
-            .child(layout::nav_icon(i, palette.text))
-            .child(label.to_string())
-    }
+
     fn refresh(&mut self) -> bool {
         let mut changed = false;
         if self.page == 2 {
@@ -165,6 +136,60 @@ impl Panel {
             | replace_changed(&mut self.metrics, metrics)
             | replace_changed(&mut self.message, message)
     }
+
+    fn render_info_page(&self, cx: &mut Context<Self>) -> Div {
+        let mut links = h_flex().flex_wrap().gap_2().py_1();
+        for (i, (label, url)) in [
+            ("访问项目网站", "https://projects.arnoldvink.com"),
+            ("打开捐赠页面", "https://donation.arnoldvink.com"),
+            (
+                "获取 FpsOverlayer",
+                "https://github.com/dumbie/FpsOverlayer",
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            links = links.child(self.contour_button(
+                ("info-link", i),
+                label,
+                true,
+                None,
+                move |p, _, _| {
+                    if let Err(err) = crate::integration::open(url) {
+                        p.message = err.to_string();
+                    }
+                },
+                cx,
+            ));
+        }
+        let version = v_flex()
+            .gap_2()
+            .py_1()
+            .child(
+                div()
+                    .text_sm()
+                    .font_weight(gpui_kit::FontWeight::MEDIUM)
+                    .child(format!(
+                        "RadeonTuner · 原作者 Arnold Vink · Rust 版 {}",
+                        env!("CARGO_PKG_VERSION")
+                    )),
+            )
+            .child(self.update_controls(cx));
+
+        let mut sections: Vec<(&'static str, Div)> = vec![("版本与更新", version)];
+        if !self.info.is_empty() {
+            let device = v_flex()
+                .gap_1()
+                .py_1()
+                .text_xs()
+                .text_color(cx.theme().muted_foreground)
+                .children(self.info.iter().cloned());
+            sections.push(("设备与驱动信息", device));
+        }
+        sections.push(("相关链接", links));
+        self.setting_sections_titled(sections, cx)
+    }
 }
 
 fn replace_changed<T: PartialEq>(current: &mut T, next: T) -> bool {
@@ -177,29 +202,29 @@ fn replace_changed<T: PartialEq>(current: &mut T, next: T) -> bool {
 
 impl Render for Panel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let system_light = matches!(
-            window.appearance(),
-            gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight
-        );
-        self.palette = theme::Palette::resolve(self.style, system_light);
-        let dark = !theme::Palette::is_light(self.style, system_light);
+        let system_light = theme::is_system_light(window.appearance());
+        let theme_key = (self.style, system_light, self.mica);
+        if self.applied_theme != Some(theme_key) {
+            self.applied_theme = Some(theme_key);
+            theme::sync_theme(Some(window), self.style, self.mica, cx);
+        }
+        let dark = !theme::is_light(self.style, system_light);
         if self.frame_dark != Some(dark) {
             theme::set_caption_dark(window, dark);
             self.frame_dark = Some(dark);
         }
-        let mut content = div()
-            .flex()
-            .flex_col()
+
+        let mut content = v_flex()
             .w_full()
             .gap_3()
-            .px_4()
-            .pb_4()
-            .when(self.page != 5, |content| content.pt_3());
+            .px_5()
+            .pb_5()
+            .pt_4();
         if self.page != 6 && self.updates.has_notice() {
             content = content.child(self.update_controls(cx));
         }
         if !self.message.is_empty() && self.page != 5 {
-            content = content.child(self.message.clone());
+            content = content.child(Alert::warning("panel-msg", self.message.clone()).small());
         }
         if matches!(self.page, 0 | 1) && !self.controls.is_empty() {
             content = content.child(self.render_tuning_fields(cx));
@@ -208,137 +233,145 @@ impl Render for Panel {
             2 => content = content.child(self.render_graphics(cx)),
             3 => content = content.child(self.render_displays(cx)),
             4 => content = content.child(self.render_video(cx)),
-            6 => {
-                let mut links = div().flex().flex_wrap().gap_3();
-                for (i, (label, url)) in [
-                    ("访问项目网站", "https://projects.arnoldvink.com"),
-                    ("打开捐赠页面", "https://donation.arnoldvink.com"),
-                    (
-                        "获取 FpsOverlayer",
-                        "https://github.com/dumbie/FpsOverlayer",
-                    ),
-                ]
-                .into_iter()
-                .enumerate()
-                {
-                    links = links.child(
-                        div()
-                            .id(("info-link", i))
-                            .px_2()
-                            .cursor_pointer()
-                            .child(label)
-                            .on_click(cx.listener(move |p, _, _, cx| {
-                                if let Err(err) = crate::integration::open(url) {
-                                    p.message = err.to_string();
-                                    cx.notify();
-                                }
-                            })),
-                    );
-                }
-                let version = div().flex().flex_col().gap_2().child(format!(
-                    "RadeonTuner · 原作者 Arnold Vink · Rust 版 {}",
-                    env!("CARGO_PKG_VERSION")
-                ));
-                let device = div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .children(self.info.iter().cloned());
-                let groups = std::iter::once(version.child(self.update_controls(cx)))
-                    .chain((!self.info.is_empty()).then_some(device))
-                    .chain(std::iter::once(links));
-                content = content.child(self.setting_sections(groups));
-            }
+            5 => content = content.child(self.render_settings(cx)),
+            6 => content = content.child(self.render_info_page(cx)),
             _ => {}
         }
-        if self.page == 5 {
-            content = content.child(self.render_settings(cx));
-        }
-        let mut nav = div()
-            .id("navigation")
-            .bg(self.layer_color(self.palette.canvas, 0.22))
-            .w(px(NAV_WIDTH))
-            .flex_shrink_0()
-            .overflow_y_scroll()
-            .p_2()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .border_r_1()
-            .border_color(rgb(self.palette.border));
+
+        let viewport = window.viewport_size();
+        let nav_w = controls::sidebar_width(viewport.width);
+        let compact = nav_w < px(80.);
+        let pill_color = cx.theme().sidebar_accent;
+        let pill_radius = f32::from(cx.theme().radius);
+        let active_index = self.page.min(PAGES.len() - 1) as f32;
+
+        let mut nav_list = v_flex().relative().gap_1().child(
+            canvas(
+                move |_, window, cx| {
+                    let step = rems(2.5).to_pixels(window.rem_size());
+                    motion::smooth_spring("rt-nav-pill", step * active_index, window, cx)
+                },
+                move |bounds, y, window, _| {
+                    let pill_h = rems(2.25).to_pixels(window.rem_size());
+                    let pill = Bounds::new(
+                        point(bounds.origin.x, bounds.origin.y + y),
+                        size(bounds.size.width, pill_h),
+                    );
+                    shape::paint_fill(pill, pill_color, pill_radius, window);
+                },
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full(),
+        );
         for (i, label) in PAGES.iter().enumerate() {
-            nav = nav.child(
-                self.nav_tile(i, label, i == self.page)
-                    .id(("nav", i))
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |p, _, _, cx| {
-                        if p.page == 3 && i != 3 {
-                            p.finish_preview(false);
-                        }
-                        p.dropdown = None;
-                        let was_settings = p.page == 5;
-                        p.page = i;
-                        if was_settings && i != 5 {
-                            p.refresh();
-                        } else if i == 2 {
-                            p.fsr_activity = crate::adl::graphics::activity::active_games();
-                        }
-                        if i == 5 {
-                            p.radeon_services = services::state().ok();
-                        }
-                        if let Err(err) = p.settings.set("MenuIndex", serde_json::json!(i)) {
-                            p.message = err.to_string();
-                        }
-                        cx.notify();
-                    })),
-            );
+            nav_list = nav_list.child(self.nav_item(
+                ("nav", i),
+                label,
+                i,
+                compact,
+                i == self.page,
+                move |p, _, _| {
+                    if p.page == 3 && i != 3 {
+                        p.finish_preview(false);
+                    }
+                    p.dropdown = None;
+                    let was_settings = p.page == 5;
+                    p.page = i;
+                    p.content_scroll.set_offset(point(px(0.), px(0.)));
+                    if was_settings && i != 5 {
+                        p.refresh();
+                    } else if i == 2 {
+                        p.fsr_activity = crate::adl::graphics::activity::active_games();
+                    }
+                    if i == 5 {
+                        p.radeon_services = services::state().ok();
+                    }
+                    if let Err(err) = p.settings.set("MenuIndex", serde_json::json!(i)) {
+                        p.message = err.to_string();
+                    }
+                },
+                cx,
+            ));
         }
-        nav = nav.child(
-            self.nav_tile(7, "退出", false)
-                .id("exit")
-                .cursor_pointer()
-                .on_click(cx.listener(|p, _, _, cx| {
+
+        let nav = v_flex()
+            .id("navigation")
+            .w(nav_w)
+            .h_full()
+            .flex_shrink_0()
+            .bg(cx.theme().sidebar)
+            .border_r_1()
+            .border_color(cx.theme().sidebar_border)
+            .p_1p5()
+            .gap_1()
+            .child(
+                v_flex()
+                    .id("nav-scroll")
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .child(nav_list),
+            )
+            .child(controls::hairline(cx))
+            .child(self.nav_item(
+                "exit",
+                "退出",
+                7,
+                compact,
+                false,
+                |p, _, _| {
                     if let Err(err) = crate::tray::request_exit() {
                         p.message = err.to_string();
-                        cx.notify();
                     }
-                })),
-        );
-        let mut window_content = div()
+                },
+                cx,
+            ));
+
+        let content_area = v_flex()
+            .relative()
+            .flex_1()
+            .h_full()
+            .min_h_0()
+            .child(
+                v_flex()
+                    .id(("content", self.page))
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .track_scroll(&self.content_scroll)
+                    .child(content.flex_shrink_0()),
+            )
+            .child(Scrollbar::vertical(&self.content_scroll));
+
+        let mut window_content = h_flex()
             .relative()
             .size_full()
-            .text_size(px(13.))
+            .bg(cx.theme().background)
+            .text_sm()
+            .text_color(cx.theme().foreground)
             .font_family("Microsoft YaHei UI")
-            .flex()
-            .text_color(rgb(self.palette.text))
+            .items_stretch()
             .child(nav)
             .child(
-                div()
+                v_flex()
                     .flex_1()
+                    .h_full()
                     .min_w_0()
-                    .flex()
-                    .flex_col()
-                    .child(self.render_header(window.viewport_size().width, cx))
+                    .child(self.render_header(viewport.width, cx))
                     .child(
-                        div()
-                            .id(("content", self.page))
-                            .bg(self.layer_color(self.palette.canvas, 0.60))
-                            .flex_1()
-                            .min_h_0()
-                            .overflow_y_scroll()
-                            .child(motion::reveal(
-                                content,
-                                ("page-entrance", self.page),
-                                self.animations,
-                                12.,
-                            )),
+                        v_flex().flex_1().min_h_0().w_full().child(motion::entrance(
+                            SharedString::from(format!("page-entrance-{}", self.page)),
+                            content_area,
+                        )),
                     ),
             );
         if self.picker.is_some() {
-            window_content = window_content.child(self.modal(self.render_picker(cx)));
+            window_content = window_content.child(self.modal(self.render_picker(cx), cx));
         } else if self.page == 3 {
             if let Some(dialog) = self.display_dialog(cx) {
-                window_content = window_content.child(self.modal(dialog));
+                window_content = window_content.child(self.modal(dialog, cx));
             }
         }
         window_content
@@ -387,8 +420,7 @@ pub fn run() -> Result<()> {
     })
 }
 
-fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Result<()> {
-    let settings = Settings::open()?;
+fn build_panel(settings: Settings, initialize: impl FnOnce(&mut Panel)) -> Result<Panel> {
     let start_visible = settings.flag("StartWindowVisible", false)?;
     let close_tray = settings.flag("CloseTray", true)?;
     let style = settings.integer("ThemeStyle", 0)?;
@@ -396,13 +428,14 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
         picker: None,
         dropdown: None,
         control_glyph_widths: Default::default(),
+        content_scroll: ScrollHandle::new(),
+        applied_theme: None,
         animations: motion::enabled(),
         updates: Default::default(),
         start_check_update: settings.flag("StartCheckUpdate", true)?,
         picker_generation: 0,
         pending_import: None,
         style,
-        palette: theme::Palette::resolve(style, false),
         mica: false,
         frame_dark: None,
         admin: unsafe { windows_sys::Win32::UI::Shell::IsUserAnAdmin() != 0 },
@@ -459,201 +492,280 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
         close_tray,
     };
     initialize(&mut panel);
-    Application::new().run(move |cx: &mut App| {
-        let bounds = Bounds::centered(None, size(px(860.), px(720.)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                ..Default::default()
-            },
-            |window, cx| {
-                window.set_window_title(TITLE);
-                set_window_icon(window);
-                panel.mica = theme::enable_mica(window);
-                let hwnd = window
-                    .window_handle()
-                    .ok()
-                    .and_then(|handle| match handle.as_raw() {
-                        RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
-                        _ => None,
-                    });
-                if panel.topmost {
-                    if let Err(err) = crate::tray::topmost(true) {
-                        panel.message = err.to_string();
-                    }
-                }
-                cx.new(|cx: &mut Context<Panel>| {
-                    if panel.start_check_update && std::env::args_os().any(|a| a == "--first-panel")
-                    {
-                        panel.check_updates(false, cx);
-                    }
-                    if poll_hardware {
-                        cx.spawn(async move |view, cx| {
-                            loop {
-                                Timer::after(Duration::from_secs(2)).await;
-                                if view
-                                    .update(cx, |panel, cx| {
-                                        let preview_active = panel.poll_preview();
-                                        let visible = hwnd
-                                            .is_none_or(|hwnd| unsafe { IsIconic(hwnd as _) == 0 });
-                                        let readings_changed = visible && panel.refresh();
-                                        if preview_active || readings_changed {
-                                            cx.notify();
-                                        }
-                                    })
-                                    .is_err()
-                                {
-                                    break;
-                                }
-                            }
-                        })
-                        .detach();
-                    }
-                    if panel.settings.flag("FirstLaunch", true).unwrap_or(false) {
-                        if let Err(err) = panel.settings.set_flag("FirstLaunch", false) {
-                            panel.message = format!("保存首次启动状态失败：{err}");
+    Ok(panel)
+}
+
+fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Result<()> {
+    let settings = Settings::open()?;
+    let mut panel = build_panel(settings, initialize)?;
+    gpui_kit::application()
+        .with_assets(gpui_kit::assets::Assets)
+        .run(move |cx: &mut App| {
+            gpui_kit::init(cx);
+            gpui_kit::base::set_reduce_motion_preference(
+                if panel.animations {
+                    gpui_kit::base::ReduceMotionPreference::Allow
+                } else {
+                    gpui_kit::base::ReduceMotionPreference::Reduce
+                },
+                cx,
+            );
+            theme::sync_theme(None, panel.style, false, cx);
+
+            let bounds = Bounds::centered(None, size(px(860.), px(720.)), cx);
+            cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    window_background: WindowBackgroundAppearance::MicaBackdrop,
+                    ..Default::default()
+                },
+                |window, cx| {
+                    window.set_window_title(TITLE);
+                    set_window_icon(window);
+                    panel.mica = theme::enable_mica(window);
+                    theme::sync_theme(Some(window), panel.style, panel.mica, cx);
+                    panel.applied_theme = Some((
+                        panel.style,
+                        theme::is_system_light(window.appearance()),
+                        panel.mica,
+                    ));
+                    let hwnd =
+                        HasWindowHandle::window_handle(window)
+                            .ok()
+                            .and_then(|handle| match handle.as_raw() {
+                                RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
+                                _ => None,
+                            });
+                    if panel.topmost {
+                        if let Err(err) = crate::tray::topmost(true) {
+                            panel.message = err.to_string();
                         }
                     }
-                    panel
-                })
-            },
-        )
-        .expect("无法创建 GPUI 面板");
-        cx.on_window_closed(|cx| {
-            if cx.windows().is_empty() {
-                cx.quit();
-            }
-        })
-        .detach();
-        cx.activate(true);
-    });
+                    let view = cx.new(|cx: &mut Context<Panel>| {
+                        if panel.start_check_update
+                            && std::env::args_os().any(|a| a == "--first-panel")
+                        {
+                            panel.check_updates(false, cx);
+                        }
+                        if poll_hardware {
+                            let clock = cx.background_executor().clone();
+                            cx.spawn(async move |view, cx| {
+                                loop {
+                                    clock.timer(Duration::from_secs(2)).await;
+                                    if view
+                                        .update(cx, |panel, cx| {
+                                            let preview_active = panel.poll_preview();
+                                            let visible = hwnd.is_none_or(|hwnd| unsafe {
+                                                IsIconic(hwnd as _) == 0
+                                            });
+                                            let readings_changed = visible && panel.refresh();
+                                            if preview_active || readings_changed {
+                                                cx.notify();
+                                            }
+                                        })
+                                        .is_err()
+                                    {
+                                        break;
+                                    }
+                                }
+                            })
+                            .detach();
+                        }
+                        if panel.settings.flag("FirstLaunch", true).unwrap_or(false) {
+                            if let Err(err) = panel.settings.set_flag("FirstLaunch", false) {
+                                panel.message = format!("保存首次启动状态失败：{err}");
+                            }
+                        }
+                        panel
+                    });
+                    cx.new(|cx| Root::new(view, window, cx))
+                },
+            )
+            .expect("无法创建 GPUI 面板");
+            cx.on_window_closed(|cx, _| {
+                if cx.windows().is_empty() {
+                    cx.quit();
+                }
+            })
+            .detach();
+            cx.activate(true);
+        });
     Ok(())
+}
+
+#[cfg(test)]
+fn populate_preview_fixture(panel: &mut Panel) {
+    use crate::adl::graphics::frames::{Control, Field};
+    use crate::adl::multimedia::{Feature as VideoFeature, VideoControl};
+
+    panel.page = 1;
+    panel.message = "界面预览（示例数据）".into();
+    panel.experimental = true;
+    panel.devices.push(Device {
+        gamma_key: String::new(),
+        registry_path: String::new(),
+        profile_key: String::new(),
+        pci_location: None,
+        index: 0,
+        name: "AMD Radeon RX 9070 XT".into(),
+    });
+    panel.games = graphics::apps::Games::preview_fixture();
+    panel.fsr_library = Some(crate::adl::graphics::fsr::Library::preview_fixture());
+    panel.display = display::DisplayPage::preview_fixture();
+    panel.video = [
+        (VideoFeature::Brightness, 0),
+        (VideoFeature::Sharpness, 50),
+        (VideoFeature::Upscale, 1),
+    ]
+    .into_iter()
+    .map(|(feature, value)| VideoControl {
+        feature,
+        current: value,
+        saved: value,
+        draft: value,
+    })
+    .collect();
+    panel.controls.extend(
+        [
+            (9, "功耗限制", "%", -10, 15, 0),
+            (0, "最高核心频率", "MHz", 2300, 3200, 2900),
+            (8, "最高显存频率", "MHz", 2000, 2700, 2518),
+            (37, "电压偏移", "mV", -60, 60, 0),
+            (1, "最低核心频率", "MHz", 500, 2200, 2000),
+            (15, "零转速", "", 0, 1, 1),
+        ]
+        .into_iter()
+        .map(
+            |(id, label, unit, min, max, value)| crate::adl::overdrive::Control {
+                id,
+                label,
+                unit,
+                min,
+                max,
+                step: 1,
+                current: value,
+                draft: value,
+                default: value,
+                reset: false,
+            },
+        ),
+    );
+    panel.info.push("驱动／适配器信息（示例）".into());
+    panel.frames = [
+        (Field::AntiLag, 0, 1),
+        (Field::Generate, 1, 1),
+        (Field::Algorithm, 1, 2),
+        (Field::Chill, 1, 1),
+        (Field::Low, 75, 300),
+        (Field::High, 140, 300),
+        (Field::Cap, 1, 1),
+        (Field::Target, 120, 300),
+        (Field::Boost, 2, 3),
+        (Field::MinResolution, 84, 100),
+        (Field::Sharpen, 1, 1),
+        (Field::Sharpness, 65, 100),
+        (Field::Desktop, 0, 1),
+        (Field::AntiAliasing, 1, 2),
+        (Field::DeepColor, 0, 1),
+    ]
+    .into_iter()
+    .map(|(field, draft, max)| Control {
+        field,
+        current: draft,
+        draft,
+        min: 0,
+        max,
+        step: 1,
+    })
+    .collect();
+    panel.metrics = [
+        ("核心占用", Some(51), "%"),
+        ("显存占用率", Some(32), "%"),
+        ("已用显存", Some(5241), "MB"),
+        ("核心频率", Some(2312), "MHz"),
+        ("显存频率", Some(2518), "MHz"),
+        ("功耗", Some(198), "W"),
+        ("核心电压", Some(966), "mV"),
+        ("风扇转速", Some(1024), "RPM"),
+        ("风扇转速比", Some(52), "%"),
+        ("核心温度", Some(61), "°C"),
+        ("显存温度", Some(64), "°C"),
+        ("热点温度", Some(72), "°C"),
+    ]
+    .into_iter()
+    .map(|(label, value, unit)| Metric { label, value, unit })
+    .collect();
+    panel.override_fan_mode_for_preview();
+    let temperatures = [30, 45, 58, 73, 88];
+    let speeds = [24, 34, 47, 65, 83];
+    for (point, (&temp, &speed)) in temperatures.iter().zip(&speeds).enumerate() {
+        for (axis, value) in [temp, speed].into_iter().enumerate() {
+            let temperature = axis == 0;
+            panel.controls.push(crate::adl::overdrive::Control {
+                id: 19 + point * 2 + axis,
+                label: if temperature { "温度" } else { "转速" },
+                unit: if temperature { "°C" } else { "%" },
+                min: if temperature { 20 } else { 10 },
+                max: 100,
+                step: 1,
+                current: if temperature { value } else { value - 4 },
+                draft: value,
+                default: value,
+                reset: false,
+            });
+        }
+    }
 }
 
 #[cfg(test)]
 #[test]
 #[ignore = "opens a window for an interactive fan-layout check"]
 fn preview_fan_page() {
-    open_panel(false, |panel| {
-        use crate::adl::graphics::frames::{Control, Field};
-        panel.page = 1;
-        panel.message = "界面预览（示例数据）".into();
-        panel.experimental = true;
-        panel.devices.push(Device {
-            gamma_key: String::new(),
-            registry_path: String::new(),
-            profile_key: String::new(),
-            pci_location: None,
-            index: 0,
-            name: "AMD Radeon RX 9070 XT".into(),
-        });
-        panel.games = graphics::apps::Games::preview_fixture();
-        panel.fsr_library = Some(crate::adl::graphics::fsr::Library::preview_fixture());
-        panel.display = display::DisplayPage::preview_fixture();
-        use crate::adl::multimedia::{Feature as VideoFeature, VideoControl};
-        panel.video = [
-            (VideoFeature::Brightness, 0),
-            (VideoFeature::Sharpness, 50),
-            (VideoFeature::Upscale, 1),
-        ]
-        .into_iter()
-        .map(|(feature, value)| VideoControl {
-            feature,
-            current: value,
-            saved: value,
-            draft: value,
-        })
-        .collect();
-        panel.controls.extend(
-            [
-                (9, "功耗限制", "%", -10, 15, 0),
-                (0, "最高核心频率", "MHz", 2300, 3200, 2900),
-                (8, "最高显存频率", "MHz", 2000, 2700, 2518),
-                (37, "电压偏移", "mV", -60, 60, 0),
-                (1, "最低核心频率", "MHz", 500, 2200, 2000),
-                (15, "零转速", "", 0, 1, 1),
-            ]
-            .into_iter()
-            .map(
-                |(id, label, unit, min, max, value)| crate::adl::overdrive::Control {
-                    id,
-                    label,
-                    unit,
-                    min,
-                    max,
-                    step: 1,
-                    current: value,
-                    draft: value,
-                    default: value,
-                    reset: false,
-                },
-            ),
-        );
-        panel.info.push("驱动／适配器信息（示例）".into());
-        panel.frames = [
-            (Field::AntiLag, 0, 1),
-            (Field::Generate, 1, 1),
-            (Field::Algorithm, 1, 2),
-            (Field::Chill, 1, 1),
-            (Field::Low, 75, 300),
-            (Field::High, 140, 300),
-            (Field::Cap, 1, 1),
-            (Field::Target, 120, 300),
-            (Field::Boost, 2, 3),
-            (Field::MinResolution, 84, 100),
-            (Field::Sharpen, 1, 1),
-            (Field::Sharpness, 65, 100),
-            (Field::Desktop, 0, 1),
-            (Field::AntiAliasing, 1, 2),
-            (Field::DeepColor, 0, 1),
-        ]
-        .into_iter()
-        .map(|(field, draft, max)| Control {
-            field,
-            current: draft,
-            draft,
-            min: 0,
-            max,
-            step: 1,
-        })
-        .collect();
-        panel.metrics = [
-            ("核心占用", Some(51), "%"),
-            ("显存占用率", Some(32), "%"),
-            ("已用显存", Some(5241), "MB"),
-            ("核心频率", Some(2312), "MHz"),
-            ("显存频率", Some(2518), "MHz"),
-            ("功耗", Some(198), "W"),
-            ("核心电压", Some(966), "mV"),
-            ("风扇转速", Some(1024), "RPM"),
-            ("风扇转速比", Some(52), "%"),
-            ("核心温度", Some(61), "°C"),
-            ("显存温度", Some(64), "°C"),
-            ("热点温度", Some(72), "°C"),
-        ]
-        .into_iter()
-        .map(|(label, value, unit)| Metric { label, value, unit })
-        .collect();
-        panel.override_fan_mode_for_preview();
-        let temperatures = [30, 45, 58, 73, 88];
-        let speeds = [24, 34, 47, 65, 83];
-        for (point, (&temp, &speed)) in temperatures.iter().zip(&speeds).enumerate() {
-            for (axis, value) in [temp, speed].into_iter().enumerate() {
-                let temperature = axis == 0;
-                panel.controls.push(crate::adl::overdrive::Control {
-                    id: 19 + point * 2 + axis,
-                    label: if temperature { "温度" } else { "转速" },
-                    unit: if temperature { "°C" } else { "%" },
-                    min: if temperature { 20 } else { 10 },
-                    max: 100,
-                    step: 1,
-                    current: if temperature { value } else { value - 4 },
-                    draft: value,
-                    default: value,
-                    reset: false,
-                });
-            }
+    open_panel(false, populate_preview_fixture).expect("fan page preview");
+}
+
+#[cfg(test)]
+#[test]
+fn panel_renders_all_pages_and_themes_without_panicking() {
+    use gpui_kit::{TestAppContext, VisualTestContext};
+
+    let jobs = TestAppContext::single();
+    let temp = tempfile::tempdir().unwrap();
+    let settings = Settings::at_path(temp.path().join("Settings.json"));
+    let mut panel = build_panel(settings, populate_preview_fixture).unwrap();
+    panel.mica = true;
+
+    let (handle, entity) = jobs.update(|cx| {
+        gpui_kit::init(cx);
+        theme::sync_theme(None, panel.style, panel.mica, cx);
+        let mut cell = Some(panel);
+        let (handle, entity) = gpui_kit::open_window(
+            WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(Bounds::new(
+                    point(px(0.), px(0.)),
+                    size(px(860.), px(720.)),
+                ))),
+                ..Default::default()
+            },
+            cx,
+            move |_, cx| cx.new(|_| cell.take().unwrap()),
+        )
+        .unwrap();
+        (handle, entity)
+    });
+
+    let mut window = VisualTestContext::from_window(handle, &jobs);
+    for style in 0..=3 {
+        for page in 0..PAGES.len() {
+            entity.update(&mut window, |panel, cx| {
+                panel.style = style;
+                panel.page = page;
+                cx.notify();
+            });
+            window.simulate_resize(size(px(860.), px(720.)));
+            window.update(|w, cx| w.draw(cx).clear(cx));
         }
-    })
-    .expect("fan page preview");
+    }
+    window.simulate_resize(size(px(560.), px(480.)));
+    window.update(|w, cx| w.draw(cx).clear(cx));
 }

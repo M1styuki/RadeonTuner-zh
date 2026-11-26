@@ -163,7 +163,7 @@ impl Panel {
         Ok(())
     }
     pub(in crate::panel) fn game_controls(&self, cx: &mut Context<Self>) -> Div {
-        let mut row = div().flex().items_center().gap_2();
+        let mut row = h_flex().gap_2();
         if self.devices.get(self.selected).is_none() {
             return row;
         }

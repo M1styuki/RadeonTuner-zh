@@ -9,7 +9,8 @@ use crate::{
 };
 use crate::{profile_store, profiles};
 use anyhow::{Context as _, Result};
-use gpui::{Context, Div, div, prelude::*};
+use gpui_kit::component::{h_flex, v_flex};
+use gpui_kit::{Context, Div, ParentElement as _, Styled as _, div, prelude::FluentBuilder as _};
 use serde_json::{Value, json};
 
 #[derive(Default)]
@@ -595,16 +596,25 @@ impl Panel {
             ));
             for (id, text, keep) in [("keep-mode", "保留", true), ("revert-mode", "还原", false)]
             {
-                section = section.child(
-                    self.button_style(true)
-                        .id(id)
-                        .cursor_pointer()
-                        .child(text)
-                        .on_click(cx.listener(move |panel, _, _, cx| {
-                            panel.finish_preview(keep);
-                            cx.notify();
-                        })),
-                );
+                section = section.child(if keep {
+                    self.primary_button(
+                        id,
+                        text,
+                        true,
+                        None,
+                        move |panel, _, _| panel.finish_preview(keep),
+                        cx,
+                    )
+                } else {
+                    self.contour_button(
+                        id,
+                        text,
+                        true,
+                        None,
+                        move |panel, _, _| panel.finish_preview(keep),
+                        cx,
+                    )
+                });
             }
             return Some(section);
         }
@@ -757,23 +767,22 @@ impl Panel {
                 || current.refresh != mode.refresh
                 || current.orientation != page.angle
             {
-                section = section.child(
-                    self.inline_action()
-                        .id("preview-mode")
-                        .child("应用显示模式")
-                        .on_click(cx.listener(|panel, _, _, cx| {
-                            let page = &mut panel.display;
-                            match Preview::start(
-                                &page.displays[page.display_index],
-                                page.modes[page.choice],
-                                page.angle,
-                            ) {
-                                Ok(preview) => page.preview = Some(preview),
-                                Err(err) => page.status = err.to_string(),
-                            }
-                            cx.notify();
-                        })),
-                );
+                section = section.child(self.inline_button(
+                    "preview-mode",
+                    "应用显示模式",
+                    |panel, _, _| {
+                        let page = &mut panel.display;
+                        match Preview::start(
+                            &page.displays[page.display_index],
+                            page.modes[page.choice],
+                            page.angle,
+                        ) {
+                            Ok(preview) => page.preview = Some(preview),
+                            Err(err) => page.status = err.to_string(),
+                        }
+                    },
+                    cx,
+                ));
             }
             has_modes = true;
         }
@@ -782,18 +791,18 @@ impl Panel {
             section = section.child(
                 self.setting_row(
                     self.hint_label("自定义分辨率"),
-                    div().child(
-                        self.button_style(true)
-                            .id("custom-editor")
-                            .cursor_pointer()
-                            .child("管理自定义分辨率…")
-                            .on_click(cx.listener(|p, _, _, cx| {
-                                if let Err(err) = p.open_custom() {
-                                    p.display.status = err.to_string();
-                                }
-                                cx.notify();
-                            })),
-                    ),
+                    div().child(self.contour_button(
+                        "custom-editor",
+                        "管理自定义分辨率…",
+                        true,
+                        None,
+                        |p, _, _| {
+                            if let Err(err) = p.open_custom() {
+                                p.display.status = err.to_string();
+                            }
+                        },
+                        cx,
+                    )),
                 ),
             );
         }
@@ -982,18 +991,18 @@ impl Panel {
             extras = extras.child(
                 self.setting_row(
                     self.hint_label("Eyefinity 操作"),
-                    div().child(
-                        self.button_style(true)
-                            .id("manage-eye")
-                            .cursor_pointer()
-                            .child("管理 Eyefinity")
-                            .on_click(cx.listener(|p, _, _, cx| {
-                                if let Err(e) = p.open_eyefinity() {
-                                    p.display.status = e.to_string();
-                                }
-                                cx.notify();
-                            })),
-                    ),
+                    div().child(self.contour_button(
+                        "manage-eye",
+                        "管理 Eyefinity",
+                        true,
+                        None,
+                        |p, _, _| {
+                            if let Err(e) = p.open_eyefinity() {
+                                p.display.status = e.to_string();
+                            }
+                        },
+                        cx,
+                    )),
                 ),
             );
         } else if page.key.is_some() && page.app != "Global" {
@@ -1010,11 +1019,9 @@ impl Panel {
         if has_extras {
             categories.push(extras);
         }
-        div()
-            .flex()
-            .flex_col()
+        v_flex()
             .gap_2()
-            .child(self.setting_sections(categories))
+            .child(self.setting_sections(categories, cx))
             .when(page.displays.is_empty() && page.status.is_empty(), |view| {
                 view.child("未检测到可用的 AMD 显示器")
             })
@@ -1022,7 +1029,7 @@ impl Panel {
 
     pub(super) fn display_actions(&self, cx: &mut Context<Self>) -> Div {
         let page = &self.display;
-        let mut actions = div().flex().flex_wrap().items_center().gap_2();
+        let mut actions = h_flex().flex_wrap().gap_2();
         if page.displays.is_empty() {
             return actions;
         }
@@ -1035,58 +1042,54 @@ impl Panel {
                 .zip(&page.saved)
                 .any(|(s, saved)| s.draft != *saved)
             || (page.app == "Global" && page.settings.iter().any(|s| s.draft != s.current));
-        let apply = self
-            .button_style(changed)
-            .id("display-apply")
-            .tooltip(self.tooltip("应用显示设置。"))
-            .child("应用");
-        actions = actions.child(if changed {
-            apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+        actions = actions.child(self.primary_button(
+            "display-apply",
+            "应用",
+            changed,
+            Some("应用显示设置。"),
+            |p, _, _| {
                 let result = p.save_display_profile();
                 p.read_modes();
                 p.display.status = result
                     .map(|()| "显示设置已保存".into())
                     .unwrap_or_else(|e| e.to_string());
-                cx.notify();
-            }))
-        } else {
-            apply
-        });
+            },
+            cx,
+        ));
         if !page.settings.is_empty() || page.gamma_supported {
-            actions = actions.child(
-                self.button_style(true)
-                    .id("display-defaults")
-                    .tooltip(self.tooltip("将显示设置恢复为默认值。"))
-                    .cursor_pointer()
-                    .child(if page.confirm_reset {
-                        "确认重置所选显示配置"
-                    } else {
-                        "重置"
-                    })
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        if p.display.confirm_reset {
-                            p.display.confirm_reset = false;
-                            p.display.status = p
-                                .reset_display_profile()
-                                .map(|()| "显示设置已重置".to_owned())
-                                .unwrap_or_else(|e| e.to_string());
-                        } else {
-                            p.display.confirm_reset = true;
-                        }
-                        cx.notify();
-                    })),
-            );
+            actions = actions.child(if page.confirm_reset {
+                self.danger_button(
+                    "display-defaults",
+                    "确认重置所选显示配置",
+                    Some("将显示设置恢复为默认值。"),
+                    |p, _, _| {
+                        p.display.confirm_reset = false;
+                        p.display.status = p
+                            .reset_display_profile()
+                            .map(|()| "显示设置已重置".to_owned())
+                            .unwrap_or_else(|e| e.to_string());
+                    },
+                    cx,
+                )
+            } else {
+                self.contour_button(
+                    "display-defaults",
+                    "重置",
+                    true,
+                    Some("将显示设置恢复为默认值。"),
+                    |p, _, _| p.display.confirm_reset = true,
+                    cx,
+                )
+            });
             if page.confirm_reset {
-                actions = actions.child(
-                    self.button_style(true)
-                        .id("cancel-display-reset")
-                        .cursor_pointer()
-                        .child("取消")
-                        .on_click(cx.listener(|p, _, _, cx| {
-                            p.display.confirm_reset = false;
-                            cx.notify();
-                        })),
-                );
+                actions = actions.child(self.contour_button(
+                    "cancel-display-reset",
+                    "取消",
+                    true,
+                    None,
+                    |p, _, _| p.display.confirm_reset = false,
+                    cx,
+                ));
             }
         }
         if page.key.is_some() {

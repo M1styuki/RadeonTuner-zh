@@ -1,10 +1,11 @@
 use super::Panel;
-use super::shape::ContinuousCorners;
 use crate::{
     adl::multimedia::{Feature, VideoControl, video_draft},
     profile_store, profiles,
 };
 use anyhow::{Context as _, Result};
+use gpui_kit::component::h_flex;
+use gpui_kit::{Context, Div, ParentElement as _, Styled as _, div, prelude::FluentBuilder as _};
 use serde_json::{Value, json};
 use std::path::Path;
 
@@ -37,7 +38,6 @@ fn read_profile(path: &Path, device: &str, app: &str, controls: &mut [VideoContr
     Ok(())
 }
 
-use gpui::{Context, Div, div, prelude::*};
 
 impl Panel {
     pub(super) fn read_video(&mut self) {
@@ -189,7 +189,7 @@ impl Panel {
         crate::tray::settings_changed()
     }
     pub(super) fn video_profiles(&self, cx: &mut Context<Self>) -> Div {
-        let mut row = div().flex().items_center().gap_2();
+        let mut row = h_flex().gap_2();
         if self.video.is_empty() {
             return row;
         }
@@ -220,7 +220,7 @@ impl Panel {
         row.child(self.app_picker_buttons(super::picker::Target::Multimedia, cx))
     }
     pub(super) fn render_video(&self, cx: &mut Context<Self>) -> Div {
-        let mut section = div().flex().flex_col().gap_2();
+        let section = div().flex().flex_col().gap_2();
         if self.video.is_empty() {
             return section.when(self.video_status.is_empty(), |view| {
                 view.child("当前设备无可用的视频设置")
@@ -255,7 +255,7 @@ impl Panel {
         }
         sections.extend(upscale_index.map(|_| picture));
         sections.extend(find(Feature::Brightness).map(|i| self.video_number_row(i, cx)));
-        self.setting_sections(sections)
+        self.setting_sections(sections, cx)
     }
 
     fn video_number_row(&self, index: usize, cx: &mut Context<Self>) -> Div {
@@ -276,66 +276,58 @@ impl Panel {
     }
 
     pub(super) fn video_actions(&self, cx: &mut Context<Self>) -> Div {
-        let mut actions = div().flex().flex_wrap().items_center().gap_2();
+        let mut actions = h_flex().flex_wrap().gap_2();
         let changed = self
             .video
             .iter()
             .any(|control| control.current != control.draft || control.saved != control.draft);
-        let apply = self
-            .button_style(changed)
-            .id("video-apply")
-            .tooltip(self.tooltip("应用多媒体设置。"))
-            .child("应用");
-        actions = actions.child(if changed {
-            apply.cursor_pointer().on_click(cx.listener(|p, _, _, cx| {
+        actions = actions.child(self.primary_button(
+            "video-apply",
+            "应用",
+            changed,
+            Some("应用多媒体设置。"),
+            |p, _, _| {
                 if let Err(e) = p.apply_video_profile(false) {
                     p.video_status = e.to_string();
                 }
-                cx.notify();
-            }))
-        } else {
-            apply
-        });
+            },
+            cx,
+        ));
         if self.confirm_video_reset {
             actions = actions.child(
-                div()
-                    .flex()
+                h_flex()
                     .gap_2()
                     .child("将这张显卡的多媒体设置恢复为默认值？")
-                    .child(
-                        self.inline_action()
-                            .id("video-reset-confirm")
-                            .child("重置")
-                            .on_click(cx.listener(|p, _, _, cx| {
-                                p.confirm_video_reset = false;
-                                if let Err(err) = p.apply_video_profile(true) {
-                                    p.video_status = err.to_string();
-                                }
-                                cx.notify();
-                            })),
-                    )
-                    .child(
-                        self.inline_action()
-                            .id("video-reset-cancel")
-                            .child("取消")
-                            .on_click(cx.listener(|p, _, _, cx| {
-                                p.confirm_video_reset = false;
-                                cx.notify();
-                            })),
-                    ),
+                    .child(self.danger_button(
+                        "video-reset-confirm",
+                        "确认重置",
+                        None,
+                        |p, _, _| {
+                            p.confirm_video_reset = false;
+                            if let Err(err) = p.apply_video_profile(true) {
+                                p.video_status = err.to_string();
+                            }
+                        },
+                        cx,
+                    ))
+                    .child(self.contour_button(
+                        "video-reset-cancel",
+                        "取消",
+                        true,
+                        None,
+                        |p, _, _| p.confirm_video_reset = false,
+                        cx,
+                    )),
             );
         } else {
-            actions = actions.child(
-                self.button_style(true)
-                    .id("video-reset")
-                    .tooltip(self.tooltip("将多媒体设置恢复为默认值。"))
-                    .cursor_pointer()
-                    .child("重置")
-                    .on_click(cx.listener(|p, _, _, cx| {
-                        p.confirm_video_reset = true;
-                        cx.notify();
-                    })),
-            );
+            actions = actions.child(self.contour_button(
+                "video-reset",
+                "重置",
+                true,
+                Some("将多媒体设置恢复为默认值。"),
+                |p, _, _| p.confirm_video_reset = true,
+                cx,
+            ));
         }
         actions
     }

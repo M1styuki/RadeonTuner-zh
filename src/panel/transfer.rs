@@ -1,8 +1,8 @@
 use super::Panel;
-use super::shape::ContinuousCorners;
 use crate::profile_store;
 use anyhow::{Result, ensure};
-use gpui::{Context, Div, PathPromptOptions, div, prelude::*};
+use gpui_kit::component::h_flex;
+use gpui_kit::{Context, Div, ParentElement as _, PathPromptOptions, Styled as _};
 use serde_json::Value;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -58,7 +58,7 @@ impl Panel {
         }
     }
     pub(super) fn transfer_buttons(&self, kind: Kind, cx: &mut Context<Self>) -> Div {
-        let mut row = div().flex().flex_wrap().items_center().gap_2();
+        let mut row = h_flex().flex_wrap().gap_2();
         let Some(target) = kind.target(self) else {
             return row;
         };
@@ -69,154 +69,151 @@ impl Panel {
         {
             return row
                 .child("设置文件中的设备与当前选择不同，继续导入？")
-                .child(
-                    self.button_style(true)
-                        .id("confirm-import")
-                        .cursor_pointer()
-                        .child("继续导入")
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            if let Some(pending) = p.pending_import.take() {
-                                if kind.target(p).as_ref() == Some(&pending.target) {
-                                    let result = kind.stage(p, &pending.record);
+                .child(self.primary_button(
+                    "confirm-import",
+                    "继续导入",
+                    true,
+                    None,
+                    move |p, _, _| {
+                        if let Some(pending) = p.pending_import.take() {
+                            if kind.target(p).as_ref() == Some(&pending.target) {
+                                let result = kind.stage(p, &pending.record);
+                                p.transfer_status(kind, result, "已导入，请确认后应用");
+                            }
+                        }
+                    },
+                    cx,
+                ))
+                .child(self.contour_button(
+                    "cancel-import",
+                    "取消",
+                    true,
+                    None,
+                    |p, _, _| p.pending_import = None,
+                    cx,
+                ));
+        }
+        row = row.child(self.contour_button(
+            "import-profile",
+            "导入",
+            true,
+            Some(match kind {
+                Kind::Tuning => "从文件导入调校与风扇设置；导入后不会自动应用。",
+                Kind::Graphics => "从文件导入显卡设置。",
+                Kind::Display => "从文件导入显示设置。",
+            }),
+            move |p, _, cx| {
+                let Some(target) = kind.target(p) else {
+                    return;
+                };
+                let pick = cx.prompt_for_paths(PathPromptOptions {
+                    files: true,
+                    directories: false,
+                    multiple: false,
+                    prompt: Some(format!("选择 .{} 配置文件", kind.extension()).into()),
+                });
+                cx.spawn(async move |view, cx| {
+                    let result: Result<Option<Value>> = async {
+                        let Some(paths) = pick.await?? else {
+                            return Ok(None);
+                        };
+                        let Some(path) = paths.first() else {
+                            return Ok(None);
+                        };
+                        ensure!(
+                            path.extension()
+                                .is_some_and(|s| s.eq_ignore_ascii_case(kind.extension())),
+                            "请选择 .{} 配置文件",
+                            kind.extension()
+                        );
+                        Ok(Some(profile_store::read_export(path)?))
+                    }
+                    .await;
+                    let _ = view.update(cx, |p, cx| {
+                        if kind.target(p).as_ref() != Some(&target) {
+                            return;
+                        }
+                        match result {
+                            Ok(Some(record)) => {
+                                let mismatch = kind != Kind::Graphics
+                                    && record["DeviceId"].as_str().is_some_and(|key| {
+                                        !key.is_empty()
+                                            && !target.0.is_empty()
+                                            && key != target.0
+                                    });
+                                if mismatch {
+                                    p.pending_import = Some(Pending {
+                                        kind,
+                                        target,
+                                        record,
+                                    });
+                                } else {
+                                    let result = kind.stage(p, &record);
                                     p.transfer_status(kind, result, "已导入，请确认后应用");
                                 }
                             }
-                            cx.notify();
-                        })),
-                )
-                .child(
-                    self.button_style(true)
-                        .id("cancel-import")
-                        .cursor_pointer()
-                        .child("取消")
-                        .on_click(cx.listener(|p, _, _, cx| {
-                            p.pending_import = None;
-                            cx.notify();
-                        })),
-                );
-        }
-        row = row.child(
-            self.button_style(true)
-                .id("import-profile")
-                .tooltip(self.tooltip(match kind {
-                    Kind::Tuning => "从文件导入调校与风扇设置；导入后不会自动应用。",
-                    Kind::Graphics => "从文件导入显卡设置。",
-                    Kind::Display => "从文件导入显示设置。",
-                }))
-                .cursor_pointer()
-                .child("导入")
-                .on_click(cx.listener(move |p, _, _, cx| {
-                    let Some(target) = kind.target(p) else {
-                        return;
-                    };
-                    let pick = cx.prompt_for_paths(PathPromptOptions {
-                        files: true,
-                        directories: false,
-                        multiple: false,
-                        prompt: Some(format!("选择 .{} 配置文件", kind.extension()).into()),
+                            Err(err) => p.transfer_status(kind, Err(err), ""),
+                            Ok(None) => {}
+                        }
+                        cx.notify();
                     });
-                    cx.spawn(async move |view, cx| {
-                        let result: Result<Option<Value>> = async {
-                            let Some(paths) = pick.await?? else {
-                                return Ok(None);
-                            };
-                            let Some(path) = paths.first() else {
-                                return Ok(None);
-                            };
-                            ensure!(
-                                path.extension()
-                                    .is_some_and(|s| s.eq_ignore_ascii_case(kind.extension())),
-                                "请选择 .{} 配置文件",
-                                kind.extension()
-                            );
-                            Ok(Some(profile_store::read_export(path)?))
-                        }
-                        .await;
-                        let _ = view.update(cx, |p, cx| {
-                            if kind.target(p).as_ref() != Some(&target) {
-                                return;
-                            }
-                            match result {
-                                Ok(Some(record)) => {
-                                    let mismatch = kind != Kind::Graphics
-                                        && record["DeviceId"].as_str().is_some_and(|key| {
-                                            !key.is_empty()
-                                                && !target.0.is_empty()
-                                                && key != target.0
-                                        });
-                                    if mismatch {
-                                        p.pending_import = Some(Pending {
-                                            kind,
-                                            target,
-                                            record,
-                                        });
-                                    } else {
-                                        let result = kind.stage(p, &record);
-                                        p.transfer_status(kind, result, "已导入，请确认后应用");
-                                    }
-                                }
-                                Err(err) => p.transfer_status(kind, Err(err), ""),
-                                Ok(None) => {}
-                            }
-                            cx.notify();
-                        });
-                    })
-                    .detach();
-                })),
-        );
-        row.child(
-            self.button_style(true)
-                .id("export-profile")
-                .tooltip(self.tooltip(match kind {
-                    Kind::Tuning => "将当前调校与风扇设置导出到文件。",
-                    Kind::Graphics => "将当前显卡设置导出到文件。",
-                    Kind::Display => "将当前显示设置导出到文件。",
-                }))
-                .cursor_pointer()
-                .child("导出")
-                .on_click(cx.listener(move |p, _, _, cx| {
-                    let Some(target) = kind.target(p) else {
+                })
+                .detach();
+            },
+            cx,
+        ));
+        row.child(self.contour_button(
+            "export-profile",
+            "导出",
+            true,
+            Some(match kind {
+                Kind::Tuning => "将当前调校与风扇设置导出到文件。",
+                Kind::Graphics => "将当前显卡设置导出到文件。",
+                Kind::Display => "将当前显示设置导出到文件。",
+            }),
+            move |p, _, cx| {
+                let Some(target) = kind.target(p) else {
+                    return;
+                };
+                let record = match kind.record(p) {
+                    Ok(row) => row,
+                    Err(err) => {
+                        p.transfer_status(kind, Err(err), "");
                         return;
-                    };
-                    let record = match kind.record(p) {
-                        Ok(row) => row,
-                        Err(err) => {
-                            p.transfer_status(kind, Err(err), "");
-                            cx.notify();
-                            return;
-                        }
-                    };
-                    let default_dir = std::env::var_os("USERPROFILE")
-                        .map(std::path::PathBuf::from)
-                        .unwrap_or_default();
-                    let suggested = match kind {
-                        Kind::Tuning => "RadeonTuner.radt",
-                        Kind::Graphics => "RadeonTuner.radg",
-                        Kind::Display => "RadeonTuner.radd",
-                    };
-                    let pick = cx.prompt_for_new_path(&default_dir, Some(suggested));
-                    cx.spawn(async move |view, cx| {
-                        let result: Result<Option<()>> = async {
-                            let Some(path) = pick.await?? else {
-                                return Ok(None);
-                            };
-                            profile_store::write_json(&path, &record)?;
-                            Ok(Some(()))
-                        }
-                        .await;
-                        let _ = view.update(cx, |p, cx| {
-                            if kind.target(p).as_ref() == Some(&target) {
-                                match result {
-                                    Ok(None) => {}
-                                    Ok(Some(())) => p.transfer_status(kind, Ok(()), "已导出配置"),
-                                    Err(err) => p.transfer_status(kind, Err(err), ""),
-                                }
-                                cx.notify();
+                    }
+                };
+                let default_dir = std::env::var_os("USERPROFILE")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_default();
+                let suggested = match kind {
+                    Kind::Tuning => "RadeonTuner.radt",
+                    Kind::Graphics => "RadeonTuner.radg",
+                    Kind::Display => "RadeonTuner.radd",
+                };
+                let pick = cx.prompt_for_new_path(&default_dir, Some(suggested));
+                cx.spawn(async move |view, cx| {
+                    let result: Result<Option<()>> = async {
+                        let Some(path) = pick.await?? else {
+                            return Ok(None);
+                        };
+                        profile_store::write_json(&path, &record)?;
+                        Ok(Some(()))
+                    }
+                    .await;
+                    let _ = view.update(cx, |p, cx| {
+                        if kind.target(p).as_ref() == Some(&target) {
+                            match result {
+                                Ok(None) => {}
+                                Ok(Some(())) => p.transfer_status(kind, Ok(()), "已导出配置"),
+                                Err(err) => p.transfer_status(kind, Err(err), ""),
                             }
-                        });
-                    })
-                    .detach();
-                })),
-        )
+                            cx.notify();
+                        }
+                    });
+                })
+                .detach();
+            },
+            cx,
+        ))
     }
 }

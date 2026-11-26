@@ -1,11 +1,13 @@
-use super::{Panel, tuning::FanCurve};
-use gpui::{
-    Bounds, Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder,
-    Pixels, Point, canvas, div, fill, point, prelude::*, px, relative, rgb, size,
+use super::{Panel, shape::ContinuousCorners as _, tuning::FanCurve};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::{
+    Bounds, Context, Div, InteractiveElement as _, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, ParentElement as _, PathBuilder, Pixels, Point, Styled as _, canvas, div, fill,
+    point, px, relative, size,
 };
 use std::{cell::Cell, rc::Rc};
 
-const PLOT_HEIGHT: f32 = 150.;
+const PLOT_HEIGHT: f32 = 156.;
 
 fn plot_point(bounds: Bounds<Pixels>, temperature: i32, speed: i32) -> Point<Pixels> {
     point(
@@ -34,8 +36,11 @@ fn percent(offset: Pixels, length: Pixels) -> i32 {
 impl Panel {
     pub(super) fn render_curve(&self, cx: &mut Context<Self>) -> Option<Div> {
         let (current, target) = self.fan_curves()?;
-        let palette = self.palette;
         let editable = self.fan_curve_editable();
+        let grid_color = cx.theme().chart_grid;
+        let current_color = cx.theme().muted_foreground;
+        let target_color = cx.theme().primary;
+        let thumb_center = cx.theme().slider_thumb;
         let geometry = Rc::new(Cell::new(None::<Bounds<Pixels>>));
         let paint_geometry = geometry.clone();
         let entity = cx.entity();
@@ -53,11 +58,11 @@ impl Panel {
                     grid.line_to(coord(100, mid));
                 }
                 if let Ok(path) = grid.build() {
-                    window.paint_path(path, rgb(palette.grid));
+                    window.paint_path(path, grid_color);
                 }
                 for (points, color, width) in [
-                    (current, palette.muted_text, 1.5),
-                    (target, palette.accent, 2.25),
+                    (current, current_color, 1.5),
+                    (target, target_color, 2.25),
                 ] {
                     let samples = curve_samples(points);
                     let mut line = PathBuilder::stroke(px(width));
@@ -66,7 +71,7 @@ impl Panel {
                         line.line_to(coord(temp, speed));
                     }
                     if let Ok(path) = line.build() {
-                        window.paint_path(path, rgb(color));
+                        window.paint_path(path, color);
                     }
                 }
                 if !editable {
@@ -76,10 +81,17 @@ impl Panel {
                     let p = coord(temp, speed);
                     window.paint_quad(
                         fill(
-                            Bounds::new(point(p.x - px(3.5), p.y - px(3.5)), size(px(7.), px(7.))),
-                            rgb(palette.accent),
+                            Bounds::new(point(p.x - px(4.5), p.y - px(4.5)), size(px(9.), px(9.))),
+                            target_color,
                         )
-                        .corner_radii(px(3.5)),
+                        .corner_radii(px(4.5)),
+                    );
+                    window.paint_quad(
+                        fill(
+                            Bounds::new(point(p.x - px(2.), p.y - px(2.)), size(px(4.), px(4.))),
+                            thumb_center,
+                        )
+                        .corner_radii(px(2.)),
                     );
                 }
 
@@ -109,9 +121,15 @@ impl Panel {
         .w_full()
         .h(px(PLOT_HEIGHT));
 
+        let radius = f32::from(cx.theme().radius);
         let mut graph = div()
-            .border_1()
-            .border_color(rgb(palette.border))
+            .relative()
+            .rounded(cx.theme().radius)
+            .contour(
+                Some(cx.theme().input_background()),
+                Some(cx.theme().border),
+                radius,
+            )
             .child(plot);
         if editable {
             graph = graph.on_mouse_down(
@@ -123,8 +141,8 @@ impl Panel {
                             .enumerate()
                             .filter_map(|(i, &(temp, speed))| {
                                 let p = plot_point(bounds, temp, speed);
-                                let x = (p.x - ev.position.x) / px(1.);
-                                let y = (p.y - ev.position.y) / px(1.);
+                                let x = f32::from(p.x - ev.position.x);
+                                let y = f32::from(p.y - ev.position.y);
                                 let distance = x * x + y * y;
                                 (distance <= 144.).then_some((i, distance))
                             })
@@ -157,41 +175,33 @@ impl Panel {
             }
         }));
         let key = |label, color| {
-            div()
-                .flex()
-                .items_center()
+            h_flex()
                 .gap_2()
-                .child(div().w(px(15.)).h(px(2.)).bg(rgb(color)))
+                .child(div().w(px(14.)).h(px(2.)).bg(color))
                 .child(label)
         };
         Some(
-            div()
-                .flex()
-                .flex_col()
+            v_flex()
                 .gap_2()
+                .pt_1()
                 .text_xs()
-                .text_color(rgb(palette.muted_text))
+                .text_color(cx.theme().muted_foreground)
                 .child(
-                    div()
-                        .flex()
-                        .items_center()
+                    h_flex()
                         .justify_between()
                         .child("转速（%）")
                         .child(
-                            div()
-                                .flex()
+                            h_flex()
                                 .gap_4()
-                                .child(key("当前曲线", palette.muted_text))
-                                .child(key("目标曲线", palette.accent)),
+                                .child(key("当前曲线", current_color))
+                                .child(key("目标曲线", target_color)),
                         ),
                 )
                 .child(
                     div().flex().child(y_labels).child(
-                        div()
+                        v_flex()
                             .flex_1()
                             .min_w_0()
-                            .flex()
-                            .flex_col()
                             .gap_1()
                             .child(graph)
                             .child(x_labels)

@@ -1,9 +1,9 @@
-use super::{
-    Panel,
-    shape::{self, ContinuousCorners},
-    theme::Palette,
+use super::Panel;
+use gpui_kit::component::tooltip::Tooltip;
+use gpui_kit::{
+    AnyView, App, Div, InteractiveElement as _, ParentElement as _, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Window, div,
 };
-use gpui::{AnyView, App, Context, Div, Render, SharedString, Window, div, prelude::*, px, rgb};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
@@ -12,28 +12,6 @@ enum Kind {
     Critical,
     Experimental,
     Administrator,
-}
-
-struct Tooltip {
-    text: SharedString,
-    palette: Palette,
-}
-
-impl Render for Tooltip {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().py(px(12.)).child(
-            div()
-                .max_w(px(366.))
-                .px(px(10.))
-                .py(px(7.))
-                .text_size(px(13.))
-                .font_family("Microsoft YaHei UI")
-                .text_color(rgb(self.palette.text))
-                .smooth_background(self.palette.control)
-                .child(shape::outline(self.palette.border))
-                .child(self.text.clone()),
-        )
-    }
 }
 
 impl Panel {
@@ -48,14 +26,7 @@ impl Panel {
         &self,
         text: SharedString,
     ) -> impl Fn(&mut Window, &mut App) -> AnyView + 'static + use<> {
-        let palette = self.palette;
-        move |_, cx| {
-            cx.new(|_| Tooltip {
-                text: text.clone(),
-                palette,
-            })
-            .into()
-        }
+        move |window, cx| Tooltip::new(text.clone()).build(window, cx)
     }
 
     pub(super) fn hint_label(&self, label: &'static str) -> Div {

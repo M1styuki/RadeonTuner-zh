@@ -1,6 +1,7 @@
 use super::Panel;
 use crate::integration::{self, Link, services::State};
-use gpui::{Context, Div, div, prelude::*, rgb};
+use gpui_kit::component::{ActiveTheme as _, Sizable as _, alert::Alert, v_flex};
+use gpui_kit::{Context, Div, ParentElement as _, Styled as _, div, prelude::FluentBuilder as _};
 
 impl Panel {
     pub(super) fn render_settings(&self, cx: &mut Context<Self>) -> Div {
@@ -17,9 +18,7 @@ impl Panel {
                 cx,
             )
         };
-        let startup = div()
-            .flex()
-            .flex_col()
+        let startup = v_flex()
             .child(link_toggle(0, Link::Startup, "Windows 启动时自动运行", cx))
             .child(self.preference(
                 "StartWindowVisible",
@@ -33,14 +32,10 @@ impl Panel {
                 self.start_check_update,
                 cx,
             ));
-        let shortcuts = div()
-            .flex()
-            .flex_col()
+        let shortcuts = v_flex()
             .child(link_toggle(1, Link::StartMenu, "添加到开始菜单", cx))
             .child(link_toggle(2, Link::ContextMenu, "添加到桌面右键菜单", cx));
-        let appearance = div()
-            .flex()
-            .flex_col()
+        let appearance = v_flex()
             .child(
                 self.setting_row(
                     self.hint_label("主题颜色样式"),
@@ -61,15 +56,11 @@ impl Panel {
                 ),
             )
             .child(self.preference("SetTopMost", "窗口置顶", self.topmost, cx));
-        let tray = div()
-            .flex()
-            .flex_col()
+        let tray = v_flex()
             .child(self.preference("ThemeIconMono", "显示单色应用程序图标", self.mono, cx))
             .child(self.preference("HideTrayIcon", "隐藏托盘图标", self.hide_tray, cx))
             .child(self.preference("CloseTray", "关闭到系统托盘", self.close_tray, cx));
-        let advanced = div()
-            .flex()
-            .flex_col()
+        let advanced = v_flex()
             .child(self.preference("ShowExperimental", "显示实验性设置", self.experimental, cx))
             .child(self.preference(
                 "SkipSupportCheckGraphics",
@@ -95,9 +86,12 @@ impl Panel {
             .items_center()
             .gap_2()
             .child("Radeon 服务")
-            .children(
-                service_hint.map(|hint| div().text_color(rgb(self.palette.muted_text)).child(hint)),
-            );
+            .children(service_hint.map(|hint| {
+                div()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(hint)
+            }));
         let service_label = self.with_native_hints(service_label, "Radeon 服务");
         let advanced = advanced
             .child(self.toggle_row(
@@ -148,14 +142,28 @@ impl Panel {
                 },
                 cx,
             ));
-        div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(self.setting_sections([startup, appearance, shortcuts, advanced, tray]))
+        v_flex()
+            .gap_3()
             .when(!self.settings_message.is_empty(), |page| {
-                page.child(self.settings_message.clone())
+                let is_err = self.settings_message.contains("失败")
+                    || self.settings_message.contains("无法")
+                    || self.settings_message.contains("权限");
+                page.child(if is_err {
+                    Alert::warning("settings-status", self.settings_message.clone()).small()
+                } else {
+                    Alert::info("settings-status", self.settings_message.clone()).small()
+                })
             })
+            .child(self.setting_sections_titled(
+                [
+                    ("启动", startup),
+                    ("外观", appearance),
+                    ("快捷方式", shortcuts),
+                    ("系统与高级", advanced),
+                    ("系统托盘", tray),
+                ],
+                cx,
+            ))
     }
 
     fn preference(

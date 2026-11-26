@@ -18,6 +18,11 @@ impl Settings {
         })
     }
 
+    #[cfg(test)]
+    pub fn at_path(path: PathBuf) -> Self {
+        Self { path }
+    }
+
     fn read(&self) -> Result<Map<String, Value>> {
         match fs::read(&self.path) {
             Ok(bytes) => Ok(serde_json::from_slice(

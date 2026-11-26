@@ -1,15 +1,21 @@
 use super::{
-    Panel, motion,
-    shape::{self, ContinuousCorners},
+    Panel,
+    layout::nav_icon,
+    motion::{pointer_feedback, smooth_value},
+    shape::{ContinuousCorners as _, paint_outline},
 };
-use gpui::{
-    App, Bounds, Context, Corner, Div, ElementId, IntoElement, KeyDownEvent, PathBuilder, Pixels,
-    Window, anchored, canvas, deferred, div, fill, point, prelude::*, px, quad, rgb, size,
+use gpui_kit::component::{ActiveTheme as _, Disableable as _, Sizable as _, h_flex, switch::Switch, v_flex};
+use gpui_kit::{
+    Anchor, Animation, AnimationExt as _, App, Bounds, Context, Div, ElementId,
+    FontWeight, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, MouseDownEvent,
+    ParentElement as _, PathBuilder, Pixels, Role, SharedString, Stateful,
+    StatefulInteractiveElement as _, Styled as _, Window, anchored, canvas, deferred, div,
+    ease_out_quint, point, prelude::FluentBuilder as _, px, relative, rems,
 };
-use std::{cell::Cell, rc::Rc};
+use std::{cell::Cell, rc::Rc, time::Duration};
 
-pub(super) const SELECT_MAX_WIDTH: f32 = 216.;
-pub(super) const PROFILE_SELECT_WIDTH: SelectWidth = SelectWidth::Fixed(164.);
+pub(super) const SELECT_MAX_WIDTH: f32 = 224.;
+pub(super) const PROFILE_SELECT_WIDTH: SelectWidth = SelectWidth::Fixed(172.);
 
 pub(super) enum SelectWidth {
     Fit(f32),
@@ -35,8 +41,17 @@ const ITEM_GAP: f32 = 3.;
 const MENU_PADDING: f32 = 6.;
 const MENU_OFFSET: f32 = 7.;
 const MENU_LABEL_INSET: f32 = 50.;
-const SELECT_CORNER: f32 = 15.;
-const MENU_CORNER: f32 = 17.;
+pub(super) const CONTROL_CORNER: f32 = 6.;
+pub(super) const CARD_CORNER: f32 = 10.;
+const MENU_CORNER: f32 = 10.;
+
+pub(super) fn sidebar_width(viewport: Pixels) -> Pixels {
+    if viewport < px(680.) {
+        px(52.)
+    } else {
+        px(124.)
+    }
+}
 
 fn popup_space(
     trigger: Bounds<Pixels>,
@@ -55,10 +70,77 @@ fn popup_space(
     (open_above, desired.min(available.max(px(1.))))
 }
 
+pub(super) fn hairline(cx: &App) -> Div {
+    div()
+        .w_full()
+        .h(px(1.))
+        .flex_shrink_0()
+        .bg(cx.theme().border)
+}
+
+pub(super) fn section_heading(title: &'static str, cx: &App) -> Div {
+    div()
+        .px_1()
+        .text_xs()
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_color(cx.theme().muted_foreground)
+        .child(title)
+}
+
+pub(super) fn section_card(cx: &App) -> Div {
+    let radius = f32::from(cx.theme().radius_lg);
+    v_flex()
+        .relative()
+        .w_full()
+        .rounded(cx.theme().radius_lg)
+        .contour(Some(cx.theme().group_box), Some(cx.theme().border), radius)
+}
+
+pub(super) fn animated_chevron(id: impl Into<ElementId>, color: Hsla, up: bool) -> impl IntoElement {
+    let id: ElementId = id.into();
+    canvas(
+        move |_, window, cx| {
+            let duration = cx.theme().motion_tokens().duration_normal;
+            smooth_value(
+                (id.clone(), "chevron"),
+                if up { 1. } else { 0. },
+                duration,
+                window,
+                cx,
+            )
+        },
+        move |bounds, phase, window, _| {
+            let center = bounds.center();
+            let (sin, cos) = (phase * std::f32::consts::PI).sin_cos();
+            let rotate = |x: f32, y: f32| {
+                point(
+                    center.x + px(x * cos - y * sin),
+                    center.y + px(x * sin + y * cos),
+                )
+            };
+            let mut path = PathBuilder::stroke(px(1.35));
+            path.move_to(rotate(-3.75, -1.6));
+            path.line_to(rotate(0., 1.8));
+            path.line_to(rotate(3.75, -1.6));
+            if let Ok(path) = path.build() {
+                window.paint_path(path, color);
+            }
+        },
+    )
+    .size(px(14.))
+    .flex_shrink_0()
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum ButtonTone {
+    Secondary,
+    Primary,
+    Danger,
+    Inline,
+}
+
 impl Panel {
-    pub(super) fn modal(&self, content: Div) -> impl IntoElement {
-        let mut veil = rgb(self.palette.sidebar);
-        veil.a = 0.9;
+    pub(super) fn modal(&self, content: Div, cx: &App) -> impl IntoElement {
         div()
             .id("dialog-veil")
             .absolute()
@@ -70,136 +152,274 @@ impl Panel {
             .flex()
             .items_center()
             .justify_center()
-            .bg(veil)
-            .child(motion::reveal(
-                div()
+            .bg(cx.theme().overlay)
+            .child(
+                v_flex()
                     .id("dialog-body")
+                    .relative()
                     .w_full()
                     .max_w(px(720.))
-                    .max_h(gpui::relative(1.))
-                    .p_4()
+                    .max_h(relative(1.))
+                    .p_5()
                     .overflow_y_scroll()
-                    .smooth_background(self.palette.canvas)
-                    .child(shape::outline(self.palette.border))
-                    .child(content),
-                "dialog-open",
-                self.animations,
-                8.,
-            ))
+                    .rounded(cx.theme().radius_lg)
+                    .contour(
+                        Some(cx.theme().popover),
+                        Some(cx.theme().border),
+                        f32::from(cx.theme().radius_lg),
+                    )
+                    .shadow_xl()
+                    .child(content)
+                    .with_animation(
+                        "dialog-open",
+                        Animation::new(Duration::from_millis(160)).with_easing(ease_out_quint()),
+                        |d, t| d.opacity(t).top(px(6. * (1. - t))),
+                    ),
+            )
     }
 
-    fn toggle_switch(&self, on: bool, enabled: bool) -> Div {
-        const SCALE: f32 = 1.2;
-        const TRACK_WIDTH: f32 = 34. * SCALE;
-        const TRACK_HEIGHT: f32 = 20. * SCALE;
-        const THUMB_DIAMETER: f32 = 12. * SCALE;
-        let palette = self.palette;
-        div()
-            .w(px(42.))
-            .h(px(32.))
-            .flex_shrink_0()
-            .flex()
-            .justify_end()
-            .items_center()
-            .group("switch-track")
-            .child(motion::transition(
-                "switch-slide",
-                if on { 1. } else { 0. },
-                self.animations,
-                move |progress| {
-                    let track_fill = motion::mix(palette.control, palette.accent, progress);
-                    let hover = motion::mix(palette.hover, palette.accent_hover, progress);
-                    let knob = motion::mix(palette.muted_text, 0xffffff, progress);
-                    div()
-                        .w(px(TRACK_WIDTH))
-                        .h(px(TRACK_HEIGHT))
-                        .text_color(rgb(track_fill))
-                        .when(enabled, |track| {
-                            track.group_hover("switch-track", move |style| {
-                                style.text_color(rgb(hover))
-                            })
-                        })
-                        .child(
-                            canvas(
-                                |_, _, _| (),
-                                move |bounds, _, window, _| {
-                                    let radius = px(THUMB_DIAMETER / 2.);
-                                    let center = bounds.center();
-                                    let travel = bounds.size.width - bounds.size.height;
-                                    let knob_bounds = Bounds::new(
-                                        point(
-                                            center.x + travel * (progress - 0.5) - radius,
-                                            center.y - radius,
-                                        ),
-                                        size(px(THUMB_DIAMETER), px(THUMB_DIAMETER)),
-                                    );
-                                    // One anti-aliased quad keeps the stroke and fill on the same arc.
-                                    window.paint_quad(quad(
-                                        bounds,
-                                        bounds.size.height * 0.5,
-                                        window.text_style().color,
-                                        px(shape::OUTLINE_WIDTH),
-                                        rgb(palette.border),
-                                        gpui::BorderStyle::Solid,
-                                    ));
-                                    window.paint_quad(
-                                        fill(knob_bounds, rgb(knob)).corner_radii(radius),
-                                    );
-                                },
-                            )
-                            .size_full(),
-                        )
-                },
-            ))
-    }
+    pub(super) fn nav_item(
+        &self,
+        id: impl Into<ElementId>,
+        label: &'static str,
+        icon_index: usize,
+        compact: bool,
+        selected: bool,
+        on_click: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let id: ElementId = id.into();
+        let radius = f32::from(cx.theme().radius);
+        let hover_fill = cx.theme().sidebar_accent.opacity(0.65);
+        let press_fill = cx.theme().sidebar_accent;
+        let text_color = if selected {
+            cx.theme().sidebar_accent_foreground
+        } else {
+            cx.theme().sidebar_foreground
+        };
+        let icon_color = if selected {
+            cx.theme().primary
+        } else {
+            cx.theme().muted_foreground
+        };
 
-    pub(super) fn button_style(&self, enabled: bool) -> Div {
-        self.control_style(enabled, shape::CONTROL_CORNER)
-    }
+        let on_click = Rc::new(on_click);
+        let click_cb = on_click.clone();
+        let key_cb = on_click;
 
-    fn control_style(&self, enabled: bool, corner: f32) -> Div {
-        let palette = self.palette;
-        div()
-            .h(px(32.))
-            .min_w(px(70.))
-            .px_3()
-            .flex()
-            .items_center()
-            .justify_center()
+        let base = h_flex()
+            .id(id.clone())
             .relative()
-            .when(enabled, |button| {
-                button.smooth_hover_background(Some(palette.control), palette.hover, corner)
+            .w_full()
+            .h_9()
+            .flex_shrink_0()
+            .items_center()
+            .when(compact, |d| d.justify_center())
+            .when(!compact, |d| d.justify_start().px_2p5().gap_2p5())
+            .focusable()
+            .tab_stop(true)
+            .role(Role::Button)
+            .aria_label(label)
+            .aria_selected(selected);
+
+        pointer_feedback((id, "nav-fb"), base, hover_fill, press_fill, radius)
+            .child(nav_icon(icon_index, icon_color))
+            .when(!compact, |d| {
+                d.child(
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .text_sm()
+                        .font_weight(if selected {
+                            FontWeight::MEDIUM
+                        } else {
+                            FontWeight::NORMAL
+                        })
+                        .text_color(text_color)
+                        .child(label),
+                )
             })
-            .when(!enabled, |button| {
-                button
-                    .opacity(0.45)
-                    .child(shape::surface_radius(palette.control, corner))
-            })
-            .child(shape::outline_radius(palette.border, corner))
+            .when(compact, |d| d.tooltip(self.tooltip(label)))
+            .on_click(cx.listener(move |p, _, window, cx| {
+                click_cb(p, window, cx);
+                cx.notify();
+            }))
+            .on_key_down(cx.listener(move |p, e: &KeyDownEvent, window, cx| {
+                if matches!(e.keystroke.key.as_str(), "enter" | "space") {
+                    key_cb(p, window, cx);
+                    cx.stop_propagation();
+                    cx.notify();
+                }
+            }))
     }
 
-    pub(super) fn inline_action(&self) -> Div {
-        div()
-            .px_2()
-            .py_1()
-            .smooth_hover_background(None, self.palette.hover, shape::CONTROL_CORNER)
-            .cursor_pointer()
+    pub(super) fn action_button(
+        &self,
+        id: impl Into<ElementId>,
+        label: impl Into<SharedString>,
+        tone: ButtonTone,
+        enabled: bool,
+        tooltip: Option<SharedString>,
+        on_click: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let id: ElementId = id.into();
+        let label: SharedString = label.into();
+        let radius = f32::from(cx.theme().radius);
+        let (fill, border, hover, active, fg) = match tone {
+            ButtonTone::Secondary => (
+                Some(cx.theme().button),
+                Some(cx.theme().input),
+                cx.theme().button_hover,
+                cx.theme().button_active,
+                cx.theme().button_foreground,
+            ),
+            ButtonTone::Primary => (
+                Some(cx.theme().button_primary),
+                Some(cx.theme().primary),
+                cx.theme().button_primary_hover,
+                cx.theme().button_primary_active,
+                cx.theme().button_primary_foreground,
+            ),
+            ButtonTone::Danger => (
+                Some(cx.theme().button_danger),
+                Some(cx.theme().danger),
+                cx.theme().button_danger_hover,
+                cx.theme().button_danger_active,
+                cx.theme().button_danger_foreground,
+            ),
+            ButtonTone::Inline => (
+                None,
+                None,
+                cx.theme().accent,
+                cx.theme().secondary_active,
+                cx.theme().foreground,
+            ),
+        };
+        let is_inline = matches!(tone, ButtonTone::Inline);
+        let mut btn = h_flex()
+            .id(id.clone())
+            .relative()
+            .flex_shrink_0()
+            .justify_center()
+            .items_center()
+            .when(is_inline, |d| d.h_7().px_2p5())
+            .when(!is_inline, |d| d.h_8().min_w(rems(4.375)).px_3())
+            .rounded(cx.theme().radius)
+            .contour(fill, border, radius)
+            .text_sm()
+            .font_weight(FontWeight::MEDIUM)
+            .text_color(fg)
+            .when_some(tooltip, |d, tip| d.tooltip(self.tooltip_owned(tip)));
+
+        if enabled {
+            let on_click = Rc::new(on_click);
+            let click_cb = on_click.clone();
+            let key_cb = on_click;
+            btn = pointer_feedback((id, "btn-fb"), btn, hover, active, radius)
+                .focusable()
+                .tab_stop(true)
+                .role(Role::Button)
+                .aria_label(label.clone())
+                .on_click(cx.listener(move |p, _, window, cx| {
+                    click_cb(p, window, cx);
+                    cx.notify();
+                }))
+                .on_key_down(cx.listener(move |p, e: &KeyDownEvent, window, cx| {
+                    if matches!(e.keystroke.key.as_str(), "enter" | "space") {
+                        key_cb(p, window, cx);
+                        cx.stop_propagation();
+                        cx.notify();
+                    }
+                }));
+        } else {
+            btn = btn.opacity(0.45);
+        }
+
+        btn.child(label)
+    }
+
+    pub(super) fn contour_button(
+        &self,
+        id: impl Into<ElementId>,
+        label: impl Into<SharedString>,
+        enabled: bool,
+        tooltip: Option<&'static str>,
+        on_click: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        self.action_button(
+            id,
+            label,
+            ButtonTone::Secondary,
+            enabled,
+            tooltip.map(Into::into),
+            on_click,
+            cx,
+        )
+    }
+
+    pub(super) fn primary_button(
+        &self,
+        id: impl Into<ElementId>,
+        label: impl Into<SharedString>,
+        enabled: bool,
+        tooltip: Option<&'static str>,
+        on_click: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        self.action_button(
+            id,
+            label,
+            ButtonTone::Primary,
+            enabled,
+            tooltip.map(Into::into),
+            on_click,
+            cx,
+        )
+    }
+
+    pub(super) fn danger_button(
+        &self,
+        id: impl Into<ElementId>,
+        label: impl Into<SharedString>,
+        tooltip: Option<&'static str>,
+        on_click: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        self.action_button(
+            id,
+            label,
+            ButtonTone::Danger,
+            true,
+            tooltip.map(Into::into),
+            on_click,
+            cx,
+        )
+    }
+
+    pub(super) fn inline_button(
+        &self,
+        id: impl Into<ElementId>,
+        label: impl Into<SharedString>,
+        on_click: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        self.action_button(id, label, ButtonTone::Inline, true, None, on_click, cx)
     }
 
     pub(super) fn setting_row<L: IntoElement>(&self, label: L, controls: Div) -> Div {
-        div()
-            .flex()
+        h_flex()
             .flex_wrap()
             .w_full()
-            .min_h(px(44.))
-            .py(px(6.))
+            .min_h(px(42.))
+            .py_1p5()
             .items_center()
             .gap_x_4()
             .gap_y_1()
-            .child(div().flex_1().min_w(px(90.)).child(label))
+            .child(div().flex_1().min_w(px(96.)).child(label))
             .child(
-                div()
-                    .flex()
+                h_flex()
                     .ml_auto()
                     .flex_shrink_0()
                     .justify_end()
@@ -207,21 +427,29 @@ impl Panel {
             )
     }
 
-    pub(super) fn setting_sections(&self, sections: impl IntoIterator<Item = Div>) -> Div {
-        div()
-            .flex()
-            .flex_col()
-            .children(sections.into_iter().enumerate().map(|(index, section)| {
-                div()
-                    .min_w_0()
-                    .when(index > 0, |group| {
-                        group
-                            .mt_2()
-                            .pt_2()
-                            .border_t_1()
-                            .border_color(rgb(self.palette.border))
-                    })
+    pub(super) fn setting_sections(&self, sections: impl IntoIterator<Item = Div>, cx: &App) -> Div {
+        v_flex()
+            .gap_3()
+            .children(sections.into_iter().map(|section| {
+                section_card(cx)
+                    .px_4()
+                    .py_2()
                     .child(section)
+            }))
+    }
+
+    pub(super) fn setting_sections_titled<'a>(
+        &self,
+        sections: impl IntoIterator<Item = (&'static str, Div)>,
+        cx: &App,
+    ) -> Div {
+        v_flex()
+            .gap_4()
+            .children(sections.into_iter().map(|(title, section)| {
+                v_flex()
+                    .gap_1p5()
+                    .child(section_heading(title, cx))
+                    .child(section_card(cx).px_4().py_2().child(section))
             }))
     }
 
@@ -234,41 +462,31 @@ impl Panel {
         change: impl Fn(&mut Self, &mut Context<Self>) + 'static,
         cx: &mut Context<Self>,
     ) -> Div {
-        let switch = self.toggle_switch(on, enabled).id(id);
-        let switch = if enabled {
-            let change = Rc::new(change);
-            let key_change = change.clone();
-            switch
-                .cursor_pointer()
-                .focusable()
-                .tab_index(0)
-                .on_click(cx.listener(move |p, _, _, cx| {
+        let entity = cx.entity();
+        let switch = Switch::new(id)
+            .checked(on)
+            .disabled(!enabled)
+            .small()
+            .accessibility_label(if on { "已开启" } else { "已关闭" })
+            .on_change(move |_, _, cx| {
+                entity.update(cx, |p, cx| {
                     change(p, cx);
                     cx.notify();
-                }))
-                .on_key_down(cx.listener(move |p, event: &KeyDownEvent, _, cx| {
-                    if matches!(event.keystroke.key.as_str(), "space" | "enter") {
-                        key_change(p, cx);
-                        cx.notify();
-                        cx.stop_propagation();
-                    }
-                }))
-        } else {
-            switch.opacity(0.45)
-        };
+                });
+            });
         self.setting_row(label, div().child(switch))
     }
 
     pub(super) fn control_text_width(&self, text: &str, cx: &App) -> f32 {
         let text_system = cx.text_system();
-        let font = text_system.resolve_font(&gpui::font("Microsoft YaHei UI"));
+        let font = text_system.resolve_font(&gpui_kit::font("Microsoft YaHei UI"));
         let mut advances = self.control_glyph_widths.borrow_mut();
         text.chars()
             .map(|ch| {
                 *advances.entry(ch).or_insert_with(|| {
                     text_system
                         .advance(font, px(13.), ch)
-                        .map_or(13., |size| size.width / px(1.))
+                        .map_or(13., |size| f32::from(size.width))
                 })
             })
             .sum()
@@ -315,7 +533,6 @@ impl Panel {
         let selected = selected_option
             .map_or(placeholder, |(label, _)| label.as_str())
             .to_string();
-        let palette = self.palette;
         let count = options.len();
         let measure = |text: &str| self.control_text_width(text, cx);
         let selected_width = measure(&selected);
@@ -325,7 +542,7 @@ impl Panel {
                     .iter()
                     .map(|(label, _)| measure(label))
                     .fold(selected_width, f32::max);
-                (widest + MENU_LABEL_INSET).clamp(84., max)
+                (widest + MENU_LABEL_INSET).clamp(88., max)
             }
             SelectWidth::Fixed(width) => width,
         };
@@ -338,14 +555,50 @@ impl Panel {
             .dropdown
             .as_ref()
             .filter(|menu| menu.id == id && count > 0);
+        let is_open = open.is_some();
         let trigger_box = Rc::new(Cell::new(None::<Bounds<Pixels>>));
         let measure_trigger = trigger_box.clone();
-        let trigger = self
-            .control_style(count > 0, SELECT_CORNER)
+
+        let radius = f32::from(cx.theme().radius);
+        let popup_radius = f32::from(cx.theme().radius_lg);
+        let rest_border = cx.theme().input;
+        let open_border = cx.theme().ring;
+        let outline_id = id.clone();
+        let chevron_id = id.clone();
+
+        let mut trigger = h_flex()
             .id(id.clone())
+            .relative()
             .w(px(width))
+            .h_8()
+            .px_2p5()
+            .flex_shrink_0()
             .justify_between()
             .gap_2()
+            .rounded(cx.theme().radius)
+            .contour(Some(cx.theme().input_background()), None, radius)
+            .when(count == 0, |d| d.opacity(0.45))
+            .child(
+                canvas(
+                    move |_, window, cx| {
+                        smooth_value(
+                            (outline_id.clone(), "select-open"),
+                            if is_open { 1. } else { 0. },
+                            Duration::from_millis(150),
+                            window,
+                            cx,
+                        )
+                    },
+                    move |bounds, amount, window, _| {
+                        paint_outline(bounds, rest_border.opacity(1. - amount), radius, window);
+                        paint_outline(bounds, open_border.opacity(amount), radius, window);
+                    },
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
             .child(
                 canvas(
                     move |bounds, _, _| measure_trigger.set(Some(bounds)),
@@ -356,13 +609,23 @@ impl Panel {
                 .top_0()
                 .size_full(),
             )
-            .child(div().flex_1().min_w_0().truncate().child(selected))
-            .child(motion::transition(
-                "select-arrow",
-                if open.is_some() { 1. } else { 0. },
-                self.animations,
-                move |progress| select_chevron(palette.text, progress),
+            .child(div().flex_1().min_w_0().truncate().text_sm().child(selected))
+            .child(animated_chevron(
+                chevron_id,
+                cx.theme().muted_foreground,
+                is_open,
             ));
+
+        if count > 0 && !is_open {
+            trigger = pointer_feedback(
+                (id.clone(), "select-fb"),
+                trigger,
+                cx.theme().secondary_hover,
+                cx.theme().secondary_active,
+                radius,
+            );
+        }
+
         let trigger = match (selected_tip, placeholder) {
             (Some(text), _) => trigger.tooltip(self.tooltip_owned(text.into())),
             (None, "选择显卡") => trigger.tooltip(self.tooltip("选择当前显卡")),
@@ -400,7 +663,6 @@ impl Panel {
         let key_id = id.clone();
         wrapper = wrapper.child(
             trigger
-                .cursor_pointer()
                 .focusable()
                 .tab_index(0)
                 .on_click(cx.listener(move |p, _, window, cx| {
@@ -439,23 +701,29 @@ impl Panel {
         if let Some(menu) = open {
             let trigger = menu.trigger;
             let dismiss_id = id.clone();
-            let mut list = div()
+            let popover_bg = cx.theme().popover;
+            let popover_border = cx.theme().border;
+            let popover_fg = cx.theme().popover_foreground;
+            let accent = cx.theme().accent;
+            let primary = cx.theme().primary;
+
+            let mut list = v_flex()
                 .id(ElementId::NamedChild(
-                    Box::new(id.clone()),
+                    std::sync::Arc::new(id.clone()),
                     "options".into(),
                 ))
+                .relative()
                 .w(px(width))
                 .max_h(menu.max_height)
                 .p(px(MENU_PADDING))
-                .flex()
-                .flex_col()
                 .gap(px(ITEM_GAP))
                 .occlude()
                 .overflow_y_scroll()
-                .relative()
-                .child(shape::surface_radius(palette.control, MENU_CORNER))
-                .child(shape::outline_radius(palette.border, MENU_CORNER))
-                .on_mouse_down_out(cx.listener(move |p, event: &gpui::MouseDownEvent, _, cx| {
+                .text_color(popover_fg)
+                .rounded(cx.theme().radius_lg)
+                .contour(Some(popover_bg), Some(popover_border), popup_radius)
+                .shadow_md()
+                .on_mouse_down_out(cx.listener(move |p, event: &MouseDownEvent, _, cx| {
                     if !trigger.contains(&event.position)
                         && p.dropdown
                             .as_ref()
@@ -474,67 +742,80 @@ impl Panel {
                     detail.as_deref(),
                     text_width + MENU_LABEL_INSET > width,
                 );
+                let active = Some(i) == menu.keyboard_choice || current == Some(i);
+                let row = h_flex()
+                    .id(("option", i))
+                    .relative()
+                    .h(px(ITEM_HEIGHT))
+                    .flex_shrink_0()
+                    .px_2()
+                    .gap_2()
+                    .items_center()
+                    .when(active, |d| d.contour(Some(accent), None, 4.));
+
+                let row = pointer_feedback(
+                    ElementId::NamedChild(
+                        std::sync::Arc::new(id.clone()),
+                        SharedString::from(i.to_string()),
+                    ),
+                    row,
+                    accent.opacity(0.65),
+                    accent,
+                    4.,
+                );
+
                 list = list.child(
-                    div()
-                        .id(("option", i))
-                        .h(px(ITEM_HEIGHT))
-                        .flex_shrink_0()
-                        .px_2()
-                        .gap_2()
-                        .flex()
-                        .items_center()
-                        .cursor_pointer()
-                        .smooth_hover_background(
-                            (Some(i) == menu.keyboard_choice).then_some(palette.hover),
-                            palette.hover,
-                            shape::CONTROL_CORNER,
-                        )
-                        .child(
-                            div()
-                                .id(("option-label", i))
-                                .flex_1()
-                                .min_w_0()
-                                .truncate()
-                                .when_some(tip, |label, text| {
-                                    label.tooltip(self.tooltip_owned(text.into()))
-                                })
-                                .child(label),
-                        )
-                        .child(
-                            div()
-                                .size(px(14.))
-                                .flex_shrink_0()
-                                .when(current == Some(i), |indicator| {
-                                    indicator.child(select_check(palette.accent))
-                                }),
-                        )
-                        .on_click(cx.listener(move |p, _, _, cx| {
-                            cx.stop_propagation();
-                            if p.dropdown.as_ref().is_some_and(|menu| menu.id == choice_id) {
-                                p.dropdown = None;
-                                choose(p, i, cx);
-                                cx.notify();
-                            }
-                        })),
+                    row.child(
+                        div()
+                            .id(("option-label", i))
+                            .flex_1()
+                            .min_w_0()
+                            .text_sm()
+                            .truncate()
+                            .when_some(tip, |label, text| {
+                                label.tooltip(self.tooltip_owned(text.into()))
+                            })
+                            .child(label),
+                    )
+                    .child(
+                        h_flex()
+                            .size(px(14.))
+                            .flex_shrink_0()
+                            .justify_center()
+                            .when(current == Some(i), |indicator| {
+                                indicator.child(select_check(primary))
+                            }),
+                    )
+                    .on_click(cx.listener(move |p, _, _, cx| {
+                        cx.stop_propagation();
+                        if p.dropdown.as_ref().is_some_and(|menu| menu.id == choice_id) {
+                            p.dropdown = None;
+                            choose(p, i, cx);
+                            cx.notify();
+                        }
+                    })),
                 );
             }
-            let (corner, y) = if menu.above {
-                (Corner::BottomLeft, trigger.top() - px(MENU_OFFSET))
+            let (anchor, y) = if menu.above {
+                (Anchor::BottomLeft, trigger.top() - px(MENU_OFFSET))
             } else {
-                (Corner::TopLeft, trigger.bottom() + px(MENU_OFFSET))
+                (Anchor::TopLeft, trigger.bottom() + px(MENU_OFFSET))
             };
+            let offset_y = if menu.above { 4. } else { -4. };
             wrapper = wrapper.child(
                 deferred(
                     anchored()
-                        .anchor(corner)
+                        .anchor(anchor)
                         .position(point(trigger.left(), y))
                         .snap_to_window()
-                        .child(motion::reveal(
-                            list,
-                            ElementId::NamedChild(Box::new(id), "open".into()),
-                            self.animations,
-                            if menu.above { 4. } else { -4. },
-                        )),
+                        .child(
+                            list.with_animation(
+                                ElementId::NamedChild(std::sync::Arc::new(id), "open".into()),
+                                Animation::new(Duration::from_millis(140))
+                                    .with_easing(ease_out_quint()),
+                                move |elem, t| elem.opacity(t).top(px(offset_y * (1. - t))),
+                            ),
+                        ),
                 )
                 .with_priority(3),
             );
@@ -552,7 +833,7 @@ fn option_tip(label: &str, detail: Option<&str>, clipped: bool) -> Option<String
     }
 }
 
-fn select_check(color: u32) -> impl IntoElement {
+fn select_check(color: Hsla) -> impl IntoElement {
     canvas(
         |_, _, _| (),
         move |bounds, _, window, _| {
@@ -562,45 +843,17 @@ fn select_check(color: u32) -> impl IntoElement {
             path.line_to(at(5.5, 10.));
             path.line_to(at(11.5, 4.));
             if let Ok(path) = path.build() {
-                window.paint_path(path, rgb(color));
+                window.paint_path(path, color);
             }
         },
     )
     .size_full()
 }
 
-fn select_chevron(color: u32, progress: f32) -> impl IntoElement {
-    let (sine, cosine) = (progress * std::f32::consts::PI).sin_cos();
-    canvas(
-        |_, _, _| (),
-        move |bounds, _, window, _| {
-            let center = point(
-                bounds.origin.x + bounds.size.width * 0.5,
-                bounds.origin.y + bounds.size.height * 0.5,
-            );
-            let rotate = |x, y| {
-                point(
-                    center.x + px(x * cosine - y * sine),
-                    center.y + px(x * sine + y * cosine),
-                )
-            };
-            let mut path = PathBuilder::stroke(px(1.25));
-            path.move_to(rotate(-3.5, -1.75));
-            path.line_to(rotate(0., 1.75));
-            path.line_to(rotate(3.5, -1.75));
-            if let Ok(path) = path.build() {
-                window.paint_path(path, rgb(color));
-            }
-        },
-    )
-    .size(px(14.))
-    .flex_shrink_0()
-}
-
 #[cfg(test)]
 mod tests {
     use super::{Bounds, point, popup_space, px};
-    use gpui::size;
+    use gpui_kit::size;
 
     #[test]
     fn popup_opens_above_a_trigger_near_the_bottom() {
