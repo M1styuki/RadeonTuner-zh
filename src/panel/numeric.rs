@@ -299,10 +299,7 @@ impl Panel {
             .overflow_hidden()
             .text_sm()
             .rounded(cx.theme().radius)
-            .contour(Some(cx.theme().input_background()), None, radius)
-            .border_t_1()
-            .border_color(cx.theme().border)
-            .shadow_2xs()
+            .contour(Some(cx.theme().button), None, radius)
             .child(
                 canvas(
                     move |_, window, cx| {

@@ -641,13 +641,7 @@ impl Panel {
             // last input outline never sits directly on the clipping edge.
             .pr(px(CARD_PADDING - SCROLL_EDGE_GUTTER))
             .rounded(cx.theme().radius)
-            .contour(
-                Some(cx.theme().input_background()),
-                None,
-                f32::from(cx.theme().radius),
-            )
-            .border_t_1()
-            .border_color(cx.theme().border)
+            .contour(Some(cx.theme().button), None, f32::from(cx.theme().radius))
             .child(
                 div()
                     .id("fan-point-editor")

@@ -222,8 +222,6 @@ impl Panel {
                         None,
                         f32::from(cx.theme().radius_lg),
                     )
-                    .border_t_1()
-                    .border_color(cx.theme().border)
                     .shadow_xl()
                     .child(content)
                     .with_animation(
@@ -367,9 +365,6 @@ impl Panel {
             .when(!is_inline, |d| d.h_8().min_w(rems(4.375)).px_3())
             .rounded(cx.theme().radius)
             .contour(fill, None, radius)
-            .when(!is_inline, |d| {
-                d.border_t_1().border_color(cx.theme().border).shadow_2xs()
-            })
             .text_sm()
             .font_weight(FontWeight::MEDIUM)
             .text_color(fg)
@@ -695,10 +690,7 @@ impl Panel {
             .justify_between()
             .gap_2()
             .rounded(cx.theme().radius)
-            .contour(Some(cx.theme().input_background()), None, radius)
-            .border_t_1()
-            .border_color(cx.theme().border)
-            .shadow_2xs()
+            .contour(Some(cx.theme().button), None, radius)
             .when(count == 0, |d| d.opacity(0.45))
             .child(
                 canvas(
