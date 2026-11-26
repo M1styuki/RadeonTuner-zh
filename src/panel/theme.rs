@@ -80,12 +80,7 @@ pub(super) fn is_light(style: i64, system_light: bool) -> bool {
 /// Applies the Windows 11 Fluent 2 light/dark theme tokens with refined Radeon
 /// crimson accents, preserving `ThemeStyle` (0=gray, 1=black, 2=light, 3=system)
 /// and native Mica surface hierarchy via `Theme::update`.
-pub(super) fn sync_theme(
-    window: Option<&mut Window>,
-    style: i64,
-    has_mica: bool,
-    cx: &mut App,
-) {
+pub(super) fn sync_theme(window: Option<&mut Window>, style: i64, has_mica: bool, cx: &mut App) {
     let system_light = is_system_light(
         window
             .as_ref()

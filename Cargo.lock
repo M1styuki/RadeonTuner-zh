@@ -5999,7 +5999,7 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "radeon-tuner"
-version = "0.75.16"
+version = "0.75.17"
 dependencies = [
  "anyhow",
  "embed-resource",

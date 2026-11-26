@@ -292,13 +292,15 @@ impl Panel {
             }
             section = section.child(row);
         }
-        section.child(editor.status.clone()).child(self.contour_button(
-            "close-timing",
-            "关闭",
-            true,
-            None,
-            |p, _, _| p.read_modes(),
-            cx,
-        ))
+        section
+            .child(editor.status.clone())
+            .child(self.contour_button(
+                "close-timing",
+                "关闭",
+                true,
+                None,
+                |p, _, _| p.read_modes(),
+                cx,
+            ))
     }
 }

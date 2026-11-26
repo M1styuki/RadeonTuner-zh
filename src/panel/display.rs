@@ -788,23 +788,21 @@ impl Panel {
         }
         if page.app == "Global" && page.current.is_some() {
             has_modes = true;
-            section = section.child(
-                self.setting_row(
-                    self.hint_label("自定义分辨率"),
-                    div().child(self.contour_button(
-                        "custom-editor",
-                        "管理自定义分辨率…",
-                        true,
-                        None,
-                        |p, _, _| {
-                            if let Err(err) = p.open_custom() {
-                                p.display.status = err.to_string();
-                            }
-                        },
-                        cx,
-                    )),
-                ),
-            );
+            section = section.child(self.setting_row(
+                self.hint_label("自定义分辨率"),
+                div().child(self.contour_button(
+                    "custom-editor",
+                    "管理自定义分辨率…",
+                    true,
+                    None,
+                    |p, _, _| {
+                        if let Err(err) = p.open_custom() {
+                            p.display.status = err.to_string();
+                        }
+                    },
+                    cx,
+                )),
+            ));
         }
         if has_modes {
             categories.push(section);
@@ -988,23 +986,21 @@ impl Panel {
         let mut has_extras = false;
         if page.app == "Global" && !page.displays.is_empty() {
             has_extras = true;
-            extras = extras.child(
-                self.setting_row(
-                    self.hint_label("Eyefinity 操作"),
-                    div().child(self.contour_button(
-                        "manage-eye",
-                        "管理 Eyefinity",
-                        true,
-                        None,
-                        |p, _, _| {
-                            if let Err(e) = p.open_eyefinity() {
-                                p.display.status = e.to_string();
-                            }
-                        },
-                        cx,
-                    )),
-                ),
-            );
+            extras = extras.child(self.setting_row(
+                self.hint_label("Eyefinity 操作"),
+                div().child(self.contour_button(
+                    "manage-eye",
+                    "管理 Eyefinity",
+                    true,
+                    None,
+                    |p, _, _| {
+                        if let Err(e) = p.open_eyefinity() {
+                            p.display.status = e.to_string();
+                        }
+                    },
+                    cx,
+                )),
+            ));
         } else if page.key.is_some() && page.app != "Global" {
             has_extras = true;
             extras = extras.child(self.toggle_row(

@@ -440,15 +440,12 @@ impl Panel {
                         }
                         match selected {
                             Ok(Some(paths)) => {
-                                if let (Some(path), Some(fsr)) =
-                                    (paths.first(), &mut p.fsr_library)
+                                if let (Some(path), Some(fsr)) = (paths.first(), &mut p.fsr_library)
                                 {
-                                    if path.file_name().and_then(|s| s.to_str()).is_some_and(
-                                        |s| {
-                                            let name = s.to_ascii_lowercase();
-                                            name.starts_with("amdxcff") && name.ends_with(".dll")
-                                        },
-                                    ) {
+                                    if path.file_name().and_then(|s| s.to_str()).is_some_and(|s| {
+                                        let name = s.to_ascii_lowercase();
+                                        name.starts_with("amdxcff") && name.ends_with(".dll")
+                                    }) {
                                         fsr.select(path.to_string_lossy().into_owned());
                                         p.graphics_dirty = true;
                                     } else {

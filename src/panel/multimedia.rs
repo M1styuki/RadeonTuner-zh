@@ -38,7 +38,6 @@ fn read_profile(path: &Path, device: &str, app: &str, controls: &mut [VideoContr
     Ok(())
 }
 
-
 impl Panel {
     pub(super) fn read_video(&mut self) {
         self.confirm_video_reset = false;

@@ -7,8 +7,8 @@ use gpui_kit::component::{ActiveTheme as _, h_flex};
 use gpui_kit::{
     Bounds, Context, Div, ElementId, FocusHandle, InteractiveElement as _, KeyDownEvent,
     MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, Pixels, Size,
-    Stateful, StatefulInteractiveElement as _, Styled as _, Subscription, canvas, div, fill,
-    point, prelude::FluentBuilder as _, px, size,
+    Stateful, StatefulInteractiveElement as _, Styled as _, Subscription, canvas, div, fill, point,
+    prelude::FluentBuilder as _, px, size,
 };
 use std::{cell::Cell, rc::Rc, time::Duration};
 

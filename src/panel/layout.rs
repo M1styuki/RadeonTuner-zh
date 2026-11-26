@@ -4,8 +4,8 @@ use super::{
 };
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, alert::Alert, h_flex, v_flex};
 use gpui_kit::{
-    Context, Div, FontWeight, Hsla, InteractiveElement as _, ParentElement as _, PathBuilder, Pixels,
-    StatefulInteractiveElement as _, Styled as _, canvas, div, point,
+    Context, Div, FontWeight, Hsla, InteractiveElement as _, ParentElement as _, PathBuilder,
+    Pixels, StatefulInteractiveElement as _, Styled as _, canvas, div, point,
     prelude::FluentBuilder as _, px,
 };
 use std::collections::HashSet;
@@ -221,57 +221,54 @@ impl Panel {
             let nav_w = sidebar_width(viewport);
             let stats_width = viewport - nav_w - px(40. + 28.);
             let columns = (((stats_width + px(16.)) / px(146.)).floor() as u16).clamp(1, 5);
-            let mut stats = section_card(cx)
-                .px_3p5()
-                .py_2p5()
-                .child(
-                    div()
-                        .w_full()
-                        .grid()
-                        .grid_cols(columns)
-                        .gap_x_4()
-                        .gap_y_1p5()
-                        .children(self.metrics.iter().enumerate().map(|(i, item)| {
-                            let reading = item
-                                .value
-                                .map(|value| value.to_string())
-                                .unwrap_or_else(|| "—".into());
-                            h_flex()
-                                .id(("metric", i))
-                                .min_w_0()
-                                .items_baseline()
-                                .justify_between()
-                                .gap_2()
-                                .tooltip(self.tooltip(item.label))
-                                .child(
-                                    div()
-                                        .min_w_0()
-                                        .text_xs()
-                                        .truncate()
-                                        .text_color(cx.theme().muted_foreground)
-                                        .child(item.label),
-                                )
-                                .child(
-                                    h_flex()
-                                        .flex_shrink_0()
-                                        .items_baseline()
-                                        .gap_1()
-                                        .whitespace_nowrap()
-                                        .text_sm()
-                                        .font_weight(FontWeight::MEDIUM)
-                                        .child(reading)
-                                        .when(item.value.is_some(), |value| {
-                                            value.child(
-                                                div()
-                                                    .text_xs()
-                                                    .font_weight(FontWeight::NORMAL)
-                                                    .text_color(cx.theme().muted_foreground)
-                                                    .child(item.unit),
-                                            )
-                                        }),
-                                )
-                        })),
-                );
+            let mut stats = section_card(cx).px_3p5().py_2p5().child(
+                div()
+                    .w_full()
+                    .grid()
+                    .grid_cols(columns)
+                    .gap_x_4()
+                    .gap_y_1p5()
+                    .children(self.metrics.iter().enumerate().map(|(i, item)| {
+                        let reading = item
+                            .value
+                            .map(|value| value.to_string())
+                            .unwrap_or_else(|| "—".into());
+                        h_flex()
+                            .id(("metric", i))
+                            .min_w_0()
+                            .items_baseline()
+                            .justify_between()
+                            .gap_2()
+                            .tooltip(self.tooltip(item.label))
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .text_xs()
+                                    .truncate()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(item.label),
+                            )
+                            .child(
+                                h_flex()
+                                    .flex_shrink_0()
+                                    .items_baseline()
+                                    .gap_1()
+                                    .whitespace_nowrap()
+                                    .text_sm()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .child(reading)
+                                    .when(item.value.is_some(), |value| {
+                                        value.child(
+                                            div()
+                                                .text_xs()
+                                                .font_weight(FontWeight::NORMAL)
+                                                .text_color(cx.theme().muted_foreground)
+                                                .child(item.unit),
+                                        )
+                                    }),
+                            )
+                    })),
+            );
             let _ = &mut stats;
             header = header.child(stats);
         }

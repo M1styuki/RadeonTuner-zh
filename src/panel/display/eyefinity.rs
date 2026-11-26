@@ -177,38 +177,41 @@ impl Panel {
                 2 => !editor.automatic && editor.state == Some(true),
                 _ => true,
             };
-            let on_click = move |p: &mut Panel, _: &mut gpui_kit::Window, _: &mut Context<Panel>| {
-                let result = p.eyefinity_action(i);
-                let message = result
-                    .map(|_| {
-                        [
-                            "已创建 Eyefinity",
-                            "已启用 Eyefinity",
-                            "已禁用 Eyefinity",
-                            "已移除 Eyefinity",
-                        ][i]
-                            .to_owned()
-                    })
-                    .unwrap_or_else(|e| e.to_string());
-                if let Some(e) = p.display.eyefinity.as_mut() {
-                    e.status = message;
-                } else {
-                    p.display.status = message;
-                }
-            };
+            let on_click =
+                move |p: &mut Panel, _: &mut gpui_kit::Window, _: &mut Context<Panel>| {
+                    let result = p.eyefinity_action(i);
+                    let message = result
+                        .map(|_| {
+                            [
+                                "已创建 Eyefinity",
+                                "已启用 Eyefinity",
+                                "已禁用 Eyefinity",
+                                "已移除 Eyefinity",
+                            ][i]
+                                .to_owned()
+                        })
+                        .unwrap_or_else(|e| e.to_string());
+                    if let Some(e) = p.display.eyefinity.as_mut() {
+                        e.status = message;
+                    } else {
+                        p.display.status = message;
+                    }
+                };
             row = row.child(if i == 0 {
                 self.primary_button(("eye-action", i), label, available, None, on_click, cx)
             } else {
                 self.contour_button(("eye-action", i), label, available, None, on_click, cx)
             });
         }
-        view.child(row).child(editor.status.clone()).child(self.contour_button(
-            "eye-close",
-            "返回显示设置",
-            true,
-            None,
-            |p, _, _| p.display.eyefinity = None,
-            cx,
-        ))
+        view.child(row)
+            .child(editor.status.clone())
+            .child(self.contour_button(
+                "eye-close",
+                "返回显示设置",
+                true,
+                None,
+                |p, _, _| p.display.eyefinity = None,
+                cx,
+            ))
     }
 }

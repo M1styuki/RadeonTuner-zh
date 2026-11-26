@@ -4,13 +4,15 @@ use super::{
     motion::{pointer_feedback, smooth_value},
     shape::{ContinuousCorners as _, paint_outline},
 };
-use gpui_kit::component::{ActiveTheme as _, Disableable as _, Sizable as _, h_flex, switch::Switch, v_flex};
+use gpui_kit::component::{
+    ActiveTheme as _, Disableable as _, Sizable as _, h_flex, switch::Switch, v_flex,
+};
 use gpui_kit::{
-    Anchor, Animation, AnimationExt as _, App, Bounds, Context, Div, ElementId,
-    FontWeight, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, MouseDownEvent,
-    ParentElement as _, PathBuilder, Pixels, Role, SharedString, Stateful,
-    StatefulInteractiveElement as _, Styled as _, Window, anchored, canvas, deferred, div,
-    ease_out_quint, point, prelude::FluentBuilder as _, px, relative, rems,
+    Anchor, Animation, AnimationExt as _, App, Bounds, Context, Div, ElementId, FontWeight, Hsla,
+    InteractiveElement as _, IntoElement, KeyDownEvent, MouseDownEvent, ParentElement as _,
+    PathBuilder, Pixels, Role, SharedString, Stateful, StatefulInteractiveElement as _,
+    Styled as _, Window, anchored, canvas, deferred, div, ease_out_quint, point,
+    prelude::FluentBuilder as _, px, relative, rems,
 };
 use std::{cell::Cell, rc::Rc, time::Duration};
 
@@ -96,7 +98,11 @@ pub(super) fn section_card(cx: &App) -> Div {
         .contour(Some(cx.theme().group_box), Some(cx.theme().border), radius)
 }
 
-pub(super) fn animated_chevron(id: impl Into<ElementId>, color: Hsla, up: bool) -> impl IntoElement {
+pub(super) fn animated_chevron(
+    id: impl Into<ElementId>,
+    color: Hsla,
+    up: bool,
+) -> impl IntoElement {
     let id: ElementId = id.into();
     canvas(
         move |_, window, cx| {
@@ -427,15 +433,16 @@ impl Panel {
             )
     }
 
-    pub(super) fn setting_sections(&self, sections: impl IntoIterator<Item = Div>, cx: &App) -> Div {
-        v_flex()
-            .gap_3()
-            .children(sections.into_iter().map(|section| {
-                section_card(cx)
-                    .px_4()
-                    .py_2()
-                    .child(section)
-            }))
+    pub(super) fn setting_sections(
+        &self,
+        sections: impl IntoIterator<Item = Div>,
+        cx: &App,
+    ) -> Div {
+        v_flex().gap_3().children(
+            sections
+                .into_iter()
+                .map(|section| section_card(cx).px_4().py_2().child(section)),
+        )
     }
 
     pub(super) fn setting_sections_titled<'a>(
@@ -609,7 +616,14 @@ impl Panel {
                 .top_0()
                 .size_full(),
             )
-            .child(div().flex_1().min_w_0().truncate().text_sm().child(selected))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .text_sm()
+                    .child(selected),
+            )
             .child(animated_chevron(
                 chevron_id,
                 cx.theme().muted_foreground,

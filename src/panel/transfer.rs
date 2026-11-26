@@ -137,9 +137,7 @@ impl Panel {
                             Ok(Some(record)) => {
                                 let mismatch = kind != Kind::Graphics
                                     && record["DeviceId"].as_str().is_some_and(|key| {
-                                        !key.is_empty()
-                                            && !target.0.is_empty()
-                                            && key != target.0
+                                        !key.is_empty() && !target.0.is_empty() && key != target.0
                                     });
                                 if mismatch {
                                     p.pending_import = Some(Pending {

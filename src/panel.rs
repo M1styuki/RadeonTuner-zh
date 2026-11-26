@@ -214,12 +214,7 @@ impl Render for Panel {
             self.frame_dark = Some(dark);
         }
 
-        let mut content = v_flex()
-            .w_full()
-            .gap_3()
-            .px_5()
-            .pb_5()
-            .pt_4();
+        let mut content = v_flex().w_full().gap_3().px_5().pb_5().pt_4();
         if self.page != 6 && self.updates.has_notice() {
             content = content.child(self.update_controls(cx));
         }
@@ -360,12 +355,10 @@ impl Render for Panel {
                     .h_full()
                     .min_w_0()
                     .child(self.render_header(viewport.width, cx))
-                    .child(
-                        v_flex().flex_1().min_h_0().w_full().child(motion::entrance(
-                            SharedString::from(format!("page-entrance-{}", self.page)),
-                            content_area,
-                        )),
-                    ),
+                    .child(v_flex().flex_1().min_h_0().w_full().child(motion::entrance(
+                        SharedString::from(format!("page-entrance-{}", self.page)),
+                        content_area,
+                    ))),
             );
         if self.picker.is_some() {
             window_content = window_content.child(self.modal(self.render_picker(cx), cx));
@@ -529,13 +522,12 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
                         theme::is_system_light(window.appearance()),
                         panel.mica,
                     ));
-                    let hwnd =
-                        HasWindowHandle::window_handle(window)
-                            .ok()
-                            .and_then(|handle| match handle.as_raw() {
-                                RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
-                                _ => None,
-                            });
+                    let hwnd = HasWindowHandle::window_handle(window)
+                        .ok()
+                        .and_then(|handle| match handle.as_raw() {
+                            RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
+                            _ => None,
+                        });
                     if panel.topmost {
                         if let Err(err) = crate::tray::topmost(true) {
                             panel.message = err.to_string();

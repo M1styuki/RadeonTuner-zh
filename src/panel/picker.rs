@@ -141,20 +141,18 @@ impl Panel {
     }
     pub(super) fn render_picker(&self, cx: &mut Context<Self>) -> Div {
         let picker = self.picker.as_ref().unwrap();
-        let mut view = v_flex()
-            .w_full()
-            .gap_3()
-            .text_color(cx.theme().popover_foreground)
-            .child(
-                div()
-                    .text_base()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(if picker.remove {
+        let mut view =
+            v_flex()
+                .w_full()
+                .gap_3()
+                .text_color(cx.theme().popover_foreground)
+                .child(div().text_base().font_weight(FontWeight::SEMIBOLD).child(
+                    if picker.remove {
                         "移除应用配置"
                     } else {
                         "添加应用配置"
-                    }),
-            );
+                    },
+                ));
         if !picker.remove {
             let mut sources = h_flex().flex_wrap().gap_2();
             for (id, label, steam) in [

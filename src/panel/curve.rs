@@ -60,10 +60,9 @@ impl Panel {
                 if let Ok(path) = grid.build() {
                     window.paint_path(path, grid_color);
                 }
-                for (points, color, width) in [
-                    (current, current_color, 1.5),
-                    (target, target_color, 2.25),
-                ] {
+                for (points, color, width) in
+                    [(current, current_color, 1.5), (target, target_color, 2.25)]
+                {
                     let samples = curve_samples(points);
                     let mut line = PathBuilder::stroke(px(width));
                     line.move_to(coord(samples[0].0, samples[0].1));
@@ -187,15 +186,12 @@ impl Panel {
                 .text_xs()
                 .text_color(cx.theme().muted_foreground)
                 .child(
-                    h_flex()
-                        .justify_between()
-                        .child("转速（%）")
-                        .child(
-                            h_flex()
-                                .gap_4()
-                                .child(key("当前曲线", current_color))
-                                .child(key("目标曲线", target_color)),
-                        ),
+                    h_flex().justify_between().child("转速（%）").child(
+                        h_flex()
+                            .gap_4()
+                            .child(key("当前曲线", current_color))
+                            .child(key("目标曲线", target_color)),
+                    ),
                 )
                 .child(
                     div().flex().child(y_labels).child(
