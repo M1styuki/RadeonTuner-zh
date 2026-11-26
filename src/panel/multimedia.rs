@@ -209,7 +209,7 @@ impl Panel {
             labels,
             selected,
             "选择应用程序",
-            crate::panel::controls::SELECT_MAX_WIDTH,
+            crate::panel::controls::PROFILE_SELECT_WIDTH,
             move |p, i, _| {
                 p.video_app = apps[i].clone();
                 p.read_video();

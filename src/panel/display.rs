@@ -516,7 +516,7 @@ impl Panel {
                 labels,
                 Some(page.display_index),
                 "选择显示器",
-                152.,
+                crate::panel::controls::SelectWidth::FitSelected(360.),
                 |p, i, _| {
                     p.display.display_index = i;
                     p.display.app = "Global".into();
@@ -544,7 +544,7 @@ impl Panel {
                     labels,
                     selected,
                     "选择应用程序",
-                    crate::panel::controls::SELECT_MAX_WIDTH,
+                    crate::panel::controls::PROFILE_SELECT_WIDTH,
                     move |p, i, _| {
                         p.display.app = apps[i].clone();
                         p.read_modes();

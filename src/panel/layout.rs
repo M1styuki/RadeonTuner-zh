@@ -1,6 +1,6 @@
 use super::{
-    Panel,
-    controls::{section_card, sidebar_width},
+    PAGES, Panel,
+    controls::{SelectWidth, section_card, sidebar_width},
 };
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, alert::Alert, h_flex, v_flex};
 use gpui_kit::{
@@ -139,18 +139,17 @@ pub(super) fn nav_icon(index: usize, color: Hsla) -> Div {
 
 impl Panel {
     pub(super) fn render_header(&self, viewport: Pixels, cx: &mut Context<Self>) -> Div {
+        let page_title = PAGES.get(self.page).copied().unwrap_or("RadeonTuner");
         if self.page == 5 {
             return v_flex()
                 .flex_shrink_0()
-                .px_5()
-                .pt_4()
-                .pb_2()
-                .border_b_1()
-                .border_color(cx.theme().border)
                 .bg(cx.theme().title_bar)
+                .px_6()
+                .pt_2()
+                .pb_3()
                 .child(
                     div()
-                        .text_lg()
+                        .text_xl()
                         .font_weight(FontWeight::SEMIBOLD)
                         .child("应用设置"),
                 );
@@ -159,12 +158,16 @@ impl Panel {
         let mut header = v_flex()
             .flex_shrink_0()
             .bg(cx.theme().title_bar)
-            .border_b_1()
-            .border_color(cx.theme().border)
-            .px_5()
-            .pt_3p5()
+            .px_6()
+            .pt_2()
             .pb_3()
-            .gap_2p5();
+            .gap_3()
+            .child(
+                div()
+                    .text_xl()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child(page_title),
+            );
 
         let mut locations = HashSet::new();
         let devices = self
@@ -190,24 +193,28 @@ impl Panel {
                 }
             })
             .collect();
-        let mut toolbar = h_flex().flex_wrap().gap_2().child(self.select(
-            "select-gpu",
-            labels,
-            selected,
-            "选择显卡",
-            208.,
-            move |p, i, _| {
-                p.finish_preview(false);
-                p.selected = indices[i];
-                p.reset_tuning_editor();
-                p.video_app = "Global".into();
-                p.read_device_details();
-                p.read_displays();
-                p.read_controls();
-                p.refresh();
-            },
-            cx,
-        ));
+        let mut toolbar = h_flex()
+            .flex_wrap()
+            .items_center()
+            .gap_2()
+            .child(self.select(
+                "select-gpu",
+                labels,
+                selected,
+                "选择显卡",
+                SelectWidth::FitSelected(440.),
+                move |p, i, _| {
+                    p.finish_preview(false);
+                    p.selected = indices[i];
+                    p.reset_tuning_editor();
+                    p.video_app = "Global".into();
+                    p.read_device_details();
+                    p.read_displays();
+                    p.read_controls();
+                    p.refresh();
+                },
+                cx,
+            ));
         toolbar = match self.page {
             0 | 1 => toolbar.child(self.tuning_profiles(cx)),
             2 => toolbar.child(self.game_controls(cx)),
@@ -219,9 +226,9 @@ impl Panel {
 
         if !self.metrics.is_empty() {
             let nav_w = sidebar_width(viewport);
-            let stats_width = viewport - nav_w - px(40. + 28.);
+            let stats_width = viewport - nav_w - px(48. + 32.);
             let columns = (((stats_width + px(16.)) / px(146.)).floor() as u16).clamp(1, 5);
-            let mut stats = section_card(cx).px_3p5().py_2p5().child(
+            let mut stats = section_card(cx).px_4().py_2p5().child(
                 div()
                     .w_full()
                     .grid()

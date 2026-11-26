@@ -16,12 +16,12 @@ use gpui_kit::{
 };
 use std::{cell::Cell, rc::Rc, time::Duration};
 
-pub(super) const SELECT_MAX_WIDTH: f32 = 224.;
-pub(super) const PROFILE_SELECT_WIDTH: SelectWidth = SelectWidth::Fixed(172.);
+pub(super) const SELECT_MAX_WIDTH: f32 = 340.;
+pub(super) const PROFILE_SELECT_WIDTH: SelectWidth = SelectWidth::FitSelected(340.);
 
 pub(super) enum SelectWidth {
     Fit(f32),
-    Fixed(f32),
+    FitSelected(f32),
 }
 
 impl From<f32> for SelectWidth {
@@ -42,16 +42,15 @@ const ITEM_HEIGHT: f32 = 30.;
 const ITEM_GAP: f32 = 3.;
 const MENU_PADDING: f32 = 6.;
 const MENU_OFFSET: f32 = 7.;
-const MENU_LABEL_INSET: f32 = 50.;
-pub(super) const CONTROL_CORNER: f32 = 6.;
-pub(super) const CARD_CORNER: f32 = 10.;
-const MENU_CORNER: f32 = 10.;
+const TRIGGER_LABEL_INSET: f32 = 56.;
+const MENU_LABEL_INSET: f32 = 64.;
+const MENU_MAX_WIDTH: f32 = 440.;
 
 pub(super) fn sidebar_width(viewport: Pixels) -> Pixels {
     if viewport < px(680.) {
-        px(52.)
+        px(56.)
     } else {
-        px(124.)
+        px(148.)
     }
 }
 
@@ -70,14 +69,6 @@ fn popup_space(
     let open_above = desired > below && above > below;
     let available = if open_above { above } else { below };
     (open_above, desired.min(available.max(px(1.))))
-}
-
-pub(super) fn hairline(cx: &App) -> Div {
-    div()
-        .w_full()
-        .h(px(1.))
-        .flex_shrink_0()
-        .bg(cx.theme().border)
 }
 
 pub(super) fn section_heading(title: &'static str, cx: &App) -> Div {
@@ -488,15 +479,26 @@ impl Panel {
         let text_system = cx.text_system();
         let font = text_system.resolve_font(&gpui_kit::font("Microsoft YaHei UI"));
         let mut advances = self.control_glyph_widths.borrow_mut();
-        text.chars()
+        let sum: f32 = text
+            .chars()
             .map(|ch| {
-                *advances.entry(ch).or_insert_with(|| {
+                let measured = *advances.entry(ch).or_insert_with(|| {
                     text_system
-                        .advance(font, px(13.), ch)
-                        .map_or(13., |size| f32::from(size.width))
-                })
+                        .advance(font, px(14.), ch)
+                        .map_or(14., |size| f32::from(size.width))
+                });
+                let is_wide = ('\u{2E80}'..='\u{9FFF}').contains(&ch)
+                    || ('\u{F900}'..='\u{FAFF}').contains(&ch)
+                    || ('\u{FF00}'..='\u{FFEF}').contains(&ch)
+                    || ('\u{3000}'..='\u{303F}').contains(&ch);
+                if is_wide {
+                    measured.max(14.5)
+                } else {
+                    measured
+                }
             })
-            .sum()
+            .sum();
+        sum * 1.06
     }
 
     pub(super) fn select(
@@ -543,20 +545,16 @@ impl Panel {
         let count = options.len();
         let measure = |text: &str| self.control_text_width(text, cx);
         let selected_width = measure(&selected);
-        let width = match width.into() {
-            SelectWidth::Fit(max) => {
-                let widest = options
-                    .iter()
-                    .map(|(label, _)| measure(label))
-                    .fold(selected_width, f32::max);
-                (widest + MENU_LABEL_INSET).clamp(88., max)
-            }
-            SelectWidth::Fixed(width) => width,
-        };
+        let widest = options
+            .iter()
+            .map(|(label, _)| measure(label))
+            .fold(selected_width, f32::max);
+        let (trigger_width, menu_width) =
+            resolve_select_widths(selected_width, widest, width.into());
         let selected_tip = option_tip(
             &selected,
             selected_option.and_then(|(_, detail)| detail.as_deref()),
-            selected_width + 46. > width,
+            selected_width + TRIGGER_LABEL_INSET > trigger_width,
         );
         let open = self
             .dropdown
@@ -576,7 +574,7 @@ impl Panel {
         let mut trigger = h_flex()
             .id(id.clone())
             .relative()
-            .w(px(width))
+            .w(px(trigger_width))
             .h_8()
             .px_2p5()
             .flex_shrink_0()
@@ -647,7 +645,7 @@ impl Panel {
             (None, "选择应用程序") => trigger.tooltip(self.tooltip("选择当前应用程序")),
             _ => trigger,
         };
-        let mut wrapper = div().relative().w(px(width)).flex_shrink_0();
+        let mut wrapper = div().relative().w(px(trigger_width)).flex_shrink_0();
         if count == 0 {
             return wrapper.child(trigger);
         }
@@ -727,7 +725,7 @@ impl Panel {
                     "options".into(),
                 ))
                 .relative()
-                .w(px(width))
+                .w(px(menu_width))
                 .max_h(menu.max_height)
                 .p(px(MENU_PADDING))
                 .gap(px(ITEM_GAP))
@@ -754,7 +752,7 @@ impl Panel {
                 let tip = option_tip(
                     &label,
                     detail.as_deref(),
-                    text_width + MENU_LABEL_INSET > width,
+                    text_width + MENU_LABEL_INSET > menu_width,
                 );
                 let active = Some(i) == menu.keyboard_choice || current == Some(i);
                 let row = h_flex()
@@ -838,6 +836,15 @@ impl Panel {
     }
 }
 
+fn resolve_select_widths(selected_width: f32, widest_option: f32, spec: SelectWidth) -> (f32, f32) {
+    let trigger = match spec {
+        SelectWidth::Fit(max) => (widest_option + TRIGGER_LABEL_INSET).clamp(84., max),
+        SelectWidth::FitSelected(max) => (selected_width + TRIGGER_LABEL_INSET).clamp(84., max),
+    };
+    let menu = trigger.max((widest_option + MENU_LABEL_INSET).clamp(84., MENU_MAX_WIDTH));
+    (trigger, menu)
+}
+
 fn option_tip(label: &str, detail: Option<&str>, clipped: bool) -> Option<String> {
     match (detail, clipped) {
         (Some(detail), true) => Some(format!("{label}\n{detail}")),
@@ -866,7 +873,7 @@ fn select_check(color: Hsla) -> impl IntoElement {
 
 #[cfg(test)]
 mod tests {
-    use super::{Bounds, point, popup_space, px};
+    use super::{Bounds, SelectWidth, point, popup_space, px, resolve_select_widths};
     use gpui_kit::size;
 
     #[test]
@@ -875,5 +882,25 @@ mod tests {
         let (above, height) = popup_space(trigger, px(720.), 6);
         assert!(above);
         assert_eq!(height, px(207.));
+    }
+
+    #[test]
+    fn select_widths_fit_gpu_and_cjk_labels_and_keep_global_compact() {
+        // "全局" (~31px) fits in a compact trigger while popup widens for long app names.
+        let (global_trigger, global_menu) =
+            resolve_select_widths(31., 230., SelectWidth::FitSelected(340.));
+        assert!((84.0..=96.0).contains(&global_trigger));
+        assert!(global_menu >= 294.);
+
+        // "跟随系统" (4 CJK chars * 14.5 * 1.06 ~= 61.5px) must never clip inside trigger or menu.
+        let (theme_trigger, theme_menu) = resolve_select_widths(61.5, 61.5, SelectWidth::Fit(340.));
+        assert!(theme_trigger >= 115.);
+        assert!(theme_menu >= theme_trigger);
+
+        // Long GPU name such as "AMD Radeon RX 9070 XT" (~175px) fits without ellipsis.
+        let (gpu_trigger, gpu_menu) =
+            resolve_select_widths(175., 175., SelectWidth::FitSelected(440.));
+        assert!(gpu_trigger >= 230.);
+        assert!(gpu_menu >= 239.);
     }
 }

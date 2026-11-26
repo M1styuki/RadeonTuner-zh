@@ -5,10 +5,10 @@ use crate::{
 };
 use anyhow::Result;
 use gpui_kit::component::{
-    ActiveTheme as _, Root, Sizable as _, alert::Alert, h_flex, scroll::Scrollbar, v_flex,
+    ActiveTheme as _, Root, Sizable as _, TitleBar, alert::Alert, h_flex, scroll::Scrollbar, v_flex,
 };
 use gpui_kit::{
-    App, AppContext as _, Bounds, Context, Div, InteractiveElement as _, IntoElement,
+    App, AppContext as _, Bounds, Context, Div, FontWeight, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _,
     Styled as _, Window, WindowBackgroundAppearance, WindowBounds, WindowOptions, canvas, div,
     point, px, rems, size,
@@ -214,7 +214,7 @@ impl Render for Panel {
             self.frame_dark = Some(dark);
         }
 
-        let mut content = v_flex().w_full().gap_3().px_5().pb_5().pt_4();
+        let mut content = v_flex().w_full().gap_3().px_6().pt_1().pb_6();
         if self.page != 6 && self.updates.has_notice() {
             content = content.child(self.update_controls(cx));
         }
@@ -297,10 +297,10 @@ impl Render for Panel {
             .h_full()
             .flex_shrink_0()
             .bg(cx.theme().sidebar)
-            .border_r_1()
-            .border_color(cx.theme().sidebar_border)
-            .p_1p5()
-            .gap_1()
+            .px_2()
+            .pt_2()
+            .pb_3()
+            .gap_2()
             .child(
                 v_flex()
                     .id("nav-scroll")
@@ -309,7 +309,6 @@ impl Render for Panel {
                     .overflow_y_scroll()
                     .child(nav_list),
             )
-            .child(controls::hairline(cx))
             .child(self.nav_item(
                 "exit",
                 "退出",
@@ -340,25 +339,42 @@ impl Render for Panel {
             )
             .child(Scrollbar::vertical(&self.content_scroll));
 
-        let mut window_content = h_flex()
+        let mut window_content = v_flex()
             .relative()
             .size_full()
-            .bg(cx.theme().background)
             .text_sm()
             .text_color(cx.theme().foreground)
             .font_family("Microsoft YaHei UI")
-            .items_stretch()
-            .child(nav)
             .child(
-                v_flex()
+                TitleBar::new()
+                    .border_b_0()
+                    .bg(cx.theme().transparent)
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(cx.theme().muted_foreground)
+                            .child("RadeonTuner"),
+                    ),
+            )
+            .child(
+                h_flex()
                     .flex_1()
-                    .h_full()
-                    .min_w_0()
-                    .child(self.render_header(viewport.width, cx))
-                    .child(v_flex().flex_1().min_h_0().w_full().child(motion::entrance(
-                        SharedString::from(format!("page-entrance-{}", self.page)),
-                        content_area,
-                    ))),
+                    .min_h_0()
+                    .w_full()
+                    .items_stretch()
+                    .child(nav)
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .h_full()
+                            .min_w_0()
+                            .child(self.render_header(viewport.width, cx))
+                            .child(v_flex().flex_1().min_h_0().w_full().child(motion::entrance(
+                                SharedString::from(format!("page-entrance-{}", self.page)),
+                                content_area,
+                            ))),
+                    ),
             );
         if self.picker.is_some() {
             window_content = window_content.child(self.modal(self.render_picker(cx), cx));
@@ -510,11 +526,15 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
                     window_background: WindowBackgroundAppearance::MicaBackdrop,
-                    ..Default::default()
+                    ..TitleBar::window_options()
                 },
                 |window, cx| {
                     window.set_window_title(TITLE);
                     set_window_icon(window);
+                    let system_light = theme::is_system_light(window.appearance());
+                    let dark = !theme::is_light(panel.style, system_light);
+                    theme::set_caption_dark(window, dark);
+                    panel.frame_dark = Some(dark);
                     panel.mica = theme::enable_mica(window);
                     theme::sync_theme(Some(window), panel.style, panel.mica, cx);
                     panel.applied_theme = Some((

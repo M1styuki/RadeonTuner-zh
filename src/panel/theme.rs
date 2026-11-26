@@ -100,6 +100,7 @@ pub(super) fn sync_theme(window: Option<&mut Window>, style: i64, has_mica: bool
     }
 
     Theme::update(cx, |theme| {
+        theme.font_family = "Microsoft YaHei UI".into();
         theme.font_size = px(16.);
         theme.radius = px(6.);
         theme.radius_lg = px(10.);
@@ -107,25 +108,25 @@ pub(super) fn sync_theme(window: Option<&mut Window>, style: i64, has_mica: bool
         theme.focus_ring = true;
 
         if light {
-            theme.colors.background = if has_mica { a(0xf3f3f3c8) } else { c(0xf3f3f3) };
+            theme.colors.background = if has_mica { a(0x00000000) } else { c(0xf3f3f3) };
             theme.colors.foreground = c(0x1a1a1a);
             theme.colors.muted = c(0xeaeaea);
             theme.colors.muted_foreground = c(0x5c5c5c);
 
-            theme.colors.group_box = if has_mica { a(0xffffffdc) } else { c(0xffffff) };
+            theme.colors.group_box = if has_mica { a(0xffffffb8) } else { c(0xffffff) };
             theme.colors.group_box_foreground = c(0x1a1a1a);
 
             theme.colors.popover = c(0xf9f9f9);
             theme.colors.popover_foreground = c(0x1a1a1a);
 
-            theme.colors.sidebar = if has_mica { a(0xf3f3f348) } else { c(0xeeeeee) };
+            theme.colors.sidebar = if has_mica { a(0x00000000) } else { c(0xeeeeee) };
             theme.colors.sidebar_foreground = c(0x1a1a1a);
             theme.colors.sidebar_accent = a(0x0000000e);
             theme.colors.sidebar_accent_foreground = c(0x1a1a1a);
             theme.colors.sidebar_border = a(0x00000014);
 
-            theme.colors.title_bar = if has_mica { a(0xf3f3f330) } else { c(0xeeeeee) };
-            theme.colors.title_bar_border = a(0x00000012);
+            theme.colors.title_bar = if has_mica { a(0x00000000) } else { c(0xeeeeee) };
+            theme.colors.title_bar_border = a(0x00000000);
 
             theme.colors.border = a(0x00000018);
             theme.colors.input = a(0x00000024);
@@ -180,9 +181,9 @@ pub(super) fn sync_theme(window: Option<&mut Window>, style: i64, has_mica: bool
             theme.colors.scrollbar_thumb_hover = a(0x0000004c);
         } else {
             theme.colors.background = if pure_black {
-                if has_mica { a(0x0a0a0ad8) } else { c(0x0a0a0a) }
+                if has_mica { a(0x00000078) } else { c(0x0a0a0a) }
             } else if has_mica {
-                a(0x202020c8)
+                a(0x00000000)
             } else {
                 c(0x202020)
             };
@@ -191,7 +192,7 @@ pub(super) fn sync_theme(window: Option<&mut Window>, style: i64, has_mica: bool
             theme.colors.muted_foreground = c(0xa3a3a3);
 
             theme.colors.group_box = if pure_black {
-                c(0x14161a)
+                if has_mica { a(0xffffff0c) } else { c(0x14161a) }
             } else if has_mica {
                 a(0xffffff0d)
             } else {
@@ -202,10 +203,10 @@ pub(super) fn sync_theme(window: Option<&mut Window>, style: i64, has_mica: bool
             theme.colors.popover = if pure_black { c(0x16181c) } else { c(0x2c2c2c) };
             theme.colors.popover_foreground = c(0xf5f5f5);
 
-            theme.colors.sidebar = if pure_black {
-                if has_mica { a(0x08080880) } else { c(0x080808) }
-            } else if has_mica {
-                a(0x20202040)
+            theme.colors.sidebar = if has_mica {
+                a(0x00000000)
+            } else if pure_black {
+                c(0x080808)
             } else {
                 c(0x1c1c1c)
             };
@@ -214,14 +215,14 @@ pub(super) fn sync_theme(window: Option<&mut Window>, style: i64, has_mica: bool
             theme.colors.sidebar_accent_foreground = c(0xffffff);
             theme.colors.sidebar_border = a(0xffffff14);
 
-            theme.colors.title_bar = if pure_black {
-                if has_mica { a(0x08080860) } else { c(0x080808) }
-            } else if has_mica {
-                a(0x20202028)
+            theme.colors.title_bar = if has_mica {
+                a(0x00000000)
+            } else if pure_black {
+                c(0x080808)
             } else {
                 c(0x1c1c1c)
             };
-            theme.colors.title_bar_border = a(0xffffff12);
+            theme.colors.title_bar_border = a(0x00000000);
 
             theme.colors.border = a(0xffffff18);
             theme.colors.input = a(0xffffff26);
