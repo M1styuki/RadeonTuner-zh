@@ -12,7 +12,7 @@ use std::{
 
 const API: &str = "https://api.github.com/repos/M1styuki/RadeonTuner-zh";
 pub const RELEASES: &str = "https://github.com/M1styuki/RadeonTuner-zh/releases";
-const ASSET: &str = "RadeonTuner-Rust-x64.exe";
+const ASSET: &str = "RadeonTuner.exe";
 const TOKEN_ENV: &str = "RADEONTUNER_GITHUB_TOKEN";
 #[derive(Deserialize)]
 struct Release {
@@ -47,7 +47,7 @@ fn select(releases: Vec<Release>, current: &Version, access: Access) -> Result<O
         .into_iter()
         .filter(|r| !r.draft && !r.prerelease)
         .filter_map(|r| {
-            let version = Version::parse(r.tag_name.strip_prefix("rust-v")?).ok()?;
+            let version = Version::parse(r.tag_name.strip_prefix('v')?).ok()?;
             let asset = r.assets.into_iter().find(|a| a.name == ASSET)?;
             (version.pre.is_empty() && &version > current).then_some((version, asset))
         })
@@ -244,7 +244,7 @@ pub fn install(update: &Update) -> Result<()> {
     )?;
     ensure!(
         result.status.success(),
-        "下载 Rust 更新失败：{}",
+        "下载更新失败：{}",
         String::from_utf8_lossy(&result.stderr).trim()
     );
     file.flush()?;
@@ -272,17 +272,17 @@ mod tests {
         };
         let check = select(
             vec![
-                r("v8.0.0", false),
-                r("rust-v2.0.0", true),
-                r("rust-v0.74.0", false),
-                r("rust-v0.76.0", false),
+                r("legacy-8.0.0", false),
+                r("v2.0.0-rc.1", true),
+                r("v0.9.0", false),
+                r("v1.1.0", false),
             ],
-            &Version::new(0, 75, 0),
+            &Version::new(1, 0, 0),
             Access::Public,
         )
         .unwrap()
         .unwrap();
-        assert_eq!(check.version, Version::new(0, 76, 0));
+        assert_eq!(check.version, Version::new(1, 1, 0));
         let mut file = tempfile::NamedTempFile::new().unwrap();
         file.write_all(b"fixture").unwrap();
         verify(file.path(), &check).unwrap();

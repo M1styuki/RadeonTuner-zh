@@ -21,7 +21,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     SetForegroundWindow, SetWindowPos, ShowWindow,
 };
 
-pub const TITLE: &str = "RadeonTuner · Rust";
+pub const TITLE: &str = "RadeonTuner";
 mod controls;
 mod curve;
 mod display;
@@ -177,7 +177,7 @@ impl Panel {
                     .text_sm()
                     .font_weight(gpui_kit::FontWeight::MEDIUM)
                     .child(format!(
-                        "RadeonTuner · 原作者 Arnold Vink · Rust 版 {}",
+                        "RadeonTuner v{} · 原作者 Arnold Vink",
                         env!("CARGO_PKG_VERSION")
                     )),
             )

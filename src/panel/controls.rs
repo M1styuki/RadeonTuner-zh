@@ -2,7 +2,7 @@ use super::{
     Panel,
     layout::nav_icon,
     motion::{pointer_feedback, pointer_feedback_corners, smooth_spring, smooth_value},
-    shape::{ContinuousCorners as _, paint_outline},
+    shape::{ContinuousCorners as _, HighlightRing, paint_outline},
 };
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::{
@@ -190,11 +190,19 @@ pub(super) fn chevron_right(color: Hsla) -> impl IntoElement {
     .flex_shrink_0()
 }
 
-pub(super) fn control_highlight(cx: &App) -> Hsla {
+pub(super) fn control_highlight(cx: &App) -> HighlightRing {
     if cx.theme().is_dark() {
-        cx.theme().switch_thumb.opacity(0.14)
+        HighlightRing {
+            top: cx.theme().switch_thumb.opacity(0.16),
+            rest: cx.theme().switch_thumb.opacity(0.08),
+            stop: 0.28,
+        }
     } else {
-        cx.theme().switch_thumb.opacity(0.85)
+        HighlightRing {
+            top: cx.theme().foreground.opacity(0.08),
+            rest: cx.theme().foreground.opacity(0.14),
+            stop: 0.82,
+        }
     }
 }
 
@@ -370,7 +378,11 @@ impl Panel {
         let is_inline = matches!(tone, ButtonTone::Inline);
         let highlight = match tone {
             ButtonTone::Secondary => Some(control_highlight(cx)),
-            ButtonTone::Primary | ButtonTone::Danger => Some(cx.theme().switch_thumb.opacity(0.22)),
+            ButtonTone::Primary | ButtonTone::Danger => Some(HighlightRing {
+                top: cx.theme().switch_thumb.opacity(0.24),
+                rest: cx.theme().switch_thumb.opacity(0.10),
+                stop: 0.28,
+            }),
             ButtonTone::Inline => None,
         };
         let mut btn = h_flex()

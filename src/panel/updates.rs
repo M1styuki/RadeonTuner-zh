@@ -34,7 +34,7 @@ impl Panel {
                     Ok(update) => {
                         p.updates.found = update;
                         p.updates.status = if p.updates.found.is_none() && manual {
-                            "已是最新的 Rust 发行版".into()
+                            "已是最新版本".into()
                         } else {
                             String::new()
                         };
@@ -88,7 +88,7 @@ impl Panel {
         if self.page == 6 {
             row = row.child(self.contour_button(
                 "check-update",
-                "检查 Rust 版更新",
+                "检查更新",
                 !self.updates.busy,
                 None,
                 |p, _, cx| p.check_updates(true, cx),
