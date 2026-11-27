@@ -1,7 +1,7 @@
 use super::{
     Panel,
-    motion::{pointer_feedback, smooth_value},
-    shape::{ContinuousCorners as _, paint_outline},
+    motion::pointer_feedback,
+    shape::{ContinuousCorners as _, focus_ring_layer},
 };
 use gpui_kit::component::{ActiveTheme as _, h_flex};
 use gpui_kit::{
@@ -299,31 +299,7 @@ impl Panel {
             .overflow_hidden()
             .text_sm()
             .rounded(cx.theme().radius)
-            .contour_highlight(
-                Some(cx.theme().button),
-                Some(super::controls::control_highlight(cx)),
-                radius,
-            )
-            .child(
-                canvas(
-                    move |_, window, cx| {
-                        smooth_value(
-                            (focus_id.clone(), "num-focus"),
-                            if is_editing { 1. } else { 0. },
-                            Duration::from_millis(130),
-                            window,
-                            cx,
-                        )
-                    },
-                    move |bounds, amount, window, _| {
-                        paint_outline(bounds, focus_border.opacity(amount), radius, window);
-                    },
-                )
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full(),
-            );
+            .contour_fill(cx.theme().button, radius);
         if !is_editing {
             base = pointer_feedback(
                 (id, "num-fb"),
@@ -333,6 +309,15 @@ impl Panel {
                 radius,
             );
         }
+        let base = base
+            .ring_highlight(super::controls::control_highlight(cx), radius)
+            .child(focus_ring_layer(
+                (focus_id, "num-focus"),
+                is_editing,
+                focus_border,
+                radius,
+                Duration::from_millis(130),
+            ));
         if let Some(edit) = edit {
             let (l, r) = (edit.anchor.min(edit.cursor), edit.anchor.max(edit.cursor));
             return base
