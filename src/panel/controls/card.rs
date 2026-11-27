@@ -1,5 +1,5 @@
 use super::{Panel, chevron_right};
-use crate::panel::motion::pointer_feedback_corners;
+use crate::panel::{motion::pointer_feedback_corners, shape::ContinuousCorners as _};
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::{
     App, Context, Corners, Div, ElementId, FontWeight, InteractiveElement as _, IntoElement,
@@ -18,13 +18,15 @@ pub(in crate::panel) fn section_heading(title: &'static str, cx: &App) -> Div {
 }
 
 pub(in crate::panel) fn section_card(cx: &App) -> Div {
+    let radius = f32::from(cx.theme().radius_lg);
     v_flex()
         .relative()
         .w_full()
         .overflow_hidden()
+        // `.rounded` shapes only `.shadow_xs()`; surface fill uses continuous corners.
         .rounded(cx.theme().radius_lg)
-        .bg(cx.theme().group_box)
         .shadow_xs()
+        .contour_fill(cx.theme().group_box, radius)
 }
 
 pub(in crate::panel) enum CardItem {
@@ -61,7 +63,14 @@ pub(in crate::panel) fn card_rows<I: Into<CardItem>>(
                 CardItem::Static(row) => row,
                 CardItem::Interactive(build) => build(corners),
             };
-            let tile = row.w_full().overflow_hidden().bg(surface).shadow_xs();
+            // Keep `.rounded*()` solely to shape `.shadow_xs()`; tile fill uses continuous corners.
+            let tile = div()
+                .relative()
+                .w_full()
+                .overflow_hidden()
+                .shadow_xs()
+                .contour_fill_corners(surface, corners)
+                .child(row.w_full());
             match (top, bottom) {
                 (true, true) => tile.rounded(radius),
                 (true, false) => tile.rounded_t(radius),

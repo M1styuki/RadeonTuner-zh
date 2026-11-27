@@ -640,7 +640,6 @@ impl Panel {
             // Keep part of the right padding inside the scroll viewport so the
             // last input outline never sits directly on the clipping edge.
             .pr(px(CARD_PADDING - SCROLL_EDGE_GUTTER))
-            .rounded(cx.theme().radius)
             .contour(Some(cx.theme().button), None, f32::from(cx.theme().radius))
             .child(
                 div()

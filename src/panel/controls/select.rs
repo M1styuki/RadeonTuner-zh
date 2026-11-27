@@ -137,7 +137,6 @@ impl Panel {
             .flex_shrink_0()
             .justify_between()
             .gap_2()
-            .rounded(cx.theme().radius)
             .contour_fill(cx.theme().button, radius)
             .when(count == 0, |d| d.opacity(0.45));
 

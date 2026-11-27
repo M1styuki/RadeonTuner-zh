@@ -70,7 +70,6 @@ impl Panel {
             .items_center()
             .when(is_inline, |d| d.h_7().px_2p5())
             .when(!is_inline, |d| d.h_8().min_w(rems(4.375)).px_3())
-            .rounded(cx.theme().radius)
             .when_some(fill, |d, color| d.contour_fill(color, radius))
             .text_sm()
             .font_weight(FontWeight::MEDIUM)

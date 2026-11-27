@@ -5,16 +5,59 @@ use gpui_kit::{
 };
 use std::time::Duration;
 
-fn path(bounds: Bounds<Pixels>, radius: f32, mut path: PathBuilder) -> PathBuilder {
+fn path_corners(
+    bounds: Bounds<Pixels>,
+    corners: gpui_kit::Corners<Pixels>,
+    mut path: PathBuilder,
+) -> PathBuilder {
     let left = f32::from(bounds.origin.x);
     let top = f32::from(bounds.origin.y);
     let right = f32::from(bounds.right());
     let bottom = f32::from(bounds.bottom());
-    let r = (radius * 1.65)
-        .min((right - left) / 2.)
-        .min((bottom - top) / 2.)
-        .max(0.);
-    let corner = |x: f32, y: f32, dx: f32, dy: f32, path: &mut PathBuilder, start: bool| {
+    let w = (right - left).max(0.);
+    let h = (bottom - top).max(0.);
+
+    let mut tl = (f32::from(corners.top_left) * 1.65).max(0.);
+    let mut tr = (f32::from(corners.top_right) * 1.65).max(0.);
+    let mut br = (f32::from(corners.bottom_right) * 1.65).max(0.);
+    let mut bl = (f32::from(corners.bottom_left) * 1.65).max(0.);
+
+    let mut scale = 1.0f32;
+    if tl + tr > w && tl + tr > 0. {
+        scale = scale.min(w / (tl + tr));
+    }
+    if bl + br > w && bl + br > 0. {
+        scale = scale.min(w / (bl + br));
+    }
+    if tl + bl > h && tl + bl > 0. {
+        scale = scale.min(h / (tl + bl));
+    }
+    if tr + br > h && tr + br > 0. {
+        scale = scale.min(h / (tr + br));
+    }
+    tl *= scale;
+    tr *= scale;
+    br *= scale;
+    bl *= scale;
+
+    let corner = |x: f32,
+                  y: f32,
+                  dx: f32,
+                  dy: f32,
+                  sharp_x: f32,
+                  sharp_y: f32,
+                  r: f32,
+                  path: &mut PathBuilder,
+                  start: bool| {
+        if r <= 0. {
+            let p = point(px(sharp_x), px(sharp_y));
+            if start {
+                path.move_to(p);
+            } else {
+                path.line_to(p);
+            }
+            return;
+        }
         let at = |along: f32, across: f32| {
             point(
                 px(x + dx * along - dy * across),
@@ -29,12 +72,36 @@ fn path(bounds: Bounds<Pixels>, radius: f32, mut path: PathBuilder) -> PathBuild
         path.cubic_bezier_to(at(0.8, 0.2), at(0.275, 0.), at(0.6, 0.));
         path.cubic_bezier_to(at(1., 1.), at(1., 0.4), at(1., 0.725));
     };
-    corner(right - r, top, r, 0., &mut path, true);
-    corner(right, bottom - r, 0., r, &mut path, false);
-    corner(left + r, bottom, -r, 0., &mut path, false);
-    corner(left, top + r, 0., -r, &mut path, false);
+    corner(right - tr, top, tr, 0., right, top, tr, &mut path, true);
+    corner(
+        right,
+        bottom - br,
+        0.,
+        br,
+        right,
+        bottom,
+        br,
+        &mut path,
+        false,
+    );
+    corner(
+        left + bl,
+        bottom,
+        -bl,
+        0.,
+        left,
+        bottom,
+        bl,
+        &mut path,
+        false,
+    );
+    corner(left, top + tl, 0., -tl, left, top, tl, &mut path, false);
     path.close();
     path
+}
+
+fn path(bounds: Bounds<Pixels>, radius: f32, path: PathBuilder) -> PathBuilder {
+    path_corners(bounds, gpui_kit::Corners::all(px(radius)), path)
 }
 
 pub fn paint_fill(bounds: Bounds<Pixels>, color: Hsla, radius: f32, window: &mut Window) {
@@ -57,7 +124,15 @@ pub fn paint_fill_corners(
     if color.a == 0. || bounds.size.width <= px(0.) || bounds.size.height <= px(0.) {
         return;
     }
-    window.paint_quad(fill(bounds, color).corner_radii(corners));
+    if corners.top_left <= px(0.)
+        && corners.top_right <= px(0.)
+        && corners.bottom_right <= px(0.)
+        && corners.bottom_left <= px(0.)
+    {
+        window.paint_quad(fill(bounds, color));
+    } else if let Ok(shape) = path_corners(bounds, corners, PathBuilder::fill()).build() {
+        window.paint_path(shape, color);
+    }
 }
 
 pub fn paint_outline(bounds: Bounds<Pixels>, color: Hsla, radius: f32, window: &mut Window) {
@@ -143,6 +218,20 @@ pub fn fill_layer(fill: Hsla, radius: f32) -> AnyElement {
     .into_any_element()
 }
 
+pub fn fill_corners_layer(fill: Hsla, corners: gpui_kit::Corners<Pixels>) -> AnyElement {
+    canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            paint_fill_corners(bounds, fill, corners, window);
+        },
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
+    .into_any_element()
+}
+
 pub fn ring_layer(highlight: HighlightRing, radius: f32) -> AnyElement {
     canvas(
         |_, _, _| (),
@@ -195,9 +284,55 @@ pub trait ContinuousCorners: Styled + ParentElement + Sized {
         self.child(fill_layer(fill, radius))
     }
 
+    fn contour_fill_corners(self, fill: Hsla, corners: gpui_kit::Corners<Pixels>) -> Self {
+        self.child(fill_corners_layer(fill, corners))
+    }
+
     fn ring_highlight(self, highlight: HighlightRing, radius: f32) -> Self {
         self.child(ring_layer(highlight, radius))
     }
 }
 
 impl<T: Styled + ParentElement> ContinuousCorners for T {}
+
+#[cfg(test)]
+mod tests {
+    use super::path_corners;
+    use gpui_kit::{Bounds, Corners, PathBuilder, point, px, size};
+
+    #[test]
+    fn path_corners_builds_for_uniform_top_bottom_and_narrow_rects() {
+        let standard = Bounds::new(point(px(0.), px(0.)), size(px(240.), px(56.)));
+        let narrow = Bounds::new(point(px(0.), px(0.)), size(px(12.), px(8.)));
+        let r = px(10.);
+        let cases = [
+            (standard, Corners::all(r)),
+            (
+                standard,
+                Corners {
+                    top_left: r,
+                    top_right: r,
+                    bottom_right: px(0.),
+                    bottom_left: px(0.),
+                },
+            ),
+            (
+                standard,
+                Corners {
+                    top_left: px(0.),
+                    top_right: px(0.),
+                    bottom_right: r,
+                    bottom_left: r,
+                },
+            ),
+            (narrow, Corners::all(r)),
+        ];
+        for (bounds, corners) in cases {
+            assert!(
+                path_corners(bounds, corners, PathBuilder::fill())
+                    .build()
+                    .is_ok()
+            );
+        }
+    }
+}

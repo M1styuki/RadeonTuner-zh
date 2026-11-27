@@ -298,7 +298,6 @@ impl Panel {
             .whitespace_nowrap()
             .overflow_hidden()
             .text_sm()
-            .rounded(cx.theme().radius)
             .contour_fill(cx.theme().button, radius);
         if !is_editing {
             base = pointer_feedback(
