@@ -523,7 +523,7 @@ impl Panel {
                 labels,
                 Some(page.display_index),
                 "选择显示器",
-                crate::panel::controls::SelectWidth::FitSelected(360.),
+                crate::panel::controls::SelectWidth::Fit(360.),
                 |p, i, _| {
                     p.display.display_index = i;
                     p.display.app = "Global".into();

@@ -1,7 +1,7 @@
 use super::{Panel, animated_chevron, control_highlight};
 use crate::panel::{
     motion::pointer_feedback,
-    shape::{ContinuousCorners as _, focus_ring_layer},
+    shape::{ContinuousCorners as _, focus_ring_layer, offset_radius},
 };
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::{
@@ -13,11 +13,10 @@ use gpui_kit::{
 use std::{cell::Cell, rc::Rc, time::Duration};
 
 pub(in crate::panel) const SELECT_MAX_WIDTH: f32 = 340.;
-pub(in crate::panel) const PROFILE_SELECT_WIDTH: SelectWidth = SelectWidth::FitSelected(340.);
+pub(in crate::panel) const PROFILE_SELECT_WIDTH: SelectWidth = SelectWidth::Fit(340.);
 
 pub(in crate::panel) enum SelectWidth {
     Fit(f32),
-    FitSelected(f32),
 }
 
 impl From<f32> for SelectWidth {
@@ -36,10 +35,9 @@ pub(in crate::panel) struct Dropdown {
 
 const ITEM_HEIGHT: f32 = 30.;
 const ITEM_GAP: f32 = 3.;
-const MENU_PADDING: f32 = 6.;
+const MENU_PADDING: f32 = 5.;
 const MENU_OFFSET: f32 = 7.;
 const TRIGGER_LABEL_INSET: f32 = 56.;
-const MENU_LABEL_INSET: f32 = 56.;
 
 fn popup_space(
     trigger: Bounds<Pixels>,
@@ -107,8 +105,7 @@ impl Panel {
             .iter()
             .map(|(label, _)| measure(label))
             .fold(selected_width, f32::max);
-        let (trigger_width, menu_width) =
-            resolve_select_widths(selected_width, widest, width.into());
+        let (trigger_width, menu_width) = resolve_select_widths(widest, width.into());
         let selected_tip = option_tip(
             &selected,
             selected_option.and_then(|(_, detail)| detail.as_deref()),
@@ -290,6 +287,7 @@ impl Panel {
                         cx.notify();
                     }
                 }));
+            let option_radius = offset_radius(popup_radius, MENU_PADDING);
             for (i, (label, detail)) in options.into_iter().enumerate() {
                 let text_width = measure(&label);
                 let choose = change.clone();
@@ -297,7 +295,7 @@ impl Panel {
                 let tip = option_tip(
                     &label,
                     detail.as_deref(),
-                    text_width + MENU_LABEL_INSET > menu_width,
+                    text_width + TRIGGER_LABEL_INSET > menu_width,
                 );
                 let active = Some(i) == menu.keyboard_choice || current == Some(i);
                 let row = h_flex()
@@ -308,7 +306,7 @@ impl Panel {
                     .px_2()
                     .gap_2()
                     .items_center()
-                    .when(active, |d| d.contour(Some(accent), None, 4.));
+                    .when(active, |d| d.contour(Some(accent), None, option_radius));
 
                 let row = pointer_feedback(
                     ElementId::NamedChild(
@@ -318,7 +316,7 @@ impl Panel {
                     row,
                     accent.opacity(0.65),
                     accent,
-                    4.,
+                    option_radius,
                 );
 
                 list = list.child(
@@ -381,16 +379,11 @@ impl Panel {
     }
 }
 
-fn resolve_select_widths(selected_width: f32, widest_option: f32, spec: SelectWidth) -> (f32, f32) {
+fn resolve_select_widths(widest_option: f32, spec: SelectWidth) -> (f32, f32) {
     match spec {
         SelectWidth::Fit(max) => {
             let width = (widest_option + TRIGGER_LABEL_INSET).clamp(84., max);
             (width, width)
-        }
-        SelectWidth::FitSelected(max) => {
-            let trigger = (selected_width + TRIGGER_LABEL_INSET).clamp(84., max);
-            let menu = trigger.max((widest_option + MENU_LABEL_INSET).clamp(84., max));
-            (trigger, menu)
         }
     }
 }
@@ -431,22 +424,20 @@ mod tests {
         let trigger = Bounds::new(point(px(100.), px(628.)), size(px(90.), px(32.)));
         let (above, height) = popup_space(trigger, px(720.), 6);
         assert!(above);
-        assert_eq!(height, px(207.));
+        assert_eq!(height, px(205.));
     }
 
     #[test]
-    fn select_widths_fit_gpu_and_cjk_labels_and_keep_global_compact() {
-        let (global_trigger, global_menu) =
-            resolve_select_widths(31., 230., SelectWidth::FitSelected(340.));
-        assert!((84.0..=96.0).contains(&global_trigger));
-        assert!(global_menu >= 286.);
+    fn select_widths_keep_trigger_and_menu_equal_width() {
+        let (global_trigger, global_menu) = resolve_select_widths(230., SelectWidth::Fit(340.));
+        assert_eq!(global_menu, global_trigger);
+        assert!(global_trigger >= 286.);
 
-        let (theme_trigger, theme_menu) = resolve_select_widths(61.5, 61.5, SelectWidth::Fit(340.));
+        let (theme_trigger, theme_menu) = resolve_select_widths(61.5, SelectWidth::Fit(340.));
         assert!(theme_trigger >= 115.);
         assert_eq!(theme_menu, theme_trigger);
 
-        let (gpu_trigger, gpu_menu) =
-            resolve_select_widths(175., 175., SelectWidth::FitSelected(440.));
+        let (gpu_trigger, gpu_menu) = resolve_select_widths(175., SelectWidth::Fit(440.));
         assert!(gpu_trigger >= 230.);
         assert_eq!(gpu_menu, gpu_trigger);
     }

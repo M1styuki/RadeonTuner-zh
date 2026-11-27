@@ -286,7 +286,7 @@ impl Panel {
                 labels,
                 selected,
                 "选择显卡",
-                SelectWidth::FitSelected(440.),
+                SelectWidth::Fit(440.),
                 move |p, i, _| {
                     p.finish_preview(false);
                     p.selected = indices[i];

@@ -118,7 +118,7 @@ fn win11_switch(
                         bounds,
                         px(radius),
                         track_bg,
-                        px(1.0),
+                        px(1.1),
                         track_border,
                         BorderStyle::Solid,
                     ));

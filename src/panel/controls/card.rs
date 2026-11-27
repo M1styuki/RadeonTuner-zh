@@ -50,7 +50,7 @@ pub(in crate::panel) fn card_rows<I: Into<CardItem>>(
     let surface = cx.theme().group_box;
     v_flex()
         .w_full()
-        .gap(px(2.))
+        .gap(px(1.5))
         .children(rows.into_iter().enumerate().map(|(i, item)| {
             let (top, bottom) = (i == 0, i + 1 == count);
             let corners = Corners {

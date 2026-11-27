@@ -130,7 +130,7 @@ pub(super) fn sync_theme(window: Option<&mut Window>, style: i64, has_mica: bool
     Theme::update(cx, |theme| {
         theme.font_family = "Microsoft YaHei UI".into();
         theme.font_size = px(16.);
-        theme.radius = px(6.);
+        theme.radius = px(5.);
         theme.radius_lg = px(10.);
         theme.shadow = true;
         theme.focus_ring = false;
