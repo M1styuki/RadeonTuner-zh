@@ -17,8 +17,7 @@ use gpui_kit::{
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{cell::RefCell, collections::HashMap, time::Duration};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    IsIconic, SW_SHOW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-    SetForegroundWindow, SetWindowPos, ShowWindow,
+    IsIconic, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowPos,
 };
 
 pub const TITLE: &str = "RadeonTuner";
@@ -556,87 +555,89 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
 
             let bounds = Bounds::centered(None, size(px(860.), px(720.)), cx);
             let mut hwnd_cell = None;
-            cx.open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    titlebar: Some(TitlebarOptions {
-                        title: Some(TITLE.into()),
-                        appears_transparent: true,
+            let handle = cx
+                .open_window(
+                    WindowOptions {
+                        window_bounds: Some(WindowBounds::Windowed(bounds)),
+                        window_min_size: Some(size(px(540.), px(460.))),
+                        titlebar: Some(TitlebarOptions {
+                            title: Some(TITLE.into()),
+                            appears_transparent: true,
+                            ..Default::default()
+                        }),
+                        window_background: WindowBackgroundAppearance::MicaBackdrop,
+                        window_decorations: Some(WindowDecorations::Client),
+                        app_owns_titlebar_drag: true,
+                        show: false,
+                        focus: false,
                         ..Default::default()
-                    }),
-                    window_background: WindowBackgroundAppearance::MicaBackdrop,
-                    window_decorations: Some(WindowDecorations::Client),
-                    app_owns_titlebar_drag: true,
-                    show: false,
-                    focus: false,
-                    ..Default::default()
-                },
-                |window, cx| {
-                    set_window_icon(window);
-                    let system_light = theme::is_system_light(window.appearance());
-                    let dark = !theme::is_light(panel.style, system_light);
-                    theme::set_caption_dark(window, dark);
-                    panel.frame_dark = Some(dark);
-                    panel.mica = theme::enable_mica(window);
-                    theme::sync_theme(Some(window), panel.style, panel.mica, cx);
-                    panel.applied_theme = Some((
-                        panel.style,
-                        theme::is_system_light(window.appearance()),
-                        panel.mica,
-                    ));
-                    let hwnd = HasWindowHandle::window_handle(window)
-                        .ok()
-                        .and_then(|handle| match handle.as_raw() {
-                            RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
-                            _ => None,
-                        });
-                    hwnd_cell = hwnd;
-                    if panel.topmost {
-                        if let Err(err) = crate::tray::topmost(true) {
-                            panel.message = err.to_string();
-                        }
-                    }
-                    let view = cx.new(|cx: &mut Context<Panel>| {
-                        if panel.start_check_update
-                            && std::env::args_os().any(|a| a == "--first-panel")
-                        {
-                            panel.check_updates(false, cx);
-                        }
-                        if poll_hardware {
-                            let clock = cx.background_executor().clone();
-                            cx.spawn(async move |view, cx| {
-                                loop {
-                                    clock.timer(Duration::from_secs(2)).await;
-                                    if view
-                                        .update(cx, |panel, cx| {
-                                            let preview_active = panel.poll_preview();
-                                            let visible = hwnd.is_none_or(|hwnd| unsafe {
-                                                IsIconic(hwnd as _) == 0
-                                            });
-                                            let readings_changed = visible && panel.refresh();
-                                            if preview_active || readings_changed {
-                                                cx.notify();
-                                            }
-                                        })
-                                        .is_err()
-                                    {
-                                        break;
-                                    }
-                                }
-                            })
-                            .detach();
-                        }
-                        if panel.settings.flag("FirstLaunch", true).unwrap_or(false) {
-                            if let Err(err) = panel.settings.set_flag("FirstLaunch", false) {
-                                panel.message = format!("保存首次启动状态失败：{err}");
+                    },
+                    |window, cx| {
+                        set_window_icon(window);
+                        let system_light = theme::is_system_light(window.appearance());
+                        let dark = !theme::is_light(panel.style, system_light);
+                        theme::set_caption_dark(window, dark);
+                        panel.frame_dark = Some(dark);
+                        panel.mica = theme::enable_mica(window);
+                        theme::sync_theme(Some(window), panel.style, panel.mica, cx);
+                        panel.applied_theme = Some((
+                            panel.style,
+                            theme::is_system_light(window.appearance()),
+                            panel.mica,
+                        ));
+                        let hwnd = HasWindowHandle::window_handle(window)
+                            .ok()
+                            .and_then(|handle| match handle.as_raw() {
+                                RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
+                                _ => None,
+                            });
+                        hwnd_cell = hwnd;
+                        if panel.topmost {
+                            if let Err(err) = crate::tray::topmost(true) {
+                                panel.message = err.to_string();
                             }
                         }
-                        panel
-                    });
-                    cx.new(|cx| Root::new(view, window, cx))
-                },
-            )
-            .expect("无法创建 GPUI 面板");
+                        let view = cx.new(|cx: &mut Context<Panel>| {
+                            if panel.start_check_update
+                                && std::env::args_os().any(|a| a == "--first-panel")
+                            {
+                                panel.check_updates(false, cx);
+                            }
+                            if poll_hardware {
+                                let clock = cx.background_executor().clone();
+                                cx.spawn(async move |view, cx| {
+                                    loop {
+                                        clock.timer(Duration::from_secs(2)).await;
+                                        if view
+                                            .update(cx, |panel, cx| {
+                                                let preview_active = panel.poll_preview();
+                                                let visible = hwnd.is_none_or(|hwnd| unsafe {
+                                                    IsIconic(hwnd as _) == 0
+                                                });
+                                                let readings_changed = visible && panel.refresh();
+                                                if preview_active || readings_changed {
+                                                    cx.notify();
+                                                }
+                                            })
+                                            .is_err()
+                                        {
+                                            break;
+                                        }
+                                    }
+                                })
+                                .detach();
+                            }
+                            if panel.settings.flag("FirstLaunch", true).unwrap_or(false) {
+                                if let Err(err) = panel.settings.set_flag("FirstLaunch", false) {
+                                    panel.message = format!("保存首次启动状态失败：{err}");
+                                }
+                            }
+                            panel
+                        });
+                        cx.new(|cx| Root::new(view, window, cx))
+                    },
+                )
+                .expect("无法创建 GPUI 面板");
             if let Some(hwnd) = hwnd_cell {
                 unsafe {
                     SetWindowPos(
@@ -648,10 +649,9 @@ fn open_panel(poll_hardware: bool, initialize: impl FnOnce(&mut Panel)) -> Resul
                         0,
                         SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
                     );
-                    ShowWindow(hwnd as _, SW_SHOW);
-                    SetForegroundWindow(hwnd as _);
                 }
             }
+            let _ = handle.update(cx, |_, window, _| window.activate_window());
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {
                     cx.quit();
