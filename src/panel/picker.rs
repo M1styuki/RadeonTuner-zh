@@ -25,6 +25,7 @@ pub(super) struct Picker {
 impl Panel {
     fn open_picker(&mut self, target: Target, remove: bool) {
         self.dropdown = None;
+        self.closing_dropdown = None;
         self.picker_generation += 1;
         let mut names = if remove {
             match target {

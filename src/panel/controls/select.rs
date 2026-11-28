@@ -5,7 +5,7 @@ use crate::panel::{
 };
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::{
-    Anchor, Animation, AnimationExt as _, Bounds, Context, Div, ElementId, Hsla,
+    Anchor, Animation, AnimationExt as _, App, Bounds, Context, Div, ElementId, Hsla,
     InteractiveElement as _, IntoElement, KeyDownEvent, MouseDownEvent, ParentElement as _,
     PathBuilder, Pixels, SharedString, StatefulInteractiveElement as _, Styled as _, Window,
     anchored, canvas, deferred, div, ease_out_quint, point, prelude::FluentBuilder as _, px,
@@ -32,6 +32,19 @@ pub(in crate::panel) struct Dropdown {
     trigger: Bounds<Pixels>,
     above: bool,
     max_height: Pixels,
+    menu_width: f32,
+    selected: Option<usize>,
+    labels: Vec<String>,
+}
+
+pub(in crate::panel) struct ClosingDropdown {
+    id: ElementId,
+    trigger: Bounds<Pixels>,
+    above: bool,
+    max_height: Pixels,
+    menu_width: f32,
+    items: Vec<(String, bool, bool)>,
+    seq: u64,
 }
 
 const ITEM_HEIGHT: f32 = 30.;
@@ -192,15 +205,17 @@ impl Panel {
         if count == 0 {
             return wrapper.child(trigger);
         }
+        let option_labels: Vec<String> = options.iter().map(|(label, _)| label.clone()).collect();
         let initial = current.filter(|&i| i < count).unwrap_or(0);
         let toggle = {
             let id = id.clone();
             move |p: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                 if p.dropdown.as_ref().is_some_and(|menu| menu.id == id) {
-                    p.dropdown = None;
+                    p.close_dropdown(cx);
                 } else if let Some(trigger) = trigger_box.get() {
                     let (above, max_height) =
                         popup_space(trigger, window.viewport_size().height, count);
+                    p.closing_dropdown = None;
                     p.dropdown = Some(Dropdown {
                         id: id.clone(),
                         active_index: current.filter(|&i| i < count),
@@ -208,6 +223,9 @@ impl Panel {
                         trigger,
                         above,
                         max_height,
+                        menu_width,
+                        selected: current,
+                        labels: option_labels.clone(),
                     });
                 }
                 cx.notify();
@@ -249,13 +267,13 @@ impl Panel {
                             menu.active_index = Some((focused + 1).min(count - 1));
                             menu.keyboard_focus = true;
                         }
-                        "escape" => p.dropdown = None,
+                        "escape" => p.close_dropdown(cx),
                         "enter" | "space" => {
-                            p.dropdown = None;
+                            p.close_dropdown(cx);
                             key_change(p, focused, cx);
                         }
                         "tab" => {
-                            p.dropdown = None;
+                            p.close_dropdown(cx);
                             cx.notify();
                             return;
                         }
@@ -296,7 +314,7 @@ impl Panel {
                             .as_ref()
                             .is_some_and(|current| current.id == dismiss_id)
                     {
-                        p.dropdown = None;
+                        p.close_dropdown(cx);
                         cx.notify();
                     }
                 }));
@@ -376,7 +394,7 @@ impl Panel {
                     .on_click(cx.listener(move |p, _, _, cx| {
                         cx.stop_propagation();
                         if p.dropdown.as_ref().is_some_and(|menu| menu.id == choice_id) {
-                            p.dropdown = None;
+                            p.close_dropdown(cx);
                             choose(p, i, cx);
                             cx.notify();
                         }
@@ -408,7 +426,7 @@ impl Panel {
             } else {
                 (Anchor::TopLeft, trigger.bottom() + px(MENU_OFFSET))
             };
-            let offset_y = if menu.above { 4. } else { -4. };
+            let offset_y = if menu.above { 3. } else { -3. };
             wrapper = wrapper.child(
                 deferred(
                     anchored()
@@ -418,7 +436,7 @@ impl Panel {
                         .child(
                             list.with_animation(
                                 ElementId::NamedChild(std::sync::Arc::new(id), "open".into()),
-                                Animation::new(Duration::from_millis(140))
+                                Animation::new(Duration::from_millis(115))
                                     .with_easing(ease_out_quint()),
                                 move |elem, t| elem.opacity(t).top(px(offset_y * (1. - t))),
                             ),
@@ -428,6 +446,122 @@ impl Panel {
             );
         }
         wrapper
+    }
+
+    pub(in crate::panel) fn close_dropdown(&mut self, cx: &mut Context<Self>) {
+        let Some(menu) = self.dropdown.take() else {
+            return;
+        };
+        let seq = self.dropdown_close_seq.wrapping_add(1);
+        self.dropdown_close_seq = seq;
+        let items = menu
+            .labels
+            .into_iter()
+            .enumerate()
+            .map(|(i, label)| {
+                (
+                    label,
+                    menu.selected == Some(i),
+                    menu.active_index == Some(i),
+                )
+            })
+            .collect();
+        self.closing_dropdown = Some(ClosingDropdown {
+            id: menu.id,
+            trigger: menu.trigger,
+            above: menu.above,
+            max_height: menu.max_height,
+            menu_width: menu.menu_width,
+            items,
+            seq,
+        });
+        cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(Duration::from_millis(90))
+                .await;
+            let _ = this.update(cx, |p, cx| {
+                if p.closing_dropdown.as_ref().is_some_and(|c| c.seq == seq) {
+                    p.closing_dropdown = None;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    pub(in crate::panel) fn render_closing_dropdown(
+        &self,
+        cx: &App,
+    ) -> Option<gpui_kit::AnyElement> {
+        let closing = self.closing_dropdown.as_ref()?;
+        let popup_radius = f32::from(cx.theme().radius_lg);
+        let option_radius = offset_radius(popup_radius, MENU_PADDING);
+        let accent = cx.theme().accent;
+        let primary = cx.theme().primary;
+        let popover_bg = cx.theme().popover;
+        let popover_border = cx.theme().border;
+        let popover_fg = cx.theme().popover_foreground;
+
+        let list = v_flex()
+            .relative()
+            .w(px(closing.menu_width))
+            .max_h(closing.max_height)
+            .p(px(MENU_PADDING))
+            .gap(px(ITEM_GAP))
+            .overflow_hidden()
+            .text_color(popover_fg)
+            .rounded(cx.theme().radius_lg)
+            .contour(Some(popover_bg), Some(popover_border), popup_radius)
+            .shadow_md()
+            .children(closing.items.iter().map(|(label, is_sel, is_ptr)| {
+                h_flex()
+                    .relative()
+                    .h(px(ITEM_HEIGHT))
+                    .flex_shrink_0()
+                    .px_2()
+                    .gap_2()
+                    .items_center()
+                    .when(*is_ptr, |d| d.contour_fill(accent, option_radius))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .text_sm()
+                            .truncate()
+                            .child(label.clone()),
+                    )
+                    .child(
+                        h_flex()
+                            .size(px(14.))
+                            .flex_shrink_0()
+                            .justify_center()
+                            .when(*is_sel, |indicator| indicator.child(select_check(primary))),
+                    )
+            }));
+
+        let (anchor, y) = if closing.above {
+            (Anchor::BottomLeft, closing.trigger.top() - px(MENU_OFFSET))
+        } else {
+            (Anchor::TopLeft, closing.trigger.bottom() + px(MENU_OFFSET))
+        };
+        Some(
+            deferred(
+                anchored()
+                    .anchor(anchor)
+                    .position(point(closing.trigger.left(), y))
+                    .snap_to_window()
+                    .child(list.with_animation(
+                        ElementId::NamedChild(
+                            std::sync::Arc::new(closing.id.clone()),
+                            SharedString::from(format!("close-{}", closing.seq)),
+                        ),
+                        Animation::new(Duration::from_millis(85)).with_easing(ease_out_quint()),
+                        |elem, t| elem.opacity(1. - t),
+                    )),
+            )
+            .with_priority(3)
+            .into_any_element(),
+        )
     }
 }
 

@@ -597,6 +597,8 @@ impl Panel {
     }
 
     pub(super) fn exit_display_subpage(&mut self) {
+        self.returning_from_subpage = true;
+        self.subpage_return_seq = self.subpage_return_seq.wrapping_add(1);
         if self.display.custom.is_some() {
             self.read_modes();
         } else {

@@ -4,8 +4,7 @@ use gpui_kit::component::{ActiveTheme as _, h_flex};
 use gpui_kit::{
     App, BorderStyle, Bounds, Context, Div, ElementId, Entity, InteractiveElement as _,
     IntoElement, KeyDownEvent, MouseButton, ParentElement as _, Role, Stateful,
-    StatefulInteractiveElement as _, Styled as _, Window, canvas, div, fill, point,
-    prelude::FluentBuilder as _, px, quad, size,
+    StatefulInteractiveElement as _, Styled as _, Window, canvas, div, fill, point, px, quad, size,
 };
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
@@ -25,8 +24,10 @@ fn win11_switch(
     let state_id = ElementId::NamedChild(id.clone().into(), "__win11-switch-state".into());
     let hover_id = id.clone();
     let press_id = id.clone();
+    let stretch_id = id.clone();
     let slide_id = id.clone();
     let on_id = id.clone();
+    let en_id = id.clone();
     let slot = Rc::new(RefCell::new(None::<Entity<SwitchPointerState>>));
     let hovered = slot.clone();
     let pressed = slot.clone();
@@ -65,7 +66,6 @@ fn win11_switch(
         .role(Role::Switch)
         .aria_selected(on)
         .aria_label(if on { "已开启" } else { "已关闭" })
-        .when(!enabled, |d| d.opacity(0.45))
         .child(
             canvas(
                 move |_, window, cx| {
@@ -77,12 +77,19 @@ fn win11_switch(
                     let hover = smooth_value(
                         (hover_id.clone(), "sw-hover"),
                         if enabled && s.hovered { 1. } else { 0. },
-                        Duration::from_millis(120),
+                        Duration::from_millis(100),
                         window,
                         cx,
                     );
                     let press = smooth_value(
                         (press_id.clone(), "sw-press"),
+                        if enabled && s.pressed { 1. } else { 0. },
+                        Duration::from_millis(75),
+                        window,
+                        cx,
+                    );
+                    let stretch = smooth_value(
+                        (stretch_id.clone(), "sw-stretch"),
                         if enabled && s.pressed { 1. } else { 0. },
                         Duration::from_millis(90),
                         window,
@@ -101,9 +108,16 @@ fn win11_switch(
                         window,
                         cx,
                     );
-                    (hover, press, slide.clamp(0., 1.), on_mix)
+                    let en_alpha = smooth_value(
+                        (en_id.clone(), "sw-en"),
+                        if enabled { 1. } else { 0.45 },
+                        Duration::from_millis(120),
+                        window,
+                        cx,
+                    );
+                    (hover, press, stretch, slide.clamp(0., 1.), on_mix, en_alpha)
                 },
-                move |bounds, (hover, press, slide, on_mix), window, _| {
+                move |bounds, (hover, press, stretch, slide, on_mix, en_alpha), window, _| {
                     let radius = f32::from(bounds.size.height) / 2.;
                     let off_bg = transparent
                         .blend(off_fill_hover.opacity(hover))
@@ -117,16 +131,22 @@ fn win11_switch(
                     window.paint_quad(quad(
                         bounds,
                         px(radius),
-                        track_bg,
+                        track_bg.opacity(track_bg.a * en_alpha),
                         px(1.1),
-                        track_border,
+                        track_border.opacity(track_border.a * en_alpha),
                         BorderStyle::Solid,
                     ));
 
                     let thumb_d = 12.;
+                    let thumb_w = thumb_d + 3. * stretch;
                     let pad = (f32::from(bounds.size.height) - thumb_d) / 2.;
                     let travel = (f32::from(bounds.size.width) - 2. * pad - thumb_d).max(0.);
-                    let thumb_x = f32::from(bounds.origin.x) + pad + travel * slide;
+                    let base_x = f32::from(bounds.origin.x) + pad + travel * slide;
+                    let thumb_x = if on {
+                        base_x - (thumb_w - thumb_d) * slide
+                    } else {
+                        base_x
+                    };
                     let thumb_y = f32::from(bounds.origin.y) + pad;
                     let thumb_color = off_thumb
                         .blend(off_thumb_hover.opacity(hover))
@@ -135,9 +155,9 @@ fn win11_switch(
                         fill(
                             Bounds::new(
                                 point(px(thumb_x), px(thumb_y)),
-                                size(px(thumb_d), px(thumb_d)),
+                                size(px(thumb_w), px(thumb_d)),
                             ),
-                            thumb_color,
+                            thumb_color.opacity(thumb_color.a * en_alpha),
                         )
                         .corner_radii(px(thumb_d / 2.)),
                     );

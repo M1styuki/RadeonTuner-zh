@@ -202,8 +202,8 @@ impl Panel {
                     )
                     .with_animation(
                         SharedString::from(format!("subpage-crumb-{subpage}")),
-                        Animation::new(Duration::from_millis(220)).with_easing(ease_out_quint()),
-                        |d, t| d.opacity(t).left(px(-14. * (1. - t))),
+                        Animation::new(Duration::from_millis(175)).with_easing(ease_out_quint()),
+                        |d, t| d.opacity(t).left(px(-12. * (1. - t))),
                     );
 
                 let breadcrumb = h_flex().items_center().gap_3().child(back).child(crumb);
@@ -234,7 +234,14 @@ impl Panel {
                         } else {
                             Alert::info("subpage-status", status.to_owned()).small()
                         };
-                        view.child(alert)
+                        view.child(
+                            div().relative().child(alert).with_animation(
+                                SharedString::from(format!("subpage-status-in-{status}")),
+                                Animation::new(Duration::from_millis(130))
+                                    .with_easing(ease_out_quint()),
+                                |d, t| d.opacity(t).top(px(3. * (1. - t))),
+                            ),
+                        )
                     });
             }
         }
@@ -388,7 +395,11 @@ impl Panel {
             } else {
                 Alert::info("action-status", status.clone()).small()
             };
-            view.child(alert)
+            view.child(div().relative().child(alert).with_animation(
+                SharedString::from(format!("action-status-in-{status}")),
+                Animation::new(Duration::from_millis(130)).with_easing(ease_out_quint()),
+                |d, t| d.opacity(t).top(px(3. * (1. - t))),
+            ))
         })
     }
 }

@@ -1,11 +1,11 @@
 use super::{
     Panel,
-    motion::pointer_feedback,
+    motion::{pointer_feedback, smooth_value},
     shape::{ContinuousCorners as _, focus_ring_layer},
 };
 use gpui_kit::component::{ActiveTheme as _, h_flex};
 use gpui_kit::{
-    Bounds, Context, Div, ElementId, FocusHandle, InteractiveElement as _, KeyDownEvent,
+    Bounds, Context, Div, ElementId, Entity, FocusHandle, InteractiveElement as _, KeyDownEvent,
     MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, Pixels, Size,
     Stateful, StatefulInteractiveElement as _, Styled as _, Subscription, canvas, div, fill, point,
     prelude::FluentBuilder as _, px, size,
@@ -179,17 +179,50 @@ impl Panel {
         let slider_thumb = cx.theme().slider_thumb;
         let thumb_ring = slider_bar.opacity(0.65);
         let entity = cx.entity();
+        let drag_entity = entity.clone();
         let slider_id = field_id(field);
+        let pos_id = slider_id.clone();
+        let core_id = slider_id.clone();
+        let hover_slot = std::rc::Rc::new(std::cell::RefCell::new(None::<Entity<bool>>));
+        let hover_store = hover_slot.clone();
+        let hover_id = ElementId::NamedChild(
+            std::sync::Arc::new(ElementId::from(slider_id.clone())),
+            "__sl-hover".into(),
+        );
         let track = canvas(
-            |_, _, _| (),
-            move |bounds, _, window, _| {
-                geometry.set(Some(bounds));
-                let ratio =
+            move |_, window, cx| {
+                let hovered = window.use_keyed_state(hover_id.clone(), cx, |_, _| false);
+                *hover_store.borrow_mut() = Some(hovered.clone());
+                let is_hovered = *hovered.read(cx);
+                let is_dragging = drag_entity.read(cx).slider == Some(field);
+                let target_ratio =
                     ((value as f64 - min as f64) / (max as f64 - min as f64)).clamp(0., 1.) as f32;
-                let inset = px(THUMB_RADIUS);
-                let inner_inset = px(THUMB_RADIUS - 2.5);
-                let left = bounds.origin.x + inset;
-                let width = (bounds.size.width - inset * 2.).max(px(1.));
+                let ratio = smooth_value(
+                    (pos_id.clone(), "sl-pos"),
+                    target_ratio,
+                    if is_dragging {
+                        Duration::ZERO
+                    } else {
+                        Duration::from_millis(110)
+                    },
+                    window,
+                    cx,
+                );
+                let core_t = smooth_value(
+                    (core_id.clone(), "sl-core"),
+                    if is_hovered || is_dragging { 1. } else { 0. },
+                    Duration::from_millis(110),
+                    window,
+                    cx,
+                );
+                (ratio, core_t)
+            },
+            move |bounds, (ratio, core_t), window, _| {
+                geometry.set(Some(bounds));
+                let inset = px(THUMB_RADIUS + 0.5 * core_t);
+                let inner_inset = px((THUMB_RADIUS - 2.5) + 1.0 * core_t);
+                let left = bounds.origin.x + px(THUMB_RADIUS);
+                let width = (bounds.size.width - px(THUMB_RADIUS) * 2.).max(px(1.));
                 let x = left + width * ratio;
                 let y = bounds.origin.y + bounds.size.height * 0.5;
                 let rail = |length, color| {
@@ -265,7 +298,19 @@ impl Panel {
         )
         .child(track);
 
-        input.child(track_wrap).child(text)
+        let track_box = div()
+            .id(("slider-box", slider_index(field)))
+            .flex_1()
+            .min_w(px(20.))
+            .on_hover(move |hovered, window, cx| {
+                if let Some(state) = hover_slot.borrow().as_ref() {
+                    state.update(cx, |s, _| *s = *hovered);
+                    window.refresh();
+                }
+            })
+            .child(track_wrap);
+
+        input.child(track_box).child(text)
     }
 
     #[allow(clippy::too_many_arguments)]

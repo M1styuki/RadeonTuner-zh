@@ -43,6 +43,10 @@ mod tuning;
 struct Panel {
     picker: Option<picker::Picker>,
     dropdown: Option<controls::Dropdown>,
+    closing_dropdown: Option<controls::ClosingDropdown>,
+    dropdown_close_seq: u64,
+    returning_from_subpage: bool,
+    subpage_return_seq: u64,
     control_glyph_widths: RefCell<HashMap<char, f32>>,
     content_scroll: ScrollHandle,
     content_smooth_scroll: motion::SmoothScroll,
@@ -245,8 +249,15 @@ impl Render for Panel {
         }
 
         let viewport = window.viewport_size();
-        let nav_w = controls::sidebar_width(viewport.width);
-        let compact = nav_w < px(80.);
+        let target_nav_w = controls::sidebar_width(viewport.width);
+        let nav_w = px(motion::smooth_value(
+            "rt-nav-w",
+            f32::from(target_nav_w),
+            Duration::from_millis(170),
+            window,
+            cx,
+        ));
+        let compact = target_nav_w < px(80.);
         let pill_color = cx.theme().sidebar_accent;
         let pill_radius = f32::from(cx.theme().radius);
         let active_index = self.page.min(PAGES.len() - 1) as f32;
@@ -278,14 +289,17 @@ impl Render for Panel {
                 i,
                 compact,
                 i == self.page,
-                move |p, _, _| {
+                move |p, _, cx| {
                     if p.page == 3 && i == 3 && p.display_subpage().is_some() {
                         p.exit_display_subpage();
                     } else if p.page == 3 && i != 3 {
+                        p.returning_from_subpage = false;
                         p.finish_preview(false);
                         p.close_display_subpages();
+                    } else {
+                        p.returning_from_subpage = false;
                     }
-                    p.dropdown = None;
+                    p.close_dropdown(cx);
                     let was_settings = p.page == 5;
                     p.page = i;
                     p.content_scroll.set_offset(point(px(0.), px(0.)));
@@ -353,8 +367,15 @@ impl Render for Panel {
             format!("page-entrance-{}", self.page)
         };
         let entered_content = if is_display_subpage {
-            motion::slide_entrance(SharedString::from(entrance_key), -24., content_area)
+            motion::slide_entrance(SharedString::from(entrance_key), -14., content_area)
                 .into_any_element()
+        } else if self.page == 3 && self.returning_from_subpage {
+            motion::slide_return(
+                SharedString::from(format!("page-return-3-{}", self.subpage_return_seq)),
+                12.,
+                content_area,
+            )
+            .into_any_element()
         } else {
             motion::entrance(SharedString::from(entrance_key), content_area).into_any_element()
         };
@@ -407,6 +428,11 @@ impl Render for Panel {
                             .child(v_flex().flex_1().min_h_0().w_full().child(entered_content)),
                     ),
             );
+        if self.dropdown.is_none()
+            && let Some(closing) = self.render_closing_dropdown(cx)
+        {
+            window_content = window_content.child(closing);
+        }
         if self.picker.is_some() {
             window_content = window_content.child(self.modal(self.render_picker(cx), cx));
         } else if self.page == 3 {
@@ -467,6 +493,10 @@ fn build_panel(settings: Settings, initialize: impl FnOnce(&mut Panel)) -> Resul
     let mut panel = Panel {
         picker: None,
         dropdown: None,
+        closing_dropdown: None,
+        dropdown_close_seq: 0,
+        returning_from_subpage: false,
+        subpage_return_seq: 0,
         control_glyph_widths: Default::default(),
         content_scroll: ScrollHandle::new(),
         content_smooth_scroll: motion::SmoothScroll::new(),

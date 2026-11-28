@@ -4,7 +4,9 @@ mod select;
 mod switch;
 
 pub(super) use card::{CardItem, card_rows, section_card};
-pub(super) use select::{Dropdown, PROFILE_SELECT_WIDTH, SELECT_MAX_WIDTH, SelectWidth};
+pub(super) use select::{
+    ClosingDropdown, Dropdown, PROFILE_SELECT_WIDTH, SELECT_MAX_WIDTH, SelectWidth,
+};
 
 use super::{
     Panel,
@@ -125,6 +127,11 @@ impl Panel {
             .items_center()
             .justify_center()
             .bg(cx.theme().overlay)
+            .with_animation(
+                "dialog-veil-in",
+                Animation::new(Duration::from_millis(150)).with_easing(ease_out_quint()),
+                |d, t| d.opacity(t),
+            )
             .child(
                 v_flex()
                     .id("dialog-body")
@@ -144,8 +151,8 @@ impl Panel {
                     .child(content)
                     .with_animation(
                         "dialog-open",
-                        Animation::new(Duration::from_millis(160)).with_easing(ease_out_quint()),
-                        |d, t| d.opacity(t).top(px(6. * (1. - t))),
+                        Animation::new(Duration::from_millis(150)).with_easing(ease_out_quint()),
+                        |d, t| d.opacity(t).top(px(4. * (1. - t))),
                     ),
             )
     }
