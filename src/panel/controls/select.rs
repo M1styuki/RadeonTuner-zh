@@ -27,7 +27,8 @@ impl From<f32> for SelectWidth {
 
 pub(in crate::panel) struct Dropdown {
     id: ElementId,
-    keyboard_choice: Option<usize>,
+    active_index: Option<usize>,
+    keyboard_focus: bool,
     trigger: Bounds<Pixels>,
     above: bool,
     max_height: Pixels,
@@ -202,7 +203,8 @@ impl Panel {
                         popup_space(trigger, window.viewport_size().height, count);
                     p.dropdown = Some(Dropdown {
                         id: id.clone(),
-                        keyboard_choice: None,
+                        active_index: current.filter(|&i| i < count),
+                        keyboard_focus: false,
                         trigger,
                         above,
                         max_height,
@@ -228,14 +230,25 @@ impl Panel {
                     let Some(menu) = p.dropdown.as_mut().filter(|menu| menu.id == key_id) else {
                         if matches!(key, "space" | "enter" | "down" | "up") {
                             key_toggle(p, window, cx);
+                            if let Some(menu) = p.dropdown.as_mut().filter(|menu| menu.id == key_id)
+                            {
+                                menu.active_index = Some(initial);
+                                menu.keyboard_focus = true;
+                            }
                             cx.stop_propagation();
                         }
                         return;
                     };
-                    let focused = menu.keyboard_choice.unwrap_or(initial);
+                    let focused = menu.active_index.unwrap_or(initial);
                     match key {
-                        "up" => menu.keyboard_choice = Some(focused.saturating_sub(1)),
-                        "down" => menu.keyboard_choice = Some((focused + 1).min(count - 1)),
+                        "up" => {
+                            menu.active_index = Some(focused.saturating_sub(1));
+                            menu.keyboard_focus = true;
+                        }
+                        "down" => {
+                            menu.active_index = Some((focused + 1).min(count - 1));
+                            menu.keyboard_focus = true;
+                        }
                         "escape" => p.dropdown = None,
                         "enter" | "space" => {
                             p.dropdown = None;
@@ -292,35 +305,54 @@ impl Panel {
                 let text_width = measure(&label);
                 let choose = change.clone();
                 let choice_id = id.clone();
+                let hover_id = id.clone();
                 let tip = option_tip(
                     &label,
                     detail.as_deref(),
                     text_width + TRIGGER_LABEL_INSET > menu_width,
                 );
-                let active = Some(i) == menu.keyboard_choice || current == Some(i);
-                let row = h_flex()
+                let is_pointed = menu.active_index == Some(i);
+                let is_kbd_focused = is_pointed && menu.keyboard_focus;
+                let base = h_flex()
                     .id(("option", i))
                     .relative()
                     .h(px(ITEM_HEIGHT))
                     .flex_shrink_0()
                     .px_2()
                     .gap_2()
-                    .items_center()
-                    .when(active, |d| d.contour(Some(accent), None, option_radius));
+                    .items_center();
 
-                let row = pointer_feedback(
-                    ElementId::NamedChild(
-                        std::sync::Arc::new(id.clone()),
-                        SharedString::from(i.to_string()),
-                    ),
-                    row,
-                    accent.opacity(0.65),
-                    accent,
-                    option_radius,
-                );
+                // Single background fill per row: active row paints one continuous-curvature fill,
+                // inactive rows use `pointer_feedback`. Selected checkmark sits in its right slot.
+                let row = if is_pointed {
+                    base.contour_fill(accent, option_radius)
+                } else {
+                    pointer_feedback(
+                        ElementId::NamedChild(
+                            std::sync::Arc::new(id.clone()),
+                            SharedString::from(i.to_string()),
+                        ),
+                        base,
+                        accent.opacity(0.65),
+                        accent,
+                        option_radius,
+                    )
+                };
 
-                list = list.child(
-                    row.child(
+                let row = row
+                    .when(is_kbd_focused, |d| {
+                        d.child(focus_ring_layer(
+                            ElementId::NamedChild(
+                                std::sync::Arc::new(id.clone()),
+                                SharedString::from(format!("kbd-{i}")),
+                            ),
+                            true,
+                            open_border,
+                            option_radius,
+                            Duration::from_millis(90),
+                        ))
+                    })
+                    .child(
                         div()
                             .id(("option-label", i))
                             .flex_1()
@@ -348,7 +380,27 @@ impl Panel {
                             choose(p, i, cx);
                             cx.notify();
                         }
-                    })),
+                    }));
+
+                list = list.child(
+                    div()
+                        .id(ElementId::NamedChild(
+                            std::sync::Arc::new(id.clone()),
+                            SharedString::from(format!("opt-hover-{i}")),
+                        ))
+                        .w_full()
+                        .flex_shrink_0()
+                        .on_hover(cx.listener(move |p, hovered: &bool, _, cx| {
+                            if *hovered
+                                && let Some(menu) = p.dropdown.as_mut().filter(|m| m.id == hover_id)
+                                && (menu.active_index != Some(i) || menu.keyboard_focus)
+                            {
+                                menu.active_index = Some(i);
+                                menu.keyboard_focus = false;
+                                cx.notify();
+                            }
+                        }))
+                        .child(row),
                 );
             }
             let (anchor, y) = if menu.above {
@@ -382,7 +434,9 @@ impl Panel {
 fn resolve_select_widths(widest_option: f32, spec: SelectWidth) -> (f32, f32) {
     match spec {
         SelectWidth::Fit(max) => {
-            let width = (widest_option + TRIGGER_LABEL_INSET).clamp(84., max);
+            let max = max.max(1.);
+            let min = 84.0_f32.min(max);
+            let width = (widest_option + TRIGGER_LABEL_INSET).clamp(min, max);
             (width, width)
         }
     }
@@ -440,5 +494,13 @@ mod tests {
         let (gpu_trigger, gpu_menu) = resolve_select_widths(175., SelectWidth::Fit(440.));
         assert!(gpu_trigger >= 230.);
         assert_eq!(gpu_menu, gpu_trigger);
+    }
+
+    #[test]
+    fn select_widths_clamp_safely_for_narrow_max() {
+        assert_eq!(
+            resolve_select_widths(120., SelectWidth::Fit(60.)),
+            (60., 60.)
+        );
     }
 }
